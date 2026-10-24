@@ -1,0 +1,299 @@
+{
+  "settings": {
+    "availability_schedule_layla-hassan": {
+      "weeklySchedule": {
+        "0": {
+          "enabled": true,
+          "startTime": "10:00",
+          "endTime": "18:00",
+          "breaks": [
+            {
+              "id": "b0-1",
+              "start": "13:00",
+              "end": "14:00",
+              "label": "Lunch & Sync"
+            }
+          ]
+        },
+        "1": {
+          "enabled": true,
+          "startTime": "10:00",
+          "endTime": "18:00",
+          "breaks": [
+            {
+              "id": "b1-1",
+              "start": "13:00",
+              "end": "14:00",
+              "label": "Lunch & Sync"
+            }
+          ]
+        },
+        "2": {
+          "enabled": true,
+          "startTime": "10:00",
+          "endTime": "18:00",
+          "breaks": [
+            {
+              "id": "b2-1",
+              "start": "13:00",
+              "end": "14:00",
+              "label": "Lunch & Sync"
+            }
+          ]
+        },
+        "3": {
+          "enabled": true,
+          "startTime": "10:00",
+          "endTime": "18:00",
+          "breaks": [
+            {
+              "id": "b3-1",
+              "start": "13:00",
+              "end": "14:00",
+              "label": "Lunch & Sync"
+            }
+          ]
+        },
+        "4": {
+          "enabled": true,
+          "startTime": "10:00",
+          "endTime": "16:00",
+          "breaks": [
+            {
+              "id": "b4-1",
+              "start": "12:30",
+              "end": "13:30",
+              "label": "Lunch"
+            }
+          ]
+        },
+        "5": {
+          "enabled": false,
+          "startTime": "10:00",
+          "endTime": "18:00",
+          "breaks": []
+        },
+        "6": {
+          "enabled": false,
+          "startTime": "10:00",
+          "endTime": "15:00",
+          "breaks": []
+        }
+      },
+      "slotIntervalMinutes": 45
+    },
+    "availability_schedule_ahmed-mohamed": {
+      "weeklySchedule": {
+        "0": {
+          "enabled": true,
+          "startTime": "09:00",
+          "endTime": "17:00",
+          "breaks": [
+            {
+              "id": "b0-1",
+              "start": "13:00",
+              "end": "14:00",
+              "label": "Lunch Break"
+            }
+          ]
+        },
+        "1": {
+          "enabled": true,
+          "startTime": "09:00",
+          "endTime": "17:00",
+          "breaks": [
+            {
+              "id": "b1-1",
+              "start": "13:00",
+              "end": "14:00",
+              "label": "Lunch Break"
+            }
+          ]
+        },
+        "2": {
+          "enabled": true,
+          "startTime": "09:00",
+          "endTime": "17:00",
+          "breaks": [
+            {
+              "id": "b2-1",
+              "start": "13:00",
+              "end": "14:00",
+              "label": "Lunch Break"
+            }
+          ]
+        },
+        "3": {
+          "enabled": true,
+          "startTime": "09:00",
+          "endTime": "17:00",
+          "breaks": [
+            {
+              "id": "b3-1",
+              "start": "13:00",
+              "end": "14:00",
+              "label": "Lunch Break"
+            }
+          ]
+        },
+        "4": {
+          "enabled": true,
+          "startTime": "09:00",
+          "endTime": "16:00",
+          "breaks": [
+            {
+              "id": "b4-1",
+              "start": "13:00",
+              "end": "14:00",
+              "label": "Lunch Break"
+            }
+          ]
+        },
+        "5": {
+          "enabled": false,
+          "startTime": "09:00",
+          "endTime": "17:00",
+          "breaks": []
+        },
+        "6": {
+          "enabled": true,
+          "startTime": "10:00",
+          "endTime": "15:00",
+          "breaks": []
+        },
+        "slotIntervalMinutes": 30
+      },
+      "slotIntervalMinutes": 30
+    },
+    "availability_schedule_omar-khalil": {
+      "weeklySchedule": {
+        "0": {
+          "enabled": true,
+          "startTime": "09:00",
+          "endTime": "17:00",
+          "breaks": [
+            {
+              "id": "b0-1",
+              "start": "13:00",
+              "end": "14:00",
+              "label": "Lunch Break"
+            }
+          ]
+        },
+        "1": {
+          "enabled": true,
+          "startTime": "09:00",
+          "endTime": "17:00",
+          "breaks": [
+            {
+              "id": "b1-1",
+              "start": "13:00",
+              "end": "14:00",
+              "label": "Lunch Break"
+            }
+          ]
+        },
+        "2": {
+          "enabled": true,
+          "startTime": "09:00",
+          "endTime": "17:00",
+          "breaks": [
+            {
+              "id": "b2-1",
+              "start": "13:00",
+              "end": "14:00",
+              "label": "Lunch Break"
+            }
+          ]
+        },
+        "3": {
+          "enabled": true,
+          "startTime": "09:00",
+          "endTime": "17:00",
+          "breaks": [
+            {
+              "id": "b3-1",
+              "start": "13:00",
+              "end": "14:00",
+              "label": "Lunch Break"
+            }
+          ]
+        },
+        "4": {
+          "enabled": true,
+          "startTime": "08:30",
+          "endTime": "16:30",
+          "breaks": [
+            {
+              "id": "b4-1",
+              "start": "12:00",
+              "end": "13:00",
+              "label": "Lunch"
+            }
+          ]
+        },
+        "5": {
+          "enabled": false,
+          "startTime": "09:00",
+          "endTime": "17:00",
+          "breaks": []
+        },
+        "6": {
+          "enabled": true,
+          "startTime": "11:00",
+          "endTime": "16:00",
+          "breaks": []
+        }
+      },
+      "slotIntervalMinutes": 30
+    }
+  },
+  "overrides": {
+    "layla-hassan": [
+      {
+        "id": "ov-layla-1",
+        "expertSlug": "layla-hassan",
+        "date": "2026-10-16",
+        "type": "closed",
+        "reason": "Product Leaders Summit Speaker",
+        "createdAt": "2026-10-11T14:05:12.082Z",
+        "updatedAt": "2026-10-11T14:05:12.082Z"
+      },
+      {
+        "id": "ov-layla-2",
+        "expertSlug": "layla-hassan",
+        "date": "2026-10-17",
+        "type": "custom",
+        "startTime": "14:00",
+        "endTime": "19:00",
+        "breaks": [],
+        "reason": "Special Weekend Strategy Clinic",
+        "createdAt": "2026-10-11T14:05:12.082Z",
+        "updatedAt": "2026-10-11T14:05:12.082Z"
+      }
+    ],
+    "ahmed-mohamed": [
+      {
+        "id": "ov-ahmed-1",
+        "expertSlug": "ahmed-mohamed",
+        "date": "2026-10-20",
+        "type": "closed",
+        "reason": "Client Onsite Training Day",
+        "createdAt": "2026-10-11T14:05:12.082Z",
+        "updatedAt": "2026-10-11T14:05:12.082Z"
+      }
+    ]
+  },
+  "bookings": [
+    {
+      "id": "bk-1",
+      "expertSlug": "layla-hassan",
+      "clientName": "Sara Ali",
+      "date": "2026-10-11",
+      "time": "10:00",
+      "durationMinutes": 45,
+      "status": "confirmed",
+      "createdAt": "2026-10-11T14:05:12.086Z"
+    }
+  ]
+}
