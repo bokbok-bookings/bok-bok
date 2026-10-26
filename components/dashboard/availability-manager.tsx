@@ -344,18 +344,18 @@ export function AvailabilityManager({
     <div className="space-y-8">
       {/* Expert Context & Bar */}
       {showExpertPicker && (
-        <div className="flex flex-col gap-4 rounded-3xl border border-[#e7e2da] bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 rounded-3xl border border-[#E8E2D8] bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <p className="text-xs font-bold uppercase tracking-[.14em] text-[#ef5b4c]">
+              <p className="text-xs font-bold uppercase tracking-[.14em] text-[#2855C5]">
                 Managing expert schedule
               </p>
-              <span className="font-mono text-[10px] text-[#8b94a1] bg-[#fbfaf7] px-2 py-0.5 rounded-md border border-[#e7e2da]">
+              <span className="font-mono text-[10px] text-[#8b94a1] bg-[#FFF9EE] px-2 py-0.5 rounded-md border border-[#E8E2D8]">
                 ID: {selectedExpertId}
               </span>
             </div>
             <div className="mt-1 flex items-center gap-3">
-              <h2 className="text-xl font-bold tracking-tight text-[#14243b]">
+              <h2 className="text-xl font-bold tracking-tight text-[#101F49]">
                 {expertName}
               </h2>
               {expertRole && (
@@ -374,7 +374,7 @@ export function AvailabilityManager({
               id="expert-select"
               value={selectedExpertId}
               onChange={(e) => setSelectedExpertId(e.target.value)}
-              className="rounded-xl border border-[#dedbd5] bg-[#fbfaf7] px-3.5 py-2 text-xs font-semibold text-[#14243b] outline-none transition focus:border-[#ef5b4c]"
+              className="rounded-xl border border-[#E8E2D8] bg-[#FFF9EE] px-3.5 py-2 text-xs font-semibold text-[#101F49] outline-none transition focus:border-[#2855C5]"
             >
               {allExperts.map((exp) => (
                 <option key={exp.id || exp._id} value={exp.id || exp._id}>
@@ -389,12 +389,12 @@ export function AvailabilityManager({
       {/* Main Action Bar */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-[#14243b] sm:text-3xl">
+          <h1 className="text-2xl font-semibold tracking-tight text-[#101F49] sm:text-3xl">
             Availability & Working Hours
           </h1>
           <p className="mt-1 text-sm text-[#637084]">
             Configured for {expertName} (DB Record ID:{' '}
-            <span className="font-mono text-xs text-[#14243b]">{selectedExpertId}</span>).
+            <span className="font-mono text-xs text-[#101F49]">{selectedExpertId}</span>).
           </p>
         </div>
 
@@ -402,7 +402,7 @@ export function AvailabilityManager({
           type="button"
           onClick={handleSaveSchedule}
           disabled={savingSchedule || loadingExpertData}
-          className="inline-flex items-center justify-center rounded-full bg-[#14243b] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#ef5b4c] disabled:opacity-50"
+          className="inline-flex items-center justify-center rounded-full bg-[#101F49] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#2855C5] disabled:opacity-50"
         >
           {savingSchedule ? 'Saving to Database...' : 'Save weekly schedule'}
         </button>
@@ -422,10 +422,10 @@ export function AvailabilityManager({
       )}
 
       {/* Slot Interval Settings */}
-      <div className="rounded-3xl border border-[#e7e2da] bg-white p-6">
+      <div className="rounded-3xl border border-[#E8E2D8] bg-white p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="max-w-xl">
-            <h3 className="text-base font-bold text-[#14243b]">Session Booking Step (Interval)</h3>
+            <h3 className="text-base font-bold text-[#101F49]">Session Booking Step (Interval)</h3>
             <p className="mt-1 text-xs leading-5 text-[#637084]">
               Determines the spacing between starting times available for {expertName}.
             </p>
@@ -435,7 +435,7 @@ export function AvailabilityManager({
             <select
               value={slotInterval}
               onChange={(e) => setSlotInterval(Number(e.target.value))}
-              className="rounded-xl border border-[#dedbd5] bg-[#fbfaf7] px-4 py-2.5 text-xs font-bold text-[#14243b] outline-none focus:border-[#ef5b4c]"
+              className="rounded-xl border border-[#E8E2D8] bg-[#FFF9EE] px-4 py-2.5 text-xs font-bold text-[#101F49] outline-none focus:border-[#2855C5]"
             >
               <option value={15}>Every 15 minutes</option>
               <option value={20}>Every 20 minutes</option>
@@ -450,7 +450,7 @@ export function AvailabilityManager({
       {/* SECTION 1: Weekly Recurring Template */}
       <div className="space-y-4">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight text-[#14243b]">
+          <h2 className="text-xl font-semibold tracking-tight text-[#101F49]">
             Weekly Recurring Schedule
           </h2>
           <p className="text-xs text-[#637084]">
@@ -459,7 +459,7 @@ export function AvailabilityManager({
           </p>
         </div>
 
-        <div className="divide-y divide-[#eeeae4] overflow-hidden rounded-3xl border border-[#e7e2da] bg-white">
+        <div className="divide-y divide-[#E8E2D8] overflow-hidden rounded-3xl border border-[#E8E2D8] bg-white">
           {WEEKDAYS.map(({ day, name, arName, isWeekend }) => {
             const config = weeklySchedule[day] || DEFAULT_WEEKLY_SCHEDULE[day]
             const isEnabled = config?.enabled ?? false
@@ -469,7 +469,7 @@ export function AvailabilityManager({
               <div
                 key={day}
                 className={`p-5 transition-colors sm:p-6 ${
-                  isEnabled ? 'bg-white' : 'bg-[#faf8f5] opacity-75'
+                  isEnabled ? 'bg-white' : 'bg-[#FFF9EE] opacity-75'
                 }`}
               >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -482,7 +482,7 @@ export function AvailabilityManager({
                       aria-label={`Toggle ${name}`}
                       onClick={() => handleToggleDay(day)}
                       className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                        isEnabled ? 'bg-[#ef5b4c]' : 'bg-[#d6d0c7]'
+                        isEnabled ? 'bg-[#2855C5]' : 'bg-[#d6d0c7]'
                       }`}
                     >
                       <span
@@ -494,10 +494,10 @@ export function AvailabilityManager({
 
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-[#14243b] sm:text-base">{name}</span>
+                        <span className="text-sm font-bold text-[#101F49] sm:text-base">{name}</span>
                         <span className="text-xs text-[#8b94a1]">{arName}</span>
                         {isWeekend && (
-                          <span className="rounded-full bg-[#fff2ed] px-2 py-0.5 text-[10px] font-bold text-[#ef5b4c]">
+                          <span className="rounded-full bg-[#E8EFFF] px-2 py-0.5 text-[10px] font-bold text-[#2855C5]">
                             Weekend
                           </span>
                         )}
@@ -511,27 +511,27 @@ export function AvailabilityManager({
                   {/* Hours and Break controls when enabled */}
                   {isEnabled && (
                     <div className="flex flex-1 flex-col gap-3 md:flex-row md:items-center md:justify-end">
-                      <div className="flex items-center gap-2 rounded-2xl border border-[#e7e2da] bg-[#fbfaf7] p-2">
+                      <div className="flex items-center gap-2 rounded-2xl border border-[#E8E2D8] bg-[#FFF9EE] p-2">
                         <span className="text-xs font-semibold text-[#637084]">Hours:</span>
                         <input
                           type="time"
                           value={config.startTime || '09:00'}
                           onChange={(e) => handleTimeChange(day, 'startTime', e.target.value)}
-                          className="rounded-lg border border-[#dedbd5] bg-white px-2 py-1 text-xs font-semibold text-[#14243b] outline-none focus:border-[#ef5b4c]"
+                          className="rounded-lg border border-[#E8E2D8] bg-white px-2 py-1 text-xs font-semibold text-[#101F49] outline-none focus:border-[#2855C5]"
                         />
                         <span className="text-xs text-[#8b94a1]">to</span>
                         <input
                           type="time"
                           value={config.endTime || '17:00'}
                           onChange={(e) => handleTimeChange(day, 'endTime', e.target.value)}
-                          className="rounded-lg border border-[#dedbd5] bg-white px-2 py-1 text-xs font-semibold text-[#14243b] outline-none focus:border-[#ef5b4c]"
+                          className="rounded-lg border border-[#E8E2D8] bg-white px-2 py-1 text-xs font-semibold text-[#101F49] outline-none focus:border-[#2855C5]"
                         />
                       </div>
 
                       <button
                         type="button"
                         onClick={() => handleAddBreak(day)}
-                        className="rounded-2xl border border-[#dedbd5] bg-white px-3.5 py-2 text-xs font-bold text-[#14243b] transition hover:border-[#14243b]"
+                        className="rounded-2xl border border-[#E8E2D8] bg-white px-3.5 py-2 text-xs font-bold text-[#101F49] transition hover:border-[#101F49]"
                       >
                         + Add break
                       </button>
@@ -549,7 +549,7 @@ export function AvailabilityManager({
                       {breaks.map((b) => (
                         <div
                           key={b.id}
-                          className="inline-flex items-center gap-2 rounded-xl border border-[#dedbd5] bg-[#fbfaf7] px-3 py-1.5 text-xs"
+                          className="inline-flex items-center gap-2 rounded-xl border border-[#E8E2D8] bg-[#FFF9EE] px-3 py-1.5 text-xs"
                         >
                           <input
                             type="text"
@@ -558,7 +558,7 @@ export function AvailabilityManager({
                             onChange={(e) =>
                               handleUpdateBreak(day, b.id, 'label', e.target.value)
                             }
-                            className="w-24 border-b border-[#dedbd5] bg-transparent text-xs font-medium text-[#14243b] outline-none focus:border-[#ef5b4c]"
+                            className="w-24 border-b border-[#E8E2D8] bg-transparent text-xs font-medium text-[#101F49] outline-none focus:border-[#2855C5]"
                           />
                           <input
                             type="time"
@@ -566,7 +566,7 @@ export function AvailabilityManager({
                             onChange={(e) =>
                               handleUpdateBreak(day, b.id, 'start', e.target.value)
                             }
-                            className="rounded border border-[#dedbd5] bg-white px-1.5 py-0.5 text-[11px] font-semibold text-[#14243b]"
+                            className="rounded border border-[#E8E2D8] bg-white px-1.5 py-0.5 text-[11px] font-semibold text-[#101F49]"
                           />
                           <span className="text-[10px] text-[#8b94a1]">to</span>
                           <input
@@ -575,12 +575,12 @@ export function AvailabilityManager({
                             onChange={(e) =>
                               handleUpdateBreak(day, b.id, 'end', e.target.value)
                             }
-                            className="rounded border border-[#dedbd5] bg-white px-1.5 py-0.5 text-[11px] font-semibold text-[#14243b]"
+                            className="rounded border border-[#E8E2D8] bg-white px-1.5 py-0.5 text-[11px] font-semibold text-[#101F49]"
                           />
                           <button
                             type="button"
                             onClick={() => handleRemoveBreak(day, b.id)}
-                            className="ml-1 text-[11px] font-bold text-[#ef5b4c] hover:underline"
+                            className="ml-1 text-[11px] font-bold text-[#2855C5] hover:underline"
                             title="Remove break"
                           >
                             Remove
@@ -597,10 +597,10 @@ export function AvailabilityManager({
       </div>
 
       {/* SECTION 2: Date Overrides (Exceptions) */}
-      <div className="space-y-4 pt-6 border-t border-[#e7e2da]">
+      <div className="space-y-4 pt-6 border-t border-[#E8E2D8]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-xl font-semibold tracking-tight text-[#14243b]">
+            <h2 className="text-xl font-semibold tracking-tight text-[#101F49]">
               Date Overrides & Vacation Exceptions
             </h2>
             <p className="text-xs text-[#637084]">
@@ -619,17 +619,17 @@ export function AvailabilityManager({
               setOverrideError(null)
               setIsOverrideModalOpen(true)
             }}
-            className="rounded-full border border-[#14243b] bg-white px-5 py-2.5 text-xs font-bold text-[#14243b] transition hover:bg-[#14243b] hover:text-white"
+            className="rounded-full border border-[#101F49] bg-white px-5 py-2.5 text-xs font-bold text-[#101F49] transition hover:bg-[#101F49] hover:text-white"
           >
             + Add date override
           </button>
         </div>
 
         {/* Overrides Table */}
-        <div className="overflow-hidden rounded-3xl border border-[#e7e2da] bg-white">
+        <div className="overflow-hidden rounded-3xl border border-[#E8E2D8] bg-white">
           {overrides.length === 0 ? (
             <div className="py-12 text-center text-sm text-[#637084]">
-              <p className="font-semibold text-[#14243b]">No date overrides configured</p>
+              <p className="font-semibold text-[#101F49]">No date overrides configured</p>
               <p className="mt-1 text-xs">
                 All upcoming calendar days will follow {expertName}&apos;s weekly schedule.
               </p>
@@ -638,7 +638,7 @@ export function AvailabilityManager({
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-[#e7e2da] bg-[#fbfaf7] text-xs font-bold uppercase tracking-wider text-[#637084]">
+                  <tr className="border-b border-[#E8E2D8] bg-[#FFF9EE] text-xs font-bold uppercase tracking-wider text-[#637084]">
                     <th className="px-6 py-3.5">Date</th>
                     <th className="px-4 py-3.5">Status</th>
                     <th className="px-4 py-3.5">Hours & Breaks</th>
@@ -646,10 +646,10 @@ export function AvailabilityManager({
                     <th className="px-6 py-3.5 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#eeeae4]">
+                <tbody className="divide-y divide-[#E8E2D8]">
                   {overrides.map((o) => (
-                    <tr key={o.id || o._id || o.date} className="hover:bg-[#fbfaf7] transition">
-                      <td className="px-6 py-4 font-bold text-[#14243b]">{o.date}</td>
+                    <tr key={o.id || o._id || o.date} className="hover:bg-[#FFF9EE] transition">
+                      <td className="px-6 py-4 font-bold text-[#101F49]">{o.date}</td>
                       <td className="px-4 py-4">
                         {o.type === 'closed' ? (
                           <span className="rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-700 ring-1 ring-rose-200">
@@ -670,7 +670,7 @@ export function AvailabilityManager({
                           'Full day off'
                         ) : (
                           <div>
-                            <span className="font-bold text-[#14243b]">
+                            <span className="font-bold text-[#101F49]">
                               {o.startTime} – {o.endTime}
                             </span>
                             {o.breaks && o.breaks.length > 0 && (
@@ -681,14 +681,14 @@ export function AvailabilityManager({
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-4 text-xs font-medium text-[#14243b]">
+                      <td className="px-4 py-4 text-xs font-medium text-[#101F49]">
                         {o.reason || '—'}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button
                           type="button"
                           onClick={() => handleDeleteOverride(o.id || o._id || o.date)}
-                          className="text-xs font-bold text-[#ef5b4c] hover:underline"
+                          className="text-xs font-bold text-[#2855C5] hover:underline"
                         >
                           Delete
                         </button>
@@ -705,10 +705,10 @@ export function AvailabilityManager({
       {/* Modal: Add Date Override */}
       {isOverrideModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-3xl border border-[#e7e2da] bg-white p-6 shadow-2xl sm:p-8">
-            <div className="flex items-center justify-between border-b border-[#eeeae4] pb-4">
+          <div className="w-full max-w-lg rounded-3xl border border-[#E8E2D8] bg-white p-6 shadow-2xl sm:p-8">
+            <div className="flex items-center justify-between border-b border-[#E8E2D8] pb-4">
               <div>
-                <h3 className="text-lg font-bold text-[#14243b]">Add Date Override</h3>
+                <h3 className="text-lg font-bold text-[#101F49]">Add Date Override</h3>
                 <p className="text-xs text-[#637084]">
                   For {expertName} (ID: {selectedExpertId})
                 </p>
@@ -716,7 +716,7 @@ export function AvailabilityManager({
               <button
                 type="button"
                 onClick={() => setIsOverrideModalOpen(false)}
-                className="text-sm font-bold text-[#8b94a1] hover:text-[#14243b]"
+                className="text-sm font-bold text-[#8b94a1] hover:text-[#101F49]"
               >
                 Close
               </button>
@@ -730,22 +730,22 @@ export function AvailabilityManager({
               )}
 
               <div>
-                <label className="block text-xs font-bold text-[#14243b]">Select Date</label>
+                <label className="block text-xs font-bold text-[#101F49]">Select Date</label>
                 <input
                   type="date"
                   required
                   value={overrideDate}
                   onChange={(e) => setOverrideDate(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#dedbd5] bg-[#fbfaf7] px-3.5 py-2.5 text-sm font-medium text-[#14243b] outline-none focus:border-[#ef5b4c]"
+                  className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] bg-[#FFF9EE] px-3.5 py-2.5 text-sm font-medium text-[#101F49] outline-none focus:border-[#2855C5]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#14243b]">Override Type</label>
+                <label className="block text-xs font-bold text-[#101F49]">Override Type</label>
                 <select
                   value={overrideType}
                   onChange={(e) => setOverrideType(e.target.value as DateOverrideType)}
-                  className="mt-1.5 w-full rounded-xl border border-[#dedbd5] bg-[#fbfaf7] px-3.5 py-2.5 text-sm font-medium text-[#14243b] outline-none focus:border-[#ef5b4c]"
+                  className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] bg-[#FFF9EE] px-3.5 py-2.5 text-sm font-medium text-[#101F49] outline-none focus:border-[#2855C5]"
                 >
                   <option value="closed">Closed / Entire day off (Holiday, Travel, Sick leave)</option>
                   <option value="open">Special Open Day (e.g. Open on Friday)</option>
@@ -754,14 +754,14 @@ export function AvailabilityManager({
               </div>
 
               {overrideType !== 'closed' && (
-                <div className="grid grid-cols-2 gap-3 rounded-2xl border border-[#dedbd5] bg-[#fbfaf7] p-3">
+                <div className="grid grid-cols-2 gap-3 rounded-2xl border border-[#E8E2D8] bg-[#FFF9EE] p-3">
                   <div>
                     <label className="block text-[11px] font-bold text-[#637084]">Start Time</label>
                     <input
                       type="time"
                       value={overrideStartTime}
                       onChange={(e) => setOverrideStartTime(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-[#dedbd5] bg-white px-2 py-1.5 text-xs font-semibold text-[#14243b]"
+                      className="mt-1 w-full rounded-lg border border-[#E8E2D8] bg-white px-2 py-1.5 text-xs font-semibold text-[#101F49]"
                     />
                   </div>
                   <div>
@@ -770,35 +770,35 @@ export function AvailabilityManager({
                       type="time"
                       value={overrideEndTime}
                       onChange={(e) => setOverrideEndTime(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-[#dedbd5] bg-white px-2 py-1.5 text-xs font-semibold text-[#14243b]"
+                      className="mt-1 w-full rounded-lg border border-[#E8E2D8] bg-white px-2 py-1.5 text-xs font-semibold text-[#101F49]"
                     />
                   </div>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-bold text-[#14243b]">Reason / Note</label>
+                <label className="block text-xs font-bold text-[#101F49]">Reason / Note</label>
                 <input
                   type="text"
                   placeholder="e.g. Annual Vacation, Conference, Extra Weekend Shift"
                   value={overrideReason}
                   onChange={(e) => setOverrideReason(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#dedbd5] bg-[#fbfaf7] px-3.5 py-2.5 text-sm font-medium text-[#14243b] outline-none focus:border-[#ef5b4c]"
+                  className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] bg-[#FFF9EE] px-3.5 py-2.5 text-sm font-medium text-[#101F49] outline-none focus:border-[#2855C5]"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#eeeae4]">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#E8E2D8]">
                 <button
                   type="button"
                   onClick={() => setIsOverrideModalOpen(false)}
-                  className="rounded-full px-5 py-2.5 text-xs font-bold text-[#637084] hover:text-[#14243b]"
+                  className="rounded-full px-5 py-2.5 text-xs font-bold text-[#637084] hover:text-[#101F49]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={overrideLoading}
-                  className="rounded-full bg-[#14243b] px-6 py-2.5 text-xs font-bold text-white transition hover:bg-[#ef5b4c] disabled:opacity-50"
+                  className="rounded-full bg-[#101F49] px-6 py-2.5 text-xs font-bold text-white transition hover:bg-[#2855C5] disabled:opacity-50"
                 >
                   {overrideLoading ? 'Saving...' : 'Save Override'}
                 </button>
@@ -810,3 +810,4 @@ export function AvailabilityManager({
     </div>
   )
 }
+

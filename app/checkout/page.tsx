@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { BrandLogo } from '@/components/brand/logo'
 import { useState } from 'react'
 
 export default function CheckoutPage() {
@@ -9,17 +10,17 @@ export default function CheckoutPage() {
   return (
     <main className="min-h-screen bg-[#fbfaf7] px-5 text-[#14243b]">
       <div className="mx-auto max-w-5xl pb-20">
-        <header className="flex h-[82px] items-center justify-between border-b border-[#e7e2da]">
-          <Link href="/" className="flex items-center gap-2.5 text-[22px] font-bold tracking-tight">
-            <span className="grid size-8 place-items-center rounded-[10px] bg-[#ef5b4c] text-sm font-black text-white">
-              B
-            </span>
-            Bok Bok
+        <div className="flex h-16 items-center justify-between border-b border-[#e7e2da]">
+          <Link
+            href="/experts"
+            className="text-xs font-bold text-[#ef5b4c] hover:underline"
+          >
+            ← Back to directory
           </Link>
           <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#637084] border border-[#dedbd5]">
             Secure checkout
           </span>
-        </header>
+        </div>
 
         <div className="grid gap-8 py-10 lg:grid-cols-[1fr_390px]">
           <section>

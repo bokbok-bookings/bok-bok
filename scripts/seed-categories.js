@@ -304,6 +304,48 @@ const SEED_CATEGORIES = [
       { slug: 'travel-tips-preparation', name: { en: 'Travel Tips & Preparation', ar: 'نصائح السفر والاستعداد للرحلات' }, sortOrder: 10 },
     ],
   },
+  {
+    slug: 'photography-videography',
+    name: {
+      en: 'Photography & Videography',
+      ar: 'التصوير الفوتوغرافي والفيديو',
+    },
+    description: {
+      en: 'Professional portrait, wedding, event, and commercial photography & video shooting.',
+      ar: 'تصوير البورتريه، الأفراح، المناسبات، وتصوير الفيديو والإعلانات التجارية.',
+    },
+    sortOrder: 12,
+    subcategories: [
+      { slug: 'portrait-personal-photography', name: { en: 'Portrait & Personal Photography', ar: 'تصوير البورتريه والتصوير الشخصي' }, sortOrder: 1 },
+      { slug: 'wedding-photography', name: { en: 'Wedding Photography', ar: 'تصوير حفلات الزفاف' }, sortOrder: 2 },
+      { slug: 'event-photography', name: { en: 'Event Photography', ar: 'تصوير المناسبات' }, sortOrder: 3 },
+      { slug: 'product-photography', name: { en: 'Product Photography', ar: 'تصوير المنتجات' }, sortOrder: 4 },
+      { slug: 'fashion-photography', name: { en: 'Fashion Photography', ar: 'تصوير الأزياء' }, sortOrder: 5 },
+      { slug: 'videography-video-shooting', name: { en: 'Videography & Video Shooting', ar: 'تصوير الفيديو' }, sortOrder: 6 },
+      { slug: 'commercial-photography', name: { en: 'Commercial Photography', ar: 'التصوير التجاري' }, sortOrder: 7 },
+    ],
+  },
+  {
+    slug: 'beauty-personal-care',
+    name: {
+      en: 'Beauty & Personal Care',
+      ar: 'الجمال والعناية الشخصية',
+    },
+    description: {
+      en: 'Makeup, bridal styling, haircare, skincare, nail services, and personal grooming.',
+      ar: 'خدمات المكياج، مكياج العرائس، العناية بالشعر والبشرة، وخدمات الأظافر والمظهر الشخصي.',
+    },
+    sortOrder: 13,
+    subcategories: [
+      { slug: 'makeup-services', name: { en: 'Makeup Services', ar: 'خدمات المكياج' }, sortOrder: 1 },
+      { slug: 'bridal-makeup', name: { en: 'Bridal Makeup', ar: 'مكياج العرائس' }, sortOrder: 2 },
+      { slug: 'hairstyling', name: { en: 'Hairstyling', ar: 'تصفيف الشعر' }, sortOrder: 3 },
+      { slug: 'hair-care', name: { en: 'Hair Care', ar: 'العناية بالشعر' }, sortOrder: 4 },
+      { slug: 'skincare-services', name: { en: 'Skincare Services', ar: 'خدمات العناية بالبشرة' }, sortOrder: 5 },
+      { slug: 'nail-services', name: { en: 'Nail Services', ar: 'خدمات الأظافر' }, sortOrder: 6 },
+      { slug: 'personal-grooming', name: { en: 'Personal Grooming', ar: 'العناية بالمظهر الشخصي' }, sortOrder: 7 },
+    ],
+  },
 ]
 
 async function seedCategories() {

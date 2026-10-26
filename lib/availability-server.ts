@@ -489,7 +489,8 @@ export async function getEffectiveDaySchedule(
 }
 
 /**
- * Fetch confirmed/pending bookings from MongoDB (by expertId as BSON ObjectId)
+ * Fetch active bookings from MongoDB (by expertId as BSON ObjectId)
+ * Including 'awaiting_verification' and 'awaiting_payment' so uploaded receipts block the slot!
  */
 export async function loadExpertBookings(
   expertIdOrSlug: string | ObjectId,
@@ -502,7 +503,7 @@ export async function loadExpertBookings(
       const bookingsCol = await getBookingsCollection()
       const query: any = {
         expertId: expertObjectId,
-        status: { $in: ['pending', 'confirmed'] },
+        status: { $in: ['pending', 'awaiting_payment', 'awaiting_verification', 'confirmed'] },
       }
       if (dateStr) {
         query.date = dateStr
@@ -552,6 +553,7 @@ export async function getExpertSlotsForDate(
   expertIdOrSlug: string,
   dateStr: string,
   consultationDurationMinutes: number = 30,
+  breakAfterMinutes: number = 0,
 ): Promise<TimeSlot[]> {
   const expertObjectId = await getCanonicalExpertObjectId(expertIdOrSlug)
   const expertIdStr = expertObjectId.toString()
@@ -566,6 +568,7 @@ export async function getExpertSlotsForDate(
   const endMins = timeToMinutes(dayInfo.endTime)
   const interval = settings.slotIntervalMinutes || DEFAULT_SLOT_INTERVAL
   const duration = consultationDurationMinutes > 0 ? consultationDurationMinutes : interval
+  const reqBuffer = Math.max(0, Number(breakAfterMinutes) || 0)
 
   interface BusyInterval {
     start: number
@@ -583,10 +586,11 @@ export async function getExpertSlotsForDate(
     }
   }
 
-  // Add existing active bookings from MongoDB
+  // Add existing active bookings from MongoDB (including awaiting_verification)
   const bookings = await loadExpertBookings(expertObjectId, dateStr)
   for (const b of bookings) {
     const bStart = timeToMinutes(b.time)
+    // Legacy bookings or bookings with buffer
     const bEnd = bStart + (b.durationMinutes || 30)
     busyIntervals.push({ start: bStart, end: bEnd })
   }
@@ -601,7 +605,8 @@ export async function getExpertSlotsForDate(
 
   for (let t = startMins; t + duration <= endMins; t += interval) {
     const slotStart = t
-    const slotEnd = t + duration
+    const slotEndWithBuffer = t + duration + reqBuffer
+    const slotCoreEnd = t + duration
     const timeLabel = minutesToTime(slotStart)
 
     if (isToday && slotStart <= currentMinutesFromMidnight) {
@@ -609,8 +614,11 @@ export async function getExpertSlotsForDate(
       continue
     }
 
+    // Check collision with busy intervals (appointments or breaks)
+    // The core duration must not collide with breaks or existing bookings;
+    // Furthermore, the core duration + buffer must not overlap subsequent bookings.
     const hasCollision = busyIntervals.some(
-      (busy) => Math.max(slotStart, busy.start) < Math.min(slotEnd, busy.end),
+      (busy) => Math.max(slotStart, busy.start) < Math.min(slotEndWithBuffer, busy.end),
     )
 
     slots.push({

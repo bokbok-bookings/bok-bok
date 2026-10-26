@@ -517,7 +517,7 @@ export function CategoriesManager() {
                 </button>
                 <div className="flex flex-wrap items-center gap-3">
                   <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-                    <span className="grid size-7 place-items-center rounded-lg bg-[#ef5b4c]/20 text-[#ef5b4c] text-xs font-black">
+                    <span className="grid size-7 place-items-center rounded-lg bg-[#2855C5]/20 text-[#2855C5] text-xs font-black">
                       #{selectedCategory.sortOrder}
                     </span>
                     {selectedCategory.name.en}
@@ -557,7 +557,7 @@ export function CategoriesManager() {
                 </button>
                 <button
                   onClick={openCreateSubcategory}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#ef5b4c] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#ef5b4c]/90 transition"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#2855C5] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#2855C5]/90 transition"
                 >
                   <Plus size={15} /> Add Subcategory
                 </button>
@@ -574,7 +574,7 @@ export function CategoriesManager() {
                 value={subSearch}
                 onChange={(e) => setSubSearch(e.target.value)}
                 placeholder="Search subcategory in English or Arabic..."
-                className="w-full rounded-xl border border-slate-800 bg-[#121d2f] py-2 pl-9 pr-3 text-xs text-white placeholder:text-slate-500 outline-none focus:border-[#ef5b4c]"
+                className="w-full rounded-xl border border-slate-800 bg-[#121d2f] py-2 pl-9 pr-3 text-xs text-white placeholder:text-slate-500 outline-none focus:border-[#2855C5]"
               />
             </div>
 
@@ -586,7 +586,7 @@ export function CategoriesManager() {
                   onClick={() => setSubStatusFilter(s)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-bold capitalize transition ${
                     subStatusFilter === s
-                      ? 'bg-[#ef5b4c] text-white'
+                      ? 'bg-[#2855C5] text-white'
                       : 'border border-slate-800 bg-[#121d2f] text-slate-400 hover:text-white'
                   }`}
                 >
@@ -611,7 +611,7 @@ export function CategoriesManager() {
               {!subSearch && (
                 <button
                   onClick={openCreateSubcategory}
-                  className="mt-4 rounded-xl bg-[#ef5b4c] px-4 py-2 text-xs font-bold text-white"
+                  className="mt-4 rounded-xl bg-[#2855C5] px-4 py-2 text-xs font-bold text-white"
                 >
                   + Add Subcategory
                 </button>
@@ -735,7 +735,7 @@ export function CategoriesManager() {
               </div>
               <button
                 onClick={openCreateCategory}
-                className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-[#ef5b4c] py-2 text-xs font-bold text-white shadow-sm hover:bg-[#ef5b4c]/90 transition"
+                className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-[#2855C5] py-2 text-xs font-bold text-white shadow-sm hover:bg-[#2855C5]/90 transition"
               >
                 <Plus size={15} /> Add Category
               </button>
@@ -751,7 +751,7 @@ export function CategoriesManager() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search categories in English, Arabic, or slug..."
-                className="w-full rounded-xl border border-slate-800 bg-[#121d2f] py-2 pl-9 pr-3 text-xs text-white placeholder:text-slate-500 outline-none focus:border-[#ef5b4c]"
+                className="w-full rounded-xl border border-slate-800 bg-[#121d2f] py-2 pl-9 pr-3 text-xs text-white placeholder:text-slate-500 outline-none focus:border-[#2855C5]"
               />
             </div>
 
@@ -763,7 +763,7 @@ export function CategoriesManager() {
                   onClick={() => setStatusFilter(s)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-bold capitalize transition ${
                     statusFilter === s
-                      ? 'bg-[#ef5b4c] text-white'
+                      ? 'bg-[#2855C5] text-white'
                       : 'border border-slate-800 bg-[#121d2f] text-slate-400 hover:text-white'
                   }`}
                 >
@@ -838,9 +838,9 @@ export function CategoriesManager() {
                         <td className="py-4 px-4">
                           <button
                             onClick={() => setSelectedCategory(cat)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-bold text-slate-300 hover:text-white hover:border-[#ef5b4c] transition"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-bold text-slate-300 hover:text-white hover:border-[#2855C5] transition"
                           >
-                            <Layers size={13} className="text-[#ef5b4c]" />
+                            <Layers size={13} className="text-[#2855C5]" />
                             <span>{cat.subcategoriesCount || 0} subcategories</span>
                             <ChevronRight size={13} className="text-slate-400" />
                           </button>
@@ -935,7 +935,7 @@ export function CategoriesManager() {
                       }
                     }}
                     placeholder="e.g. Marketing"
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#ef5b4c]"
+                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
                   />
                 </label>
 
@@ -947,7 +947,7 @@ export function CategoriesManager() {
                     value={catNameAr}
                     onChange={(e) => setCatNameAr(e.target.value)}
                     placeholder="مثال: التسويق"
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#ef5b4c]"
+                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
                   />
                 </label>
               </div>
@@ -963,7 +963,7 @@ export function CategoriesManager() {
                       setCatSlugManuallyEdited(true)
                     }}
                     placeholder="e.g. marketing"
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-amber-300 font-mono outline-none focus:border-[#ef5b4c]"
+                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-amber-300 font-mono outline-none focus:border-[#2855C5]"
                   />
                 </label>
 
@@ -974,7 +974,7 @@ export function CategoriesManager() {
                     min={1}
                     value={catSortOrder}
                     onChange={(e) => setCatSortOrder(Number(e.target.value))}
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#ef5b4c]"
+                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
                   />
                 </label>
               </div>
@@ -987,7 +987,7 @@ export function CategoriesManager() {
                     value={catDescEn}
                     onChange={(e) => setCatDescEn(e.target.value)}
                     placeholder="Short description..."
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#ef5b4c]"
+                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
                   />
                 </label>
 
@@ -999,7 +999,7 @@ export function CategoriesManager() {
                     value={catDescAr}
                     onChange={(e) => setCatDescAr(e.target.value)}
                     placeholder="وصف مختصر..."
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#ef5b4c]"
+                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
                   />
                 </label>
               </div>
@@ -1010,7 +1010,7 @@ export function CategoriesManager() {
                   id="catIsActive"
                   checked={catIsActive}
                   onChange={(e) => setCatIsActive(e.target.checked)}
-                  className="size-4 rounded accent-[#ef5b4c]"
+                  className="size-4 rounded accent-[#2855C5]"
                 />
                 <label htmlFor="catIsActive" className="text-xs font-medium text-slate-300">
                   Active (Category is visible to public and available for service creation)
@@ -1028,7 +1028,7 @@ export function CategoriesManager() {
                 <button
                   type="submit"
                   disabled={savingCategory}
-                  className="rounded-xl bg-[#ef5b4c] px-5 py-2 text-xs font-bold text-white hover:bg-[#ef5b4c]/90 disabled:opacity-50"
+                  className="rounded-xl bg-[#2855C5] px-5 py-2 text-xs font-bold text-white hover:bg-[#2855C5]/90 disabled:opacity-50"
                 >
                   {savingCategory ? 'Saving...' : editingCategory ? 'Save Changes' : 'Create Category'}
                 </button>
@@ -1066,7 +1066,7 @@ export function CategoriesManager() {
                 <select
                   value={subParentCatId}
                   onChange={(e) => setSubParentCatId(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#ef5b4c]"
+                  className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
                 >
                   {categories.map((c) => (
                     <option key={c._id} value={c._id}>
@@ -1089,7 +1089,7 @@ export function CategoriesManager() {
                       }
                     }}
                     placeholder="e.g. Digital Marketing"
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#ef5b4c]"
+                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
                   />
                 </label>
 
@@ -1101,7 +1101,7 @@ export function CategoriesManager() {
                     value={subNameAr}
                     onChange={(e) => setSubNameAr(e.target.value)}
                     placeholder="مثال: التسويق الرقمي"
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#ef5b4c]"
+                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
                   />
                 </label>
               </div>
@@ -1117,7 +1117,7 @@ export function CategoriesManager() {
                       setSubSlugManuallyEdited(true)
                     }}
                     placeholder="e.g. digital-marketing"
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-amber-300 font-mono outline-none focus:border-[#ef5b4c]"
+                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-amber-300 font-mono outline-none focus:border-[#2855C5]"
                   />
                 </label>
 
@@ -1128,7 +1128,7 @@ export function CategoriesManager() {
                     min={1}
                     value={subSortOrder}
                     onChange={(e) => setSubSortOrder(Number(e.target.value))}
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#ef5b4c]"
+                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
                   />
                 </label>
               </div>
@@ -1139,7 +1139,7 @@ export function CategoriesManager() {
                   id="subIsActive"
                   checked={subIsActive}
                   onChange={(e) => setSubIsActive(e.target.checked)}
-                  className="size-4 rounded accent-[#ef5b4c]"
+                  className="size-4 rounded accent-[#2855C5]"
                 />
                 <label htmlFor="subIsActive" className="text-xs font-medium text-slate-300">
                   Active (Selectable when parent category is active)
@@ -1157,7 +1157,7 @@ export function CategoriesManager() {
                 <button
                   type="submit"
                   disabled={savingSubcategory}
-                  className="rounded-xl bg-[#ef5b4c] px-5 py-2 text-xs font-bold text-white hover:bg-[#ef5b4c]/90 disabled:opacity-50"
+                  className="rounded-xl bg-[#2855C5] px-5 py-2 text-xs font-bold text-white hover:bg-[#2855C5]/90 disabled:opacity-50"
                 >
                   {savingSubcategory ? 'Saving...' : editingSubcategory ? 'Save Changes' : 'Create Subcategory'}
                 </button>
@@ -1169,3 +1169,4 @@ export function CategoriesManager() {
     </div>
   )
 }
+

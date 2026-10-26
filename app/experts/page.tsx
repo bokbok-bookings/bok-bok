@@ -2,6 +2,8 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
+import { BrandLogo } from '@/components/brand/logo'
+import { BokBok } from '@/components/brand/bok-bok'
 import { useMemo, useState, useEffect } from 'react'
 import { EXPERTS } from '@/lib/data/experts'
 
@@ -73,37 +75,6 @@ export default function ExpertsPage() {
   return (
     <main className="min-h-screen bg-[#fbfaf7] text-[#14243b] overflow-x-hidden">
       <div className="mx-auto max-w-[1280px] px-5 sm:px-8 lg:px-12 w-full">
-        {/* Header */}
-        <header className="flex h-[82px] items-center justify-between border-b border-[#e7e2da]">
-          <Link href="/" className="flex items-center gap-2.5 text-[22px] font-bold tracking-tight">
-            <span className="grid size-8 place-items-center rounded-[10px] bg-[#ef5b4c] text-sm font-black text-white">
-              B
-            </span>
-            Bok Bok
-          </Link>
-          <nav className="hidden items-center gap-8 text-[13px] font-medium text-[#637084] lg:flex">
-            <Link className="font-bold text-[#ef5b4c]" href="/experts">
-              Find an Expert
-            </Link>
-            <Link href="/dashboard">Expert Workspace</Link>
-            <Link href="/dashboard/availability">Schedule</Link>
-            <Link href="/admin">Admin Ops</Link>
-          </nav>
-          <div className="hidden items-center gap-3 sm:flex">
-            <Link
-              href="/login"
-              className="rounded-full border border-[#dedbd5] bg-white px-4 py-2 text-[13px] font-semibold text-[#14243b] hover:border-[#14243b]"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/signup"
-              className="rounded-full bg-[#14243b] px-5 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#ef5b4c]"
-            >
-              Join as Expert
-            </Link>
-          </div>
-        </header>
 
         {/* Hero Section */}
         <section className="py-14 sm:py-16">
@@ -115,7 +86,7 @@ export default function ExpertsPage() {
           </Link>
           <div className="max-w-3xl">
             <p className="text-xs font-bold uppercase tracking-[.17em] text-[#ef5b4c]">
-              The Bok Bok directory
+              The <BokBok /> directory
             </p>
             <h1 className="mt-3 text-5xl font-semibold leading-[.98] tracking-[-.06em] sm:text-7xl">
               Find someone who
@@ -144,11 +115,10 @@ export default function ExpertsPage() {
                 <button
                   key={item}
                   onClick={() => setFilter(item)}
-                  className={`whitespace-nowrap rounded-full px-4 py-2.5 text-xs font-bold transition ${
-                    filter === item
+                  className={`whitespace-nowrap rounded-full px-4 py-2.5 text-xs font-bold transition ${filter === item
                       ? 'bg-[#14243b] text-white'
                       : 'bg-[#f7f5f1] text-[#637084] hover:bg-[#eeeae4]'
-                  }`}
+                    }`}
                 >
                   {item}
                 </button>

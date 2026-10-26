@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { BrandLogo } from '@/components/brand/logo'
 import type { UserRole, ExpertStatus } from '@/lib/db'
 
 interface DashboardShellProps {
@@ -41,7 +42,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
       href: '/dashboard',
     },
     {
-      name: 'Consultation Services',
+      name: 'Services & Offerings',
       href: '/dashboard/services',
     },
     {
@@ -65,12 +66,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
     <div className="min-h-screen bg-[#fbfaf7] text-[#14243b] flex flex-col md:flex-row">
       {/* Mobile Top Header */}
       <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-[#e7e2da] sticky top-0 z-40">
-        <Link href="/" className="flex items-center gap-2 text-base font-bold tracking-tight">
-          <span className="grid size-7 place-items-center rounded-lg bg-[#ef5b4c] text-xs font-black text-white">
-            B
-          </span>
-          Bok Bok Expert
-        </Link>
+        <BrandLogo href="/" size="sm" subtitle="Expert Workspace" />
         <button
           type="button"
           onClick={() => setMobileOpen(!mobileOpen)}
@@ -82,23 +78,12 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
 
       {/* Sidebar Navigation */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-[#e7e2da] flex flex-col transition-transform duration-200 md:static md:translate-x-0 ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-[#e7e2da] flex flex-col transition-transform duration-200 md:static md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
         {/* Brand Header */}
         <div className="p-6 border-b border-[#eeeae4] flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 text-lg font-bold tracking-tight">
-            <span className="grid size-8 place-items-center rounded-[10px] bg-[#ef5b4c] text-sm font-black text-white">
-              B
-            </span>
-            <div>
-              <span className="leading-tight block">Bok Bok</span>
-              <span className="text-[10px] uppercase tracking-wider text-[#8b94a1] font-semibold block">
-                Expert Workspace
-              </span>
-            </div>
-          </Link>
+          <BrandLogo href="/" size="sm" subtitle="Expert Workspace" />
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
@@ -125,19 +110,18 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
             <div className="mt-3 pt-2.5 border-t border-[#eeeae4] flex items-center justify-between text-[11px]">
               <span className="text-[#8b94a1]">Status:</span>
               <span
-                className={`font-bold ${
-                  user.status === 'approved'
+                className={`font-bold ${user.status === 'approved'
                     ? 'text-emerald-700'
                     : user.status === 'pending_review'
-                    ? 'text-amber-700'
-                    : 'text-neutral-500'
-                }`}
+                      ? 'text-amber-700'
+                      : 'text-neutral-500'
+                  }`}
               >
                 {user.status === 'approved'
                   ? 'Live & Approved'
                   : user.status === 'pending_review'
-                  ? 'In Review'
-                  : 'Draft Profile'}
+                    ? 'In Review'
+                    : 'Draft Profile'}
               </span>
             </div>
           )}
@@ -156,11 +140,10 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
                 key={item.href}
                 href={item.href}
                 onClick={() => setMobileOpen(false)}
-                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${
-                  isActive
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${isActive
                     ? 'bg-[#14243b] text-white'
                     : 'text-[#637084] hover:bg-[#faf8f5] hover:text-[#14243b]'
-                }`}
+                  }`}
               >
                 <span>{item.name}</span>
                 {isActive && <span className="text-[10px] text-[#ef5b4c] font-black">●</span>}

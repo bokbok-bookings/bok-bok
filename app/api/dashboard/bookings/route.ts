@@ -1,3 +1,4 @@
+import { confirmBookingAndCreateCalendar, deleteCalendarEvent } from '@/lib/google-calendar'
 import { NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import { getBookingsCollection, toObjectId } from '@/lib/db'
@@ -50,7 +51,9 @@ export async function GET(request: Request) {
       filter.expertId = auth.expertId // Native BSON ObjectId!
     }
 
-    if (statusParam && statusParam !== 'all') {
+    if (statusParam === 'awaiting_verification' || statusParam === 'pending') {
+      filter.status = { $in: ['awaiting_verification', 'pending', 'awaiting_payment'] }
+    } else if (statusParam && statusParam !== 'all') {
       filter.status = statusParam
     }
 
@@ -120,16 +123,43 @@ export async function PATCH(request: Request) {
       updateDoc.verifiedBy = new ObjectId(auth.session.userId)
       updateDoc.verifiedAt = new Date()
       if (adminNotes) updateDoc.adminNotes = adminNotes
+
+      await bookingsCol.updateOne({ _id: bookingObjId }, { $set: updateDoc })
+
+      // Auto-create Google Calendar event with Google Meet link (invites Client, Expert, and bokbok.bookings@gmail.com)
+      try {
+        await confirmBookingAndCreateCalendar(bookingObjId.toString())
+      } catch (calErr: any) {
+        console.error('[Google Calendar] Failed to create event on approve:', calErr?.message)
+      }
     } else if (action === 'reject') {
       updateDoc.status = 'rejected'
       updateDoc.paymentStatus = 'rejected'
       updateDoc.adminNotes = adminNotes || 'Payment receipt not accepted'
+
+      await bookingsCol.updateOne({ _id: bookingObjId }, { $set: updateDoc })
+
+      if ((existing as any).googleCalendarEventId) {
+        try {
+          await deleteCalendarEvent((existing as any).googleCalendarEventId)
+        } catch (calErr: any) {
+          console.error('[Google Calendar] Failed to delete event on reject:', calErr?.message)
+        }
+      }
     } else if (action === 'cancel') {
       updateDoc.status = 'cancelled'
       if (adminNotes) updateDoc.adminNotes = adminNotes
-    }
 
-    await bookingsCol.updateOne({ _id: bookingObjId }, { $set: updateDoc })
+      await bookingsCol.updateOne({ _id: bookingObjId }, { $set: updateDoc })
+
+      if ((existing as any).googleCalendarEventId) {
+        try {
+          await deleteCalendarEvent((existing as any).googleCalendarEventId)
+        } catch (calErr: any) {
+          console.error('[Google Calendar] Failed to delete event on cancel:', calErr?.message)
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,

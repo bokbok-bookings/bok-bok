@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { BrandLogo } from '@/components/brand/logo'
 import { ArrowLeft } from 'lucide-react'
 import { CategoriesManager } from '@/components/dashboard/categories-manager'
 
@@ -38,19 +39,7 @@ export default function AdminCategoriesPage() {
       {/* Top Navigation */}
       <header className="border-b border-slate-800 bg-[#121d2f]/80 backdrop-blur-md sticky top-0 z-40 px-5 sm:px-8">
         <div className="mx-auto max-w-7xl h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="grid size-8 place-items-center rounded-lg bg-[#ef5b4c] text-xs font-black text-white">
-              B
-            </span>
-            <div>
-              <span className="font-bold text-sm tracking-tight text-white block">
-                Bok Bok Operations
-              </span>
-              <span className="text-[10px] text-slate-400 block font-mono">
-                Categories & Taxonomy Manager
-              </span>
-            </div>
-          </div>
+          <BrandLogo href="/admin" size="sm" variant="dark" subtitle="Categories & Taxonomy Manager" />
 
           <div className="flex items-center gap-3">
             <Link

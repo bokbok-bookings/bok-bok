@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import { BrandLogo } from '@/components/brand/logo'
+import { BokBok } from '@/components/brand/bok-bok'
 import { FormEvent, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -43,12 +45,9 @@ export default function SignupPage() {
   return (
     <main className="grid min-h-screen place-items-center bg-[#fbfaf7] px-5 text-[#14243b]">
       <div className="w-full max-w-md py-12">
-        <Link href="/" className="mb-8 flex items-center gap-2.5 text-[22px] font-bold tracking-tight">
-          <span className="grid size-8 place-items-center rounded-[10px] bg-[#ef5b4c] text-sm font-black text-white">
-            B
-          </span>
-          Bok Bok
-        </Link>
+        <div className="mb-8">
+          <BrandLogo href="/" />
+        </div>
 
         <div className="rounded-[28px] bg-white p-7 shadow-xl ring-1 ring-[#e7e2da] sm:p-10">
           <Link
@@ -58,7 +57,9 @@ export default function SignupPage() {
             ← Back to directory
           </Link>
 
-          <h1 className="mt-6 text-3xl font-semibold tracking-[-.05em]">Join Bok Bok.</h1>
+          <h1 className="mt-6 text-3xl font-semibold tracking-[-.05em]">
+            Join <BokBok />.
+          </h1>
           <p className="mt-2 text-xs leading-5 text-[#637084]">
             Create your account to start offering sessions or booking top advisors.
           </p>
@@ -77,11 +78,10 @@ export default function SignupPage() {
                 <button
                   type="button"
                   onClick={() => setRole('expert')}
-                  className={`rounded-2xl border p-3 text-left transition ${
-                    role === 'expert'
+                  className={`rounded-2xl border p-3 text-left transition ${role === 'expert'
                       ? 'border-[#14243b] bg-[#14243b] text-white'
                       : 'border-[#dedbd5] bg-[#faf8f5] text-[#637084] hover:border-[#14243b]'
-                  }`}
+                    }`}
                 >
                   <p className="text-xs font-bold">Expert</p>
                   <p className="mt-0.5 text-[10px] opacity-80">Offer sessions & manage time</p>
@@ -89,11 +89,10 @@ export default function SignupPage() {
                 <button
                   type="button"
                   onClick={() => setRole('client')}
-                  className={`rounded-2xl border p-3 text-left transition ${
-                    role === 'client'
+                  className={`rounded-2xl border p-3 text-left transition ${role === 'client'
                       ? 'border-[#14243b] bg-[#14243b] text-white'
                       : 'border-[#dedbd5] bg-[#faf8f5] text-[#637084] hover:border-[#14243b]'
-                  }`}
+                    }`}
                 >
                   <p className="text-xs font-bold">Client</p>
                   <p className="mt-0.5 text-[10px] opacity-80">Book appointments</p>
@@ -145,8 +144,8 @@ export default function SignupPage() {
               {loading
                 ? 'Creating account...'
                 : role === 'expert'
-                ? 'Create Expert Account →'
-                : 'Create Client Account'}
+                  ? 'Create Expert Account →'
+                  : 'Create Client Account'}
             </button>
           </form>
 

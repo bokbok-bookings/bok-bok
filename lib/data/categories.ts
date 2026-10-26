@@ -277,6 +277,46 @@ export const CATEGORIES: Category[] = [
       { id: 'travel-tips-preparation', slug: 'travel-tips-preparation', title: { en: 'Travel Tips & Preparation', ar: 'نصائح السفر والاستعداد للرحلات' } },
     ],
   },
+  {
+    id: 'photography-videography',
+    slug: 'photography-videography',
+    title: { en: 'Photography & Videography', ar: 'التصوير الفوتوغرافي والفيديو' },
+    description: {
+      en: 'Professional portrait, wedding, event, and commercial photography & video shooting.',
+      ar: 'تصوير البورتريه، الأفراح، المناسبات، وتصوير الفيديو والإعلانات التجارية.',
+    },
+    isActive: true,
+    sortOrder: 12,
+    subcategories: [
+      { id: 'portrait-personal-photography', slug: 'portrait-personal-photography', title: { en: 'Portrait & Personal Photography', ar: 'تصوير البورتريه والتصوير الشخصي' } },
+      { id: 'wedding-photography', slug: 'wedding-photography', title: { en: 'Wedding Photography', ar: 'تصوير حفلات الزفاف' } },
+      { id: 'event-photography', slug: 'event-photography', title: { en: 'Event Photography', ar: 'تصوير المناسبات' } },
+      { id: 'product-photography', slug: 'product-photography', title: { en: 'Product Photography', ar: 'تصوير المنتجات' } },
+      { id: 'fashion-photography', slug: 'fashion-photography', title: { en: 'Fashion Photography', ar: 'تصوير الأزياء' } },
+      { id: 'videography-video-shooting', slug: 'videography-video-shooting', title: { en: 'Videography & Video Shooting', ar: 'تصوير الفيديو' } },
+      { id: 'commercial-photography', slug: 'commercial-photography', title: { en: 'Commercial Photography', ar: 'التصوير التجاري' } },
+    ],
+  },
+  {
+    id: 'beauty-personal-care',
+    slug: 'beauty-personal-care',
+    title: { en: 'Beauty & Personal Care', ar: 'الجمال والعناية الشخصية' },
+    description: {
+      en: 'Makeup, bridal styling, haircare, skincare, nail services, and personal grooming.',
+      ar: 'خدمات المكياج، مكياج العرائس، العناية بالشعر والبشرة، وخدمات الأظافر والمظهر الشخصي.',
+    },
+    isActive: true,
+    sortOrder: 13,
+    subcategories: [
+      { id: 'makeup-services', slug: 'makeup-services', title: { en: 'Makeup Services', ar: 'خدمات المكياج' } },
+      { id: 'bridal-makeup', slug: 'bridal-makeup', title: { en: 'Bridal Makeup', ar: 'مكياج العرائس' } },
+      { id: 'hairstyling', slug: 'hairstyling', title: { en: 'Hairstyling', ar: 'تصفيف الشعر' } },
+      { id: 'hair-care', slug: 'hair-care', title: { en: 'Hair Care', ar: 'العناية بالشعر' } },
+      { id: 'skincare-services', slug: 'skincare-services', title: { en: 'Skincare Services', ar: 'خدمات العناية بالبشرة' } },
+      { id: 'nail-services', slug: 'nail-services', title: { en: 'Nail Services', ar: 'خدمات الأظافر' } },
+      { id: 'personal-grooming', slug: 'personal-grooming', title: { en: 'Personal Grooming', ar: 'العناية بالمظهر الشخصي' } },
+    ],
+  },
 ]
 
 export function getCategoryBySlug(slug: string): Category | undefined {

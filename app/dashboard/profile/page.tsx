@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { BokBok } from '@/components/brand/bok-bok'
 import { CATEGORIES } from '@/lib/data/categories'
 
 export default function ExpertProfilePage() {
@@ -140,7 +141,7 @@ export default function ExpertProfilePage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#14243b]">Public Profile</h1>
           <p className="text-xs text-[#637084] mt-0.5">
-            Manage how clients see you across the Bok Bok directory.
+            Manage how clients see you across the <BokBok /> directory.
           </p>
         </div>
         {profile?.slug && (

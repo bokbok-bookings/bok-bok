@@ -104,31 +104,28 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
         <div className="flex gap-1.5 rounded-2xl bg-[#faf8f5] p-1 border border-[#eeeae4]">
           <button
             onClick={() => setStatusFilter('awaiting_verification')}
-            className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${
-              statusFilter === 'awaiting_verification'
+            className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${statusFilter === 'awaiting_verification'
                 ? 'bg-[#14243b] text-white'
                 : 'text-[#637084] hover:text-[#14243b]'
-            }`}
+              }`}
           >
-            Awaiting Verification
+            Awaiting Verification / Pending
           </button>
           <button
             onClick={() => setStatusFilter('confirmed')}
-            className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${
-              statusFilter === 'confirmed'
+            className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${statusFilter === 'confirmed'
                 ? 'bg-[#14243b] text-white'
                 : 'text-[#637084] hover:text-[#14243b]'
-            }`}
+              }`}
           >
             Confirmed
           </button>
           <button
             onClick={() => setStatusFilter('all')}
-            className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${
-              statusFilter === 'all'
+            className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${statusFilter === 'all'
                 ? 'bg-[#14243b] text-white'
                 : 'text-[#637084] hover:text-[#14243b]'
-            }`}
+              }`}
           >
             All
           </button>
@@ -142,7 +139,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
           <p className="text-base font-bold text-[#14243b]">No bookings found</p>
           <p className="mt-1 text-xs text-[#637084]">
             {statusFilter === 'awaiting_verification'
-              ? 'No pending receipts waiting for verification right now.'
+              ? 'No pending bookings or receipts waiting for verification right now.'
               : 'No appointments match the selected filter.'}
           </p>
         </div>
@@ -182,15 +179,14 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                   </td>
                   <td className="py-3.5 px-4">
                     <span
-                      className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                        b.status === 'confirmed'
+                      className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${b.status === 'confirmed'
                           ? 'bg-emerald-100 text-emerald-800'
-                          : b.status === 'awaiting_verification'
-                          ? 'bg-amber-100 text-amber-800'
-                          : b.status === 'rejected'
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-neutral-100 text-neutral-700'
-                      }`}
+                          : b.status === 'awaiting_verification' || b.status === 'pending' || b.status === 'awaiting_payment'
+                            ? 'bg-amber-100 text-amber-800'
+                            : b.status === 'rejected'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-neutral-100 text-neutral-700'
+                        }`}
                     >
                       {b.status}
                     </span>
@@ -205,7 +201,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                           View Receipt
                         </button>
                       )}
-                      {b.status === 'awaiting_verification' && (
+                      {['awaiting_verification', 'pending', 'awaiting_payment'].includes(b.status) && (
                         <>
                           <button
                             onClick={() => handleAction(b._id, 'approve')}
@@ -269,7 +265,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                 Amount: {selectedReceipt.amount} {selectedReceipt.currency || 'EGP'}
               </span>
               <div className="flex items-center gap-2">
-                {selectedReceipt.status === 'awaiting_verification' && (
+                {['awaiting_verification', 'pending', 'awaiting_payment'].includes(selectedReceipt.status) && (
                   <>
                     <button
                       onClick={() => handleAction(selectedReceipt._id, 'reject')}
@@ -285,7 +281,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                     </button>
                   </>
                 )}
-                {selectedReceipt.status !== 'awaiting_verification' && (
+                {!['awaiting_verification', 'pending', 'awaiting_payment'].includes(selectedReceipt.status) && (
                   <button
                     onClick={() => setSelectedReceipt(null)}
                     className="rounded-full bg-[#14243b] px-5 py-2 text-xs font-bold text-white"

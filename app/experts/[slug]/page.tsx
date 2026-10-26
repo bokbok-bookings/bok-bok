@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
+import { BrandLogo } from '@/components/brand/logo'
 import React, { useState, useEffect, use } from 'react'
 import { getExpertBySlug } from '@/lib/data/experts'
 import type { DayAvailability, TimeSlot } from '@/lib/data/availability'
@@ -13,10 +14,13 @@ interface PageProps {
 
 interface ServiceItem {
   _id: string
+  slug?: string
   title: { en: string; ar: string }
   description: { en: string; ar: string }
   durationMinutes: number
   breakAfterMinutes: number
+  bookingType?: string
+  serviceKind?: string
   pricing: {
     baseCurrency: string
     prices: Record<string, number>
@@ -326,26 +330,6 @@ export default function ExpertProfile({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-[#fbfaf7] text-[#14243b] overflow-x-hidden">
       <div className="mx-auto max-w-[1140px] px-4 sm:px-8 pb-20 w-full">
-        {/* Header */}
-        <header className="flex h-[82px] items-center justify-between border-b border-[#e7e2da]">
-          <Link href="/" className="flex items-center gap-2.5 text-[22px] font-bold tracking-tight">
-            <span className="grid size-8 place-items-center rounded-[10px] bg-[#ef5b4c] text-sm font-black text-white">
-              B
-            </span>
-            Bok Bok
-          </Link>
-          <div className="flex items-center gap-5">
-            <Link
-              href="/dashboard"
-              className="text-xs font-bold text-[#637084] hover:text-[#14243b]"
-            >
-              Expert Dashboard
-            </Link>
-            <Link href="/experts" className="text-xs font-bold text-[#ef5b4c]">
-              ← All experts
-            </Link>
-          </div>
-        </header>
 
         <div className="py-8 w-full min-w-0">
           <Link
@@ -417,42 +401,60 @@ export default function ExpertProfile({ params }: PageProps) {
               {/* Consultation Services Offered */}
               <div className="border-t border-[#e7e2da] pt-8 min-w-0 w-full">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold tracking-tight text-[#14243b]">Available Consultation Sessions</h2>
-                  <span className="text-xs text-[#8b94a1]">Select session type</span>
+                  <h2 className="text-xl font-bold tracking-tight text-[#14243b]">Available Services & Offerings</h2>
+                  <span className="text-xs text-[#8b94a1]">Select an offering</span>
                 </div>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 min-w-0 w-full">
                   {services.map((s) => {
                     const isSelected = selectedService?._id === s._id
+                    const bType = s.bookingType || 'APPOINTMENT'
+                    const sKind = s.serviceKind || 'CONSULTATION'
+                    const typeLabel =
+                      bType === 'WORKSHOP'
+                        ? 'Workshop'
+                        : bType === 'WEBINAR'
+                          ? 'Webinar'
+                          : sKind === 'GENERAL_SERVICE'
+                            ? 'Service'
+                            : 'Consultation'
+
                     return (
                       <div
                         key={s._id}
                         onClick={() => setSelectedService(s)}
-                        className={`cursor-pointer rounded-2xl border p-4 transition min-w-0 w-full flex flex-col justify-between ${
-                          isSelected
+                        className={`cursor-pointer rounded-2xl border p-4 transition min-w-0 w-full flex flex-col justify-between ${isSelected
                             ? 'border-[#14243b] bg-[#14243b] text-white shadow-md'
                             : 'border-[#dedbd5] bg-white text-[#14243b] hover:border-[#14243b]'
-                        }`}
+                          }`}
                       >
                         <div>
                           <div className="flex items-start justify-between gap-2 min-w-0">
                             <div className="min-w-0 flex-1">
-                              {s.isMostBooked && (
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 <span
-                                  className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
-                                    isSelected
-                                      ? 'bg-[#ef5b4c] text-white'
-                                      : 'bg-[#ef5b4c]/10 text-[#ef5b4c]'
-                                  }`}
+                                  className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${isSelected
+                                      ? 'bg-white/20 text-white'
+                                      : 'bg-slate-100 text-slate-700'
+                                    }`}
                                 >
-                                  Most Booked
+                                  {typeLabel}
                                 </span>
-                              )}
+                                {s.isMostBooked && (
+                                  <span
+                                    className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${isSelected
+                                        ? 'bg-[#ef5b4c] text-white'
+                                        : 'bg-[#ef5b4c]/10 text-[#ef5b4c]'
+                                      }`}
+                                  >
+                                    Most Booked
+                                  </span>
+                                )}
+                              </div>
                               <h3 className="mt-1 text-sm font-bold leading-snug break-words">{s.title.en}</h3>
                               <p
-                                className={`text-[11px] mt-0.5 break-words ${
-                                  isSelected ? 'text-white/70' : 'text-[#8b94a1]'
-                                }`}
+                                className={`text-[11px] mt-0.5 break-words ${isSelected ? 'text-white/70' : 'text-[#8b94a1]'
+                                  }`}
                                 dir="rtl"
                               >
                                 {s.title.ar}
@@ -464,21 +466,25 @@ export default function ExpertProfile({ params }: PageProps) {
                           </div>
                           {s.description?.en && (
                             <p
-                              className={`mt-2 text-xs line-clamp-2 leading-relaxed break-words ${
-                                isSelected ? 'text-white/80' : 'text-[#637084]'
-                              }`}
+                              className={`mt-2 text-xs line-clamp-2 leading-relaxed break-words ${isSelected ? 'text-white/80' : 'text-[#637084]'
+                                }`}
                             >
                               {s.description.en}
                             </p>
                           )}
                         </div>
                         <div
-                          className={`mt-3 pt-2.5 border-t text-[10px] font-semibold flex items-center justify-between ${
-                            isSelected ? 'border-white/15 text-white/60' : 'border-[#f4f2ee] text-[#8b94a1]'
-                          }`}
+                          className={`mt-3 pt-2.5 border-t text-[10px] font-semibold flex items-center justify-between ${isSelected ? 'border-white/15 text-white/60' : 'border-[#f4f2ee] text-[#8b94a1]'
+                            }`}
                         >
                           <span>Duration: {s.durationMinutes} min</span>
-                          <span>{isSelected ? '✓ Selected' : 'Click to select'}</span>
+                          <Link
+                            href={`/services/${s.slug || s._id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`hover:underline font-bold ${isSelected ? 'text-[#f5c3a8]' : 'text-[#ef5b4c]'}`}
+                          >
+                            Details ↗
+                          </Link>
                         </div>
                       </div>
                     )
@@ -535,13 +541,12 @@ export default function ExpertProfile({ params }: PageProps) {
                               key={d.date}
                               disabled={isClosed}
                               onClick={() => setSelectedDate(d.date)}
-                              className={`shrink-0 rounded-2xl border px-3 py-2 text-center transition ${
-                                isSelected
+                              className={`shrink-0 rounded-2xl border px-3 py-2 text-center transition ${isSelected
                                   ? 'border-[#ef5b4c] bg-[#ef5b4c] text-white shadow-sm'
                                   : isClosed
-                                  ? 'border-white/10 bg-white/5 text-white/30 cursor-not-allowed'
-                                  : 'border-white/15 bg-white/10 text-white hover:border-white/40'
-                              }`}
+                                    ? 'border-white/10 bg-white/5 text-white/30 cursor-not-allowed'
+                                    : 'border-white/15 bg-white/10 text-white hover:border-white/40'
+                                }`}
                             >
                               <span className="block text-[10px] font-bold uppercase">
                                 {new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(
@@ -591,13 +596,12 @@ export default function ExpertProfile({ params }: PageProps) {
                               key={s.time}
                               disabled={!s.available}
                               onClick={() => setSelectedTime(s.time)}
-                              className={`rounded-xl border py-2 px-1 text-center font-mono text-[11px] sm:text-xs font-semibold transition truncate ${
-                                isSelected
+                              className={`rounded-xl border py-2 px-1 text-center font-mono text-[11px] sm:text-xs font-semibold transition truncate ${isSelected
                                   ? 'border-[#ef5b4c] bg-[#ef5b4c] text-white shadow-sm'
                                   : !s.available
-                                  ? 'border-white/10 bg-white/5 text-white/25 cursor-not-allowed line-through'
-                                  : 'border-white/15 bg-white/10 text-white hover:border-white/40'
-                              }`}
+                                    ? 'border-white/10 bg-white/5 text-white/25 cursor-not-allowed line-through'
+                                    : 'border-white/15 bg-white/10 text-white hover:border-white/40'
+                                }`}
                             >
                               {formatSlotLabel(s.time)}
                             </button>
@@ -681,8 +685,8 @@ export default function ExpertProfile({ params }: PageProps) {
                     {bookingLoading
                       ? 'Submitting appointment...'
                       : selectedTime
-                      ? `Book & Submit Receipt`
-                      : 'Choose a date & time'}
+                        ? `Book & Submit Receipt`
+                        : 'Choose a date & time'}
                   </button>
                 </>
               )}

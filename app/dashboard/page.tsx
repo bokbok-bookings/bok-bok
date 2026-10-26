@@ -192,11 +192,10 @@ export default async function DashboardPage() {
                   </div>
                   <div className="text-right">
                     <span
-                      className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                        b.status === 'confirmed'
+                      className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${b.status === 'confirmed'
                           ? 'bg-emerald-100 text-emerald-800'
                           : 'bg-amber-100 text-amber-800'
-                      }`}
+                        }`}
                     >
                       {b.status}
                     </span>
@@ -314,13 +313,12 @@ export default async function DashboardPage() {
                     </td>
                     <td className="py-3">
                       <span
-                        className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                          b.status === 'confirmed'
+                        className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${b.status === 'confirmed'
                             ? 'bg-emerald-100 text-emerald-800'
                             : b.status === 'awaiting_verification'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-neutral-100 text-neutral-700'
-                        }`}
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-neutral-100 text-neutral-700'
+                          }`}
                       >
                         {b.status}
                       </span>

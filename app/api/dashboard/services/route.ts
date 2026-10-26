@@ -74,6 +74,9 @@ export async function GET(request: Request) {
   }
 }
 
+import { validateServiceInput } from '@/lib/services/service-validation'
+import { resolveBookingType, resolveServiceKind, slugify } from '@/lib/services/service-types'
+
 // POST: Create new service
 export async function POST(request: Request) {
   try {
@@ -90,65 +93,57 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const {
-      title,
-      description,
-      categorySlug,
-      subcategorySlug,
-      tags,
-      durationMinutes,
-      breakAfterMinutes,
-      pricing,
-      isActive,
-      isMostBooked,
-      sortOrder,
-    } = body
+    const todayISO = new Date().toISOString().slice(0, 10)
+    const validation = validateServiceInput(body, { todayISO, existing: null })
 
-    if (!title?.en || !title?.ar) {
+    if (!validation.ok || !validation.value) {
       return NextResponse.json(
-        { success: false, error: 'Title in both English and Arabic is required' },
+        { success: false, error: validation.errors.join('; ') },
         { status: 400 }
       )
     }
 
     const servicesCol = await getServicesCollection()
 
+    // Generate unique slug
+    const baseSlug = validation.value.slug || slugify(validation.value.title.en)
+    let candidateSlug = baseSlug
+    let counter = 2
+    while (await servicesCol.findOne({ slug: candidateSlug })) {
+      candidateSlug = `${baseSlug}-${counter}`
+      counter++
+    }
+
     // If marked as most booked, unset on this specific expert's other services only!
-    if (isMostBooked) {
+    if (body.isMostBooked) {
       await servicesCol.updateMany(
         { expertId: auth.expertId },
         { $set: { isMostBooked: false } }
       )
     }
 
-    const baseCurrency = pricing?.baseCurrency || 'EGP'
-    const prices = pricing?.prices || { [baseCurrency]: Number(pricing?.amount) || 500 }
-
     const approvalStatus = auth.session.role === 'admin' ? 'approved' : 'pending'
 
     const newService: any = {
       _id: new ObjectId(),
       expertId: auth.expertId, // Native BSON ObjectId!
-      title: {
-        en: String(title.en).trim(),
-        ar: String(title.ar).trim(),
-      },
-      description: {
-        en: String(description?.en || '').trim(),
-        ar: String(description?.ar || '').trim(),
-      },
-      categorySlug: categorySlug || 'marketing-growth',
-      subcategorySlug: subcategorySlug || '',
-      tags: Array.isArray(tags) ? tags : [],
-      durationMinutes: Number(durationMinutes) || 45,
-      breakAfterMinutes: Number(breakAfterMinutes) || 10,
-      pricing: {
-        baseCurrency,
-        prices,
-      },
-      isActive: isActive !== false,
-      isMostBooked: Boolean(isMostBooked),
-      sortOrder: Number(sortOrder) || 1,
+      slug: candidateSlug,
+      title: validation.value.title,
+      description: validation.value.description,
+      categorySlug: validation.value.categorySlug,
+      subcategorySlug: validation.value.subcategorySlug,
+      tags: validation.value.tags,
+      bookingType: validation.value.bookingType,
+      serviceKind: validation.value.serviceKind,
+      deliveryMode: validation.value.deliveryMode,
+      location: validation.value.location,
+      event: validation.value.event,
+      durationMinutes: validation.value.durationMinutes,
+      breakAfterMinutes: validation.value.breakAfterMinutes,
+      pricing: validation.value.pricing,
+      isActive: body.isActive !== false,
+      isMostBooked: Boolean(body.isMostBooked),
+      sortOrder: Number(body.sortOrder) || 1,
       approvalStatus,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -186,20 +181,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const {
-      id,
-      title,
-      description,
-      categorySlug,
-      subcategorySlug,
-      tags,
-      durationMinutes,
-      breakAfterMinutes,
-      pricing,
-      isActive,
-      isMostBooked,
-      sortOrder,
-    } = body
+    const { id } = body
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'Service ID is required' }, { status: 400 })
@@ -219,7 +201,17 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: false, error: 'Service not found or unauthorized' }, { status: 404 })
     }
 
-    if (isMostBooked) {
+    const todayISO = new Date().toISOString().slice(0, 10)
+    const validation = validateServiceInput(body, { todayISO, existing })
+
+    if (!validation.ok || !validation.value) {
+      return NextResponse.json(
+        { success: false, error: validation.errors.join('; ') },
+        { status: 400 }
+      )
+    }
+
+    if (body.isMostBooked) {
       await servicesCol.updateMany(
         { expertId: existing.expertId, _id: { $ne: serviceObjId } },
         { $set: { isMostBooked: false } }
@@ -228,36 +220,66 @@ export async function PUT(request: Request) {
 
     const updateDoc: any = {
       updatedAt: new Date(),
+      title: validation.value.title,
+      description: validation.value.description,
+      categorySlug: validation.value.categorySlug,
+      subcategorySlug: validation.value.subcategorySlug,
+      tags: validation.value.tags,
+      bookingType: validation.value.bookingType,
+      serviceKind: validation.value.serviceKind,
+      deliveryMode: validation.value.deliveryMode,
+      durationMinutes: validation.value.durationMinutes,
+      breakAfterMinutes: validation.value.breakAfterMinutes,
+      pricing: validation.value.pricing,
     }
 
-    if (title) {
-      updateDoc.title = {
-        en: String(title.en || '').trim(),
-        ar: String(title.ar || '').trim(),
+    // Ensure slug exists on existing document or handle custom update
+    if (!existing.slug) {
+      const baseSlug = validation.value.slug || slugify(validation.value.title.en)
+      let candidateSlug = baseSlug
+      let counter = 2
+      while (await servicesCol.findOne({ slug: candidateSlug, _id: { $ne: serviceObjId } })) {
+        candidateSlug = `${baseSlug}-${counter}`
+        counter++
       }
-    }
-    if (description) {
-      updateDoc.description = {
-        en: String(description.en || '').trim(),
-        ar: String(description.ar || '').trim(),
+      updateDoc.slug = candidateSlug
+    } else if (validation.value.slug && validation.value.slug !== existing.slug) {
+      let candidateSlug = validation.value.slug
+      let counter = 2
+      while (await servicesCol.findOne({ slug: candidateSlug, _id: { $ne: serviceObjId } })) {
+        candidateSlug = `${validation.value.slug}-${counter}`
+        counter++
       }
+      updateDoc.slug = candidateSlug
     }
-    if (categorySlug !== undefined) updateDoc.categorySlug = categorySlug
-    if (subcategorySlug !== undefined) updateDoc.subcategorySlug = subcategorySlug
-    if (tags !== undefined) updateDoc.tags = Array.isArray(tags) ? tags : []
-    if (durationMinutes !== undefined) updateDoc.durationMinutes = Number(durationMinutes)
-    if (breakAfterMinutes !== undefined) updateDoc.breakAfterMinutes = Number(breakAfterMinutes)
-    if (pricing !== undefined) updateDoc.pricing = pricing
-    if (isActive !== undefined) updateDoc.isActive = Boolean(isActive)
-    if (isMostBooked !== undefined) updateDoc.isMostBooked = Boolean(isMostBooked)
-    if (sortOrder !== undefined) updateDoc.sortOrder = Number(sortOrder)
+
+    if (validation.value.location) {
+      updateDoc.location = validation.value.location
+    }
+    if (validation.value.event) {
+      updateDoc.event = validation.value.event
+    }
+
+    if (body.isActive !== undefined) updateDoc.isActive = Boolean(body.isActive)
+    if (body.isMostBooked !== undefined) updateDoc.isMostBooked = Boolean(body.isMostBooked)
+    if (body.sortOrder !== undefined) updateDoc.sortOrder = Number(body.sortOrder)
 
     if (auth.session.role !== 'admin') {
       updateDoc.approvalStatus = 'pending'
       updateDoc.rejectionReason = null
     }
 
-    await servicesCol.updateOne({ _id: serviceObjId }, { $set: updateDoc })
+    const unsets: Record<string, string> = {}
+    if (validation.unset.includes('event')) unsets.event = ''
+    if (validation.unset.includes('serviceKind')) unsets.serviceKind = ''
+    if (validation.unset.includes('location')) unsets.location = ''
+
+    const updateOps: any = { $set: updateDoc }
+    if (Object.keys(unsets).length > 0) {
+      updateOps.$unset = unsets
+    }
+
+    await servicesCol.updateOne({ _id: serviceObjId }, updateOps)
 
     return NextResponse.json({ success: true, message: 'Service updated successfully' })
   } catch (error: any) {

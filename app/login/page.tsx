@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { BrandLogo } from '@/components/brand/logo'
 import { FormEvent, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
@@ -122,12 +123,9 @@ export default function LoginPage() {
   return (
     <main className="grid min-h-screen place-items-center bg-[#fbfaf7] px-5 text-[#14243b]">
       <div className="w-full max-w-md py-12">
-        <Link href="/" className="mb-8 flex items-center gap-2.5 text-[22px] font-bold tracking-tight">
-          <span className="grid size-8 place-items-center rounded-[10px] bg-[#ef5b4c] text-sm font-black text-white">
-            B
-          </span>
-          Bok Bok
-        </Link>
+        <div className="mb-8">
+          <BrandLogo href="/" />
+        </div>
         <Suspense fallback={<div className="p-8 text-center text-xs text-[#8b94a1]">Loading...</div>}>
           <LoginForm />
         </Suspense>

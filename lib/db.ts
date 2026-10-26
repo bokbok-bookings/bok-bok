@@ -105,6 +105,9 @@ export interface ExpertDoc {
   instapayUsername?: string
   createdAt?: Date
   updatedAt?: Date
+  googleCalendarEventId?: string
+  googleCalendarEventLink?: string
+  googleMeetLink?: string
 }
 
 export type ExpertItem = Omit<ExpertDoc, '_id'> & { _id: string; id: string }
@@ -116,14 +119,40 @@ export interface LocalizedText {
 
 export type ServiceApprovalStatus = 'pending' | 'approved' | 'rejected'
 
+export type BookingType = 'APPOINTMENT' | 'WORKSHOP' | 'WEBINAR'
+export type ServiceKind = 'CONSULTATION' | 'GENERAL_SERVICE'
+export type DeliveryMode = 'ONLINE' | 'IN_PERSON' | 'HYBRID'
+
+export interface ServiceLocation {
+  city: string
+  address: string
+}
+
+export interface ServiceEventDetails {
+  date: string // YYYY-MM-DD
+  startTime: string // HH:mm
+  endTime: string // HH:mm
+  timezone: string
+  capacity: number
+  registeredCount: number
+  joinUrl?: string
+  platform?: string
+}
+
 export interface ServiceDoc {
   _id: ObjectId
   expertId: ObjectId // Native BSON ObjectId!
+  slug?: string // Unique URL-friendly slug (e.g. 'product-strategy-roadmap-deep-dive')
   title: LocalizedText
   description: LocalizedText
   categorySlug?: string
   subcategorySlug?: string
   tags: string[]
+  bookingType?: BookingType
+  serviceKind?: ServiceKind
+  deliveryMode?: DeliveryMode
+  location?: ServiceLocation
+  event?: ServiceEventDetails
   durationMinutes: number
   breakAfterMinutes: number
   pricing: {
@@ -146,15 +175,23 @@ export type ServiceItem = Omit<ServiceDoc, '_id' | 'expertId'> & {
   expertId: string
 }
 
+export interface TagDoc {
+  _id: ObjectId
+  slug: string
+  name: LocalizedText
+  isActive: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type TagItem = Omit<TagDoc, '_id'> & { _id: string; id: string }
+
 export interface SettingDoc {
   _id?: ObjectId
   key: string // e.g. "availability_schedule_${expertId}"
-  expertId: ObjectId // Native BSON ObjectId!
+  expertId?: ObjectId
   expertSlug?: string
-  value: {
-    weeklySchedule: Record<number, DaySchedule>
-    slotIntervalMinutes: number
-  }
+  value: any
   updatedAt: Date
   updatedBy?: string
 }
@@ -211,6 +248,9 @@ export interface BookingDoc {
   verifiedAt?: Date
   createdAt: Date
   updatedAt?: Date
+  googleCalendarEventId?: string
+  googleCalendarEventLink?: string
+  googleMeetLink?: string
 }
 
 export type BookingItem = Omit<BookingDoc, '_id'> & { _id: string }
@@ -290,6 +330,11 @@ export async function getBookingsCollection(): Promise<Collection<BookingDoc>> {
   return db.collection<BookingDoc>('bookings')
 }
 
+export async function getTagsCollection(): Promise<Collection<TagDoc>> {
+  const db = await getDb()
+  return db.collection<TagDoc>('tags')
+}
+
 let indexesEnsured = false
 
 /**
@@ -313,9 +358,14 @@ export async function ensureDbIndexes(): Promise<void> {
         { weights: { name: 10, role: 5, tags: 4, about: 1 } }
       ),
       db.collection('services').createIndex({ expertId: 1, isActive: 1, sortOrder: 1 }),
+      db.collection('services').createIndex({ slug: 1 }, { unique: true, sparse: true }),
+      db.collection('services').createIndex({ bookingType: 1, serviceKind: 1, isActive: 1 }),
+      db.collection('services').createIndex({ categorySlug: 1, isActive: 1 }),
+      db.collection('services').createIndex({ tags: 1, isActive: 1 }),
       db.collection('settings').createIndex({ expertId: 1, key: 1 }),
       db.collection('date_overrides').createIndex({ expertId: 1, date: 1 }),
       db.collection('bookings').createIndex({ expertId: 1, date: 1, status: 1 }),
+      db.collection('bookings').createIndex({ serviceId: 1 }),
       db.collection('bookings').createIndex({ reference: 1 }),
       // Category & Subcategory indexes
       db.collection('categories').createIndex({ slug: 1 }, { unique: true }),
@@ -324,6 +374,9 @@ export async function ensureDbIndexes(): Promise<void> {
       db.collection('subcategories').createIndex({ categoryId: 1, isActive: 1, sortOrder: 1 }),
       db.collection('subcategories').createIndex({ slug: 1 }),
       db.collection('subcategories').createIndex({ isActive: 1 }),
+      // Tags indexes
+      db.collection('tags').createIndex({ slug: 1 }, { unique: true }),
+      db.collection('tags').createIndex({ isActive: 1 }),
     ])
     indexesEnsured = true
   } catch (err) {

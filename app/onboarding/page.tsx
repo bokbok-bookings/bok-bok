@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import { BrandLogo } from '@/components/brand/logo'
 import { CATEGORIES } from '@/lib/data/categories'
 import { AvailabilityManager } from '@/components/dashboard/availability-manager'
 
@@ -300,16 +301,11 @@ export default function OnboardingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#fbfaf7] text-[#14243b] py-12 px-5 sm:px-8">
+    <main className="min-h-screen bg-[#FFF9EE] text-[#101F49] py-12 px-5 sm:px-8">
       <div className="mx-auto max-w-3xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#eeeae4] pb-6">
-          <Link href="/" className="flex items-center gap-2.5 text-xl font-bold tracking-tight">
-            <span className="grid size-8 place-items-center rounded-[10px] bg-[#ef5b4c] text-sm font-black text-white">
-              B
-            </span>
-            Bok Bok Onboarding
-          </Link>
+        <div className="flex items-center justify-between border-b border-[#E8E2D8] pb-6">
+          <BrandLogo href="/" size="sm" subtitle="Onboarding" />
           <span className="text-xs font-bold text-[#8b94a1]">
             Step {step} of 4
           </span>
@@ -325,10 +321,10 @@ export default function OnboardingPage() {
               <div key={title} className="text-center">
                 <div
                   className={`h-1.5 rounded-full transition ${
-                    isDone || isCurrent ? 'bg-[#ef5b4c]' : 'bg-[#e7e2da]'
+                    isDone || isCurrent ? 'bg-[#2855C5]' : 'bg-[#E8E2D8]'
                   }`}
                 />
-                <p className={`mt-2 text-[11px] font-bold truncate ${isCurrent ? 'text-[#14243b]' : 'text-[#8b94a1]'}`}>
+                <p className={`mt-2 text-[11px] font-bold truncate ${isCurrent ? 'text-[#101F49]' : 'text-[#8b94a1]'}`}>
                   {title}
                 </p>
               </div>
@@ -338,23 +334,23 @@ export default function OnboardingPage() {
 
         {/* Step 1: Profile & Identity */}
         {step === 1 && (
-          <form onSubmit={handleSaveStep1} className="mt-8 rounded-3xl border border-[#e7e2da] bg-white p-6 sm:p-10 shadow-sm space-y-6">
+          <form onSubmit={handleSaveStep1} className="mt-8 rounded-3xl border border-[#E8E2D8] bg-white p-6 sm:p-10 shadow-sm space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-[#14243b]">Create your verified expert profile</h2>
+              <h2 className="text-2xl font-bold text-[#101F49]">Create your verified expert profile</h2>
               <p className="mt-1 text-xs text-[#637084]">
                 Upload your credentials and specify up to 3 primary areas of expertise.
               </p>
             </div>
 
             {/* Profile Picture & National ID Uploads */}
-            <div className="rounded-2xl border border-[#e7e2da] bg-[#faf8f5] p-5 space-y-4">
-              <h3 className="text-xs font-black uppercase tracking-wider text-[#14243b]">
+            <div className="rounded-2xl border border-[#E8E2D8] bg-[#FFF9EE] p-5 space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-wider text-[#101F49]">
                 Identity & Verification Documents *
               </h3>
 
               {/* Profile Photo */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4 border-b border-[#eeeae4] pb-4">
-                <div className="relative size-16 shrink-0 overflow-hidden rounded-2xl bg-[#e7e2da]">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 border-b border-[#E8E2D8] pb-4">
+                <div className="relative size-16 shrink-0 overflow-hidden rounded-2xl bg-[#E8E2D8]">
                   {avatarUrl ? (
                     <Image src={avatarUrl} alt="Avatar" fill className="object-cover" />
                   ) : (
@@ -364,10 +360,10 @@ export default function OnboardingPage() {
                   )}
                 </div>
                 <div className="flex-1">
-                  <p className="text-xs font-bold text-[#14243b]">Profile Picture *</p>
+                  <p className="text-xs font-bold text-[#101F49]">Profile Picture *</p>
                   <p className="text-[11px] text-[#8b94a1]">Professional, high-resolution headshot.</p>
                 </div>
-                <label className="cursor-pointer rounded-full border border-[#dedbd5] bg-white px-4 py-2 text-xs font-bold text-[#14243b] hover:border-[#14243b]">
+                <label className="cursor-pointer rounded-full border border-[#E8E2D8] bg-white px-4 py-2 text-xs font-bold text-[#101F49] hover:border-[#101F49]">
                   {uploadingAvatar ? 'Uploading...' : avatarUrl ? 'Change Photo' : 'Upload Photo'}
                   <input
                     type="file"
@@ -384,9 +380,9 @@ export default function OnboardingPage() {
               {/* National ID Front & Back */}
               <div className="grid gap-4 sm:grid-cols-2 pt-1">
                 {/* ID Front */}
-                <div className="rounded-xl border border-[#e7e2da] bg-white p-4">
+                <div className="rounded-xl border border-[#E8E2D8] bg-white p-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-[#14243b]">National ID (Front) *</p>
+                    <p className="text-xs font-bold text-[#101F49]">National ID (Front) *</p>
                     {nationalIdFrontUrl ? (
                       <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                         ✓ Uploaded
@@ -398,7 +394,7 @@ export default function OnboardingPage() {
                     )}
                   </div>
                   <p className="mt-1 text-[11px] text-[#8b94a1]">Front face of National ID card or passport.</p>
-                  <label className="mt-3 block cursor-pointer rounded-xl border border-dashed border-[#dedbd5] p-2.5 text-center text-xs font-bold text-[#14243b] hover:border-[#ef5b4c]">
+                  <label className="mt-3 block cursor-pointer rounded-xl border border-dashed border-[#E8E2D8] p-2.5 text-center text-xs font-bold text-[#101F49] hover:border-[#2855C5]">
                     {uploadingIdFront ? 'Uploading...' : nationalIdFrontUrl ? 'Replace Front ID' : 'Select Front ID Image'}
                     <input
                       type="file"
@@ -413,9 +409,9 @@ export default function OnboardingPage() {
                 </div>
 
                 {/* ID Back */}
-                <div className="rounded-xl border border-[#e7e2da] bg-white p-4">
+                <div className="rounded-xl border border-[#E8E2D8] bg-white p-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-[#14243b]">National ID (Back) *</p>
+                    <p className="text-xs font-bold text-[#101F49]">National ID (Back) *</p>
                     {nationalIdBackUrl ? (
                       <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                         ✓ Uploaded
@@ -427,7 +423,7 @@ export default function OnboardingPage() {
                     )}
                   </div>
                   <p className="mt-1 text-[11px] text-[#8b94a1]">Back side of National ID card.</p>
-                  <label className="mt-3 block cursor-pointer rounded-xl border border-dashed border-[#dedbd5] p-2.5 text-center text-xs font-bold text-[#14243b] hover:border-[#ef5b4c]">
+                  <label className="mt-3 block cursor-pointer rounded-xl border border-dashed border-[#E8E2D8] p-2.5 text-center text-xs font-bold text-[#101F49] hover:border-[#2855C5]">
                     {uploadingIdBack ? 'Uploading...' : nationalIdBackUrl ? 'Replace Back ID' : 'Select Back ID Image'}
                     <input
                       type="file"
@@ -445,40 +441,40 @@ export default function OnboardingPage() {
 
             {/* Basic Info */}
             <div className="grid gap-4 sm:grid-cols-2 pt-2">
-              <label className="text-xs font-bold text-[#14243b]">
+              <label className="text-xs font-bold text-[#101F49]">
                 Full Name *
                 <input
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Omar Wagih"
-                  className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+                  className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                 />
               </label>
-              <label className="text-xs font-bold text-[#14243b]">
+              <label className="text-xs font-bold text-[#101F49]">
                 Professional Headline *
                 <input
                   required
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
                   placeholder="e.g. Senior Product & Growth Consultant"
-                  className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+                  className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                 />
               </label>
             </div>
 
             {/* Categories & Subcategories (Max 3) */}
-            <div className="rounded-2xl border border-[#e7e2da] p-5 space-y-4">
+            <div className="rounded-2xl border border-[#E8E2D8] p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-wider text-[#14243b]">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-[#101F49]">
                     Specialty Categories (Max 3) *
                   </h3>
                   <p className="text-[11px] text-[#8b94a1] mt-0.5">
                     Select up to 3 main categories and customize their subcategories.
                   </p>
                 </div>
-                <span className="rounded-full bg-[#f4f2ee] px-2.5 py-1 text-xs font-bold text-[#14243b]">
+                <span className="rounded-full bg-[#E8EFFF] px-2.5 py-1 text-xs font-bold text-[#101F49]">
                   {selectedCategories.length} / 3 selected
                 </span>
               </div>
@@ -494,8 +490,8 @@ export default function OnboardingPage() {
                       onClick={() => toggleCategory(cat.slug)}
                       className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition ${
                         isSelected
-                          ? 'bg-[#14243b] text-white shadow-sm'
-                          : 'border border-[#dedbd5] bg-white text-[#637084] hover:border-[#14243b]'
+                          ? 'bg-[#101F49] text-white shadow-sm'
+                          : 'border border-[#E8E2D8] bg-white text-[#637084] hover:border-[#101F49]'
                       }`}
                     >
                       {cat.title?.en || cat.name?.en} {isSelected ? '✓' : '+'}
@@ -505,14 +501,14 @@ export default function OnboardingPage() {
               </div>
 
               {/* Subcategories for Selected Categories */}
-              <div className="space-y-4 pt-3 border-t border-[#eeeae4]">
+              <div className="space-y-4 pt-3 border-t border-[#E8E2D8]">
                 {selectedCategories.map((selCat) => {
                   const fullCat = categoriesList.find((c) => c.slug === selCat.categorySlug)
                   if (!fullCat) return null
                   return (
-                    <div key={selCat.categorySlug} className="rounded-xl border border-[#eeeae4] bg-[#faf8f5] p-3.5">
+                    <div key={selCat.categorySlug} className="rounded-xl border border-[#E8E2D8] bg-[#FFF9EE] p-3.5">
                       <div className="flex items-center justify-between mb-2.5">
-                        <span className="text-xs font-bold text-[#14243b]">
+                        <span className="text-xs font-bold text-[#101F49]">
                           {fullCat.title?.en || fullCat.name?.en} — <span className="text-[#8b94a1] font-normal" dir="rtl">{fullCat.title?.ar || fullCat.name?.ar}</span>
                         </span>
                         <span className="text-[10px] text-[#8b94a1]">
@@ -529,8 +525,8 @@ export default function OnboardingPage() {
                               onClick={() => toggleSubcategory(selCat.categorySlug, sub.slug)}
                               className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${
                                 isSubSelected
-                                  ? 'bg-[#ef5b4c] text-white'
-                                  : 'border border-[#dedbd5] bg-white text-[#637084] hover:border-[#ef5b4c]'
+                                  ? 'bg-[#2855C5] text-white'
+                                  : 'border border-[#E8E2D8] bg-white text-[#637084] hover:border-[#2855C5]'
                               }`}
                             >
                               {sub.title.en}
@@ -545,61 +541,61 @@ export default function OnboardingPage() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="text-xs font-bold text-[#14243b]">
+              <label className="text-xs font-bold text-[#101F49]">
                 Location
                 <input
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="e.g. Cairo, Egypt"
-                  className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+                  className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                 />
               </label>
-              <label className="text-xs font-bold text-[#14243b]">
+              <label className="text-xs font-bold text-[#101F49]">
                 InstaPay Handle or Phone Number
                 <input
                   value={instapayUsername}
                   onChange={(e) => setInstapayUsername(e.target.value)}
                   placeholder="e.g. username@instapay"
-                  className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+                  className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                 />
               </label>
             </div>
 
-            <label className="block text-xs font-bold text-[#14243b]">
+            <label className="block text-xs font-bold text-[#101F49]">
               One-Sentence Card Bio
               <input
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 placeholder="I help founders build clear roadmaps and scalable brands."
-                className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+                className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
               />
             </label>
 
-            <label className="block text-xs font-bold text-[#14243b]">
+            <label className="block text-xs font-bold text-[#101F49]">
               In-Depth About Section
               <textarea
                 rows={3}
                 value={about}
                 onChange={(e) => setAbout(e.target.value)}
                 placeholder="Share your background, achievements, and how your consultation sessions work..."
-                className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2 text-xs outline-none focus:border-[#ef5b4c]"
+                className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2 text-xs outline-none focus:border-[#2855C5]"
               />
             </label>
 
-            <label className="block text-xs font-bold text-[#14243b]">
+            <label className="block text-xs font-bold text-[#101F49]">
               Specialty Tags (Comma separated)
               <input
                 value={tagsStr}
                 onChange={(e) => setTagsStr(e.target.value)}
                 placeholder="Marketing, Growth, Strategy, Product"
-                className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+                className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
               />
             </label>
 
-            <div className="flex items-center justify-end border-t border-[#eeeae4] pt-5">
+            <div className="flex items-center justify-end border-t border-[#E8E2D8] pt-5">
               <button
                 type="submit"
-                className="rounded-full bg-[#ef5b4c] px-7 py-3 text-xs font-bold text-white shadow-sm hover:bg-[#14243b]"
+                className="rounded-full bg-[#2855C5] px-7 py-3 text-xs font-bold text-white shadow-sm hover:bg-[#101F49]"
               >
                 Continue to Services →
               </button>
@@ -609,60 +605,60 @@ export default function OnboardingPage() {
 
         {/* Step 2: First Service */}
         {step === 2 && (
-          <form onSubmit={handleSaveStep2} className="mt-8 rounded-3xl border border-[#e7e2da] bg-white p-6 sm:p-10 shadow-sm space-y-5">
+          <form onSubmit={handleSaveStep2} className="mt-8 rounded-3xl border border-[#E8E2D8] bg-white p-6 sm:p-10 shadow-sm space-y-5">
             <div>
-              <h2 className="text-2xl font-bold text-[#14243b]">Define your first consultation offering</h2>
+              <h2 className="text-2xl font-bold text-[#101F49]">Define your first consultation offering</h2>
               <p className="mt-1 text-xs text-[#637084]">
                 Create your primary offering. New services are submitted for admin approval before going live to clients.
               </p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 pt-2">
-              <label className="text-xs font-bold text-[#14243b]">
+              <label className="text-xs font-bold text-[#101F49]">
                 Service Title (English) *
                 <input
                   required
                   value={serviceTitleEn}
                   onChange={(e) => setServiceTitleEn(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+                  className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                 />
               </label>
-              <label className="text-xs font-bold text-[#14243b]">
+              <label className="text-xs font-bold text-[#101F49]">
                 Service Title (Arabic) *
                 <input
                   required
                   dir="rtl"
                   value={serviceTitleAr}
                   onChange={(e) => setServiceTitleAr(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+                  className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                 />
               </label>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="text-xs font-bold text-[#14243b]">
+              <label className="text-xs font-bold text-[#101F49]">
                 Description (English)
                 <textarea
                   rows={2}
                   value={serviceDescEn}
                   onChange={(e) => setServiceDescEn(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2 text-xs outline-none focus:border-[#ef5b4c]"
+                  className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2 text-xs outline-none focus:border-[#2855C5]"
                 />
               </label>
-              <label className="text-xs font-bold text-[#14243b]">
+              <label className="text-xs font-bold text-[#101F49]">
                 Description (Arabic)
                 <textarea
                   rows={2}
                   dir="rtl"
                   value={serviceDescAr}
                   onChange={(e) => setServiceDescAr(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2 text-xs outline-none focus:border-[#ef5b4c]"
+                  className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2 text-xs outline-none focus:border-[#2855C5]"
                 />
               </label>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="text-xs font-bold text-[#14243b]">
+              <label className="text-xs font-bold text-[#101F49]">
                 Duration (Minutes)
                 <input
                   type="number"
@@ -670,10 +666,10 @@ export default function OnboardingPage() {
                   step={15}
                   value={serviceDuration}
                   onChange={(e) => setServiceDuration(Number(e.target.value))}
-                  className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+                  className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                 />
               </label>
-              <label className="text-xs font-bold text-[#14243b]">
+              <label className="text-xs font-bold text-[#101F49]">
                 Buffer Break After (Minutes)
                 <input
                   type="number"
@@ -681,56 +677,56 @@ export default function OnboardingPage() {
                   step={5}
                   value={serviceBreak}
                   onChange={(e) => setServiceBreak(Number(e.target.value))}
-                  className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+                  className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                 />
               </label>
             </div>
 
             {/* Pricing */}
-            <div className="rounded-2xl border border-[#e7e2da] bg-[#faf8f5] p-5">
-              <h3 className="text-xs font-black uppercase tracking-wider text-[#14243b]">Multi-Currency Pricing</h3>
+            <div className="rounded-2xl border border-[#E8E2D8] bg-[#FFF9EE] p-5">
+              <h3 className="text-xs font-black uppercase tracking-wider text-[#101F49]">Multi-Currency Pricing</h3>
               <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                <label className="text-xs font-bold text-[#14243b]">
+                <label className="text-xs font-bold text-[#101F49]">
                   Price in EGP *
                   <input
                     type="number"
                     value={priceEGP}
                     onChange={(e) => setPriceEGP(Number(e.target.value))}
-                    className="mt-1.5 w-full rounded-xl border border-[#dedbd5] bg-white px-3 py-2 text-xs outline-none focus:border-[#ef5b4c]"
+                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                   />
                 </label>
-                <label className="text-xs font-bold text-[#14243b]">
+                <label className="text-xs font-bold text-[#101F49]">
                   Price in USD ($)
                   <input
                     type="number"
                     value={priceUSD}
                     onChange={(e) => setPriceUSD(Number(e.target.value))}
-                    className="mt-1.5 w-full rounded-xl border border-[#dedbd5] bg-white px-3 py-2 text-xs outline-none focus:border-[#ef5b4c]"
+                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                   />
                 </label>
-                <label className="text-xs font-bold text-[#14243b]">
+                <label className="text-xs font-bold text-[#101F49]">
                   Price in SAR (ريال)
                   <input
                     type="number"
                     value={priceSAR}
                     onChange={(e) => setPriceSAR(Number(e.target.value))}
-                    className="mt-1.5 w-full rounded-xl border border-[#dedbd5] bg-white px-3 py-2 text-xs outline-none focus:border-[#ef5b4c]"
+                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                   />
                 </label>
               </div>
             </div>
 
-            <div className="flex items-center justify-between border-t border-[#eeeae4] pt-5">
+            <div className="flex items-center justify-between border-t border-[#E8E2D8] pt-5">
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="rounded-full border border-[#dedbd5] px-5 py-2.5 text-xs font-bold text-[#637084] hover:border-[#14243b]"
+                className="rounded-full border border-[#E8E2D8] px-5 py-2.5 text-xs font-bold text-[#637084] hover:border-[#101F49]"
               >
                 ← Back
               </button>
               <button
                 type="submit"
-                className="rounded-full bg-[#ef5b4c] px-7 py-3 text-xs font-bold text-white shadow-sm hover:bg-[#14243b]"
+                className="rounded-full bg-[#2855C5] px-7 py-3 text-xs font-bold text-white shadow-sm hover:bg-[#101F49]"
               >
                 Continue to Working Hours →
               </button>
@@ -740,9 +736,9 @@ export default function OnboardingPage() {
 
         {/* Step 3: Availability */}
         {step === 3 && (
-          <div className="mt-8 rounded-3xl border border-[#e7e2da] bg-white p-6 sm:p-10 shadow-sm space-y-6">
+          <div className="mt-8 rounded-3xl border border-[#E8E2D8] bg-white p-6 sm:p-10 shadow-sm space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-[#14243b]">Set your regular working hours</h2>
+              <h2 className="text-2xl font-bold text-[#101F49]">Set your regular working hours</h2>
               <p className="mt-1 text-xs text-[#637084]">
                 Clients will only be able to book during times you specify here. You can fine-tune holidays anytime later.
               </p>
@@ -753,18 +749,18 @@ export default function OnboardingPage() {
               showExpertPicker={false}
             />
 
-            <div className="flex items-center justify-between border-t border-[#eeeae4] pt-5">
+            <div className="flex items-center justify-between border-t border-[#E8E2D8] pt-5">
               <button
                 type="button"
                 onClick={() => setStep(2)}
-                className="rounded-full border border-[#dedbd5] px-5 py-2.5 text-xs font-bold text-[#637084] hover:border-[#14243b]"
+                className="rounded-full border border-[#E8E2D8] px-5 py-2.5 text-xs font-bold text-[#637084] hover:border-[#101F49]"
               >
                 ← Back
               </button>
               <button
                 type="button"
                 onClick={() => setStep(4)}
-                className="rounded-full bg-[#ef5b4c] px-7 py-3 text-xs font-bold text-white shadow-sm hover:bg-[#14243b]"
+                className="rounded-full bg-[#2855C5] px-7 py-3 text-xs font-bold text-white shadow-sm hover:bg-[#101F49]"
               >
                 Proceed to Review →
               </button>
@@ -774,35 +770,35 @@ export default function OnboardingPage() {
 
         {/* Step 4: Review & Submit */}
         {step === 4 && (
-          <div className="mt-8 rounded-3xl border border-[#e7e2da] bg-white p-6 sm:p-10 shadow-sm space-y-6">
+          <div className="mt-8 rounded-3xl border border-[#E8E2D8] bg-white p-6 sm:p-10 shadow-sm space-y-6">
             <div>
-              <h2 className="text-2xl font-bold text-[#14243b]">Ready to submit for review</h2>
+              <h2 className="text-2xl font-bold text-[#101F49]">Ready to submit for review</h2>
               <p className="mt-1 text-xs text-[#637084]">
                 Once submitted, your profile and initial offering will be reviewed by an administrator.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-[#eeeae4] bg-[#faf8f5] p-5 space-y-3 text-xs">
-              <div className="flex items-center gap-4 border-b border-[#eeeae4] pb-3">
-                <div className="relative size-14 shrink-0 overflow-hidden rounded-2xl bg-[#e7e2da]">
+            <div className="rounded-2xl border border-[#E8E2D8] bg-[#FFF9EE] p-5 space-y-3 text-xs">
+              <div className="flex items-center gap-4 border-b border-[#E8E2D8] pb-3">
+                <div className="relative size-14 shrink-0 overflow-hidden rounded-2xl bg-[#E8E2D8]">
                   {avatarUrl && <Image src={avatarUrl} alt={name} fill className="object-cover" />}
                 </div>
                 <div>
-                  <strong className="text-sm text-[#14243b]">{name}</strong>
+                  <strong className="text-sm text-[#101F49]">{name}</strong>
                   <p className="text-xs text-[#637084]">{role}</p>
                 </div>
               </div>
 
-              <div className="flex justify-between border-b border-[#eeeae4] pb-2">
+              <div className="flex justify-between border-b border-[#E8E2D8] pb-2">
                 <span className="text-[#8b94a1]">National ID (Front & Back):</span>
                 <strong className={nationalIdFrontUrl && nationalIdBackUrl ? 'text-emerald-700' : 'text-red-600'}>
                   {nationalIdFrontUrl && nationalIdBackUrl ? '✓ Both sides uploaded' : 'Missing required ID documents'}
                 </strong>
               </div>
 
-              <div className="flex justify-between border-b border-[#eeeae4] pb-2">
+              <div className="flex justify-between border-b border-[#E8E2D8] pb-2">
                 <span className="text-[#8b94a1]">Selected Categories:</span>
-                <strong className="text-[#14243b] text-right">
+                <strong className="text-[#101F49] text-right">
                   {selectedCategories.map((c) => {
                     const found = CATEGORIES.find((cat) => cat.slug === c.categorySlug)
                     return found?.title.en
@@ -810,22 +806,22 @@ export default function OnboardingPage() {
                 </strong>
               </div>
 
-              <div className="flex justify-between border-b border-[#eeeae4] pb-2">
+              <div className="flex justify-between border-b border-[#E8E2D8] pb-2">
                 <span className="text-[#8b94a1]">Primary Offering:</span>
-                <strong className="text-[#14243b]">{serviceTitleEn} ({serviceDuration} min — {priceEGP} EGP)</strong>
+                <strong className="text-[#101F49]">{serviceTitleEn} ({serviceDuration} min — {priceEGP} EGP)</strong>
               </div>
 
               <div className="flex justify-between">
                 <span className="text-[#8b94a1]">InstaPay Handle:</span>
-                <strong className="text-[#14243b]">{instapayUsername || 'Not provided yet'}</strong>
+                <strong className="text-[#101F49]">{instapayUsername || 'Not provided yet'}</strong>
               </div>
             </div>
 
-            <div className="flex items-center justify-between border-t border-[#eeeae4] pt-5">
+            <div className="flex items-center justify-between border-t border-[#E8E2D8] pt-5">
               <button
                 type="button"
                 onClick={() => setStep(3)}
-                className="rounded-full border border-[#dedbd5] px-5 py-2.5 text-xs font-bold text-[#637084] hover:border-[#14243b]"
+                className="rounded-full border border-[#E8E2D8] px-5 py-2.5 text-xs font-bold text-[#637084] hover:border-[#101F49]"
               >
                 ← Back
               </button>
@@ -833,7 +829,7 @@ export default function OnboardingPage() {
                 type="button"
                 disabled={submitting || !avatarUrl || !nationalIdFrontUrl || !nationalIdBackUrl}
                 onClick={handleSubmitForReview}
-                className="rounded-full bg-[#14243b] px-8 py-3 text-xs font-bold text-white shadow-sm hover:bg-[#ef5b4c] disabled:opacity-50"
+                className="rounded-full bg-[#101F49] px-8 py-3 text-xs font-bold text-white shadow-sm hover:bg-[#2855C5] disabled:opacity-50"
               >
                 {submitting ? 'Submitting...' : 'Submit Profile for Admin Approval ✓'}
               </button>
@@ -844,3 +840,4 @@ export default function OnboardingPage() {
     </main>
   )
 }
+
