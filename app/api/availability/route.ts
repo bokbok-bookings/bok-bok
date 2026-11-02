@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { NextResponse } from 'next/server'
 import {
   getExpertUpcomingDays,
@@ -7,6 +8,7 @@ import {
   getCanonicalExpertObjectId,
 } from '@/lib/availability-server'
 import { toObjectId, getServicesCollection, getExpertsCollection } from '@/lib/db'
+import { computeSessionBounds } from '@/lib/email/scheduler'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,6 +81,7 @@ export async function POST(request: Request) {
     // Backend verification of Service & Price/Duration
     const servicesCol = await getServicesCollection()
     const expertsCol = await getExpertsCollection()
+    const expertDoc = await expertsCol.findOne({ _id: expertObjId })
 
     let verifiedDuration = 45
     let verifiedBreak = 0
@@ -128,20 +131,37 @@ export async function POST(request: Request) {
           )
 
           const reference = `EV-${Math.floor(1000 + Math.random() * 9000)}`
+          const finalDate = eventDate || date
+          const finalTime = eventTime
+          const finalDuration = serviceDoc.durationMinutes || 60
+          const bounds = computeSessionBounds(finalDate, finalTime, finalDuration, 'Africa/Cairo')
+          const rescheduleToken = crypto.randomBytes(24).toString('hex')
+
           const booking = await createExpertBooking({
             reference,
             expertId,
             expertSlug,
             serviceId: serviceDoc._id,
             serviceTitle: verifiedServiceTitle,
-            date: eventDate || date,
-            time: eventTime,
+            date: finalDate,
+            time: finalTime,
             clientName: clientName.trim(),
             clientEmail: (clientEmail || '').trim(),
             clientPhone: (clientPhone || '').trim(),
-            durationMinutes: serviceDoc.durationMinutes || 60,
+            durationMinutes: finalDuration,
             amount: verifiedAmount,
             currency: verifiedCurrency,
+            deliveryMode: serviceDoc.deliveryMode || 'ONLINE',
+            timezone: 'Africa/Cairo',
+            sessionStartAt: bounds.sessionStartAt,
+            sessionEndAt: bounds.sessionEndAt,
+            rescheduleToken,
+            rescheduleDeadlineHours: expertDoc?.rescheduleDeadlineHours || 24,
+            attendanceStatus: 'pending',
+            googleMeetLink:
+              serviceDoc.deliveryMode !== 'IN_PERSON'
+                ? serviceDoc.event?.joinUrl || expertDoc?.defaultGoogleMeetLink || undefined
+                : undefined,
             paymentMethod: 'instapay',
             paymentStatus: paymentReceiptUrl ? 'receipt_uploaded' : 'pending',
             paymentReceiptUrl: paymentReceiptUrl || undefined,
@@ -193,6 +213,9 @@ export async function POST(request: Request) {
     }
 
     const reference = `BK-${Math.floor(1000 + Math.random() * 9000)}`
+    const deliveryMode = serviceDoc?.deliveryMode || 'ONLINE'
+    const bounds = computeSessionBounds(date, time, verifiedDuration, 'Africa/Cairo')
+    const rescheduleToken = crypto.randomBytes(24).toString('hex')
 
     const booking = await createExpertBooking({
       reference,
@@ -208,6 +231,17 @@ export async function POST(request: Request) {
       durationMinutes: verifiedDuration,
       amount: verifiedAmount,
       currency: verifiedCurrency,
+      deliveryMode,
+      timezone: 'Africa/Cairo',
+      sessionStartAt: bounds.sessionStartAt,
+      sessionEndAt: bounds.sessionEndAt,
+      rescheduleToken,
+      rescheduleDeadlineHours: expertDoc?.rescheduleDeadlineHours || 24,
+      attendanceStatus: 'pending',
+      googleMeetLink:
+        deliveryMode !== 'IN_PERSON'
+          ? expertDoc?.defaultGoogleMeetLink || undefined
+          : undefined,
       paymentMethod: 'instapay',
       paymentStatus: paymentReceiptUrl ? 'receipt_uploaded' : 'pending',
       paymentReceiptUrl: paymentReceiptUrl || undefined,

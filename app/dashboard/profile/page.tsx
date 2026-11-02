@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { BokBok } from '@/components/brand/bok-bok'
 import { CATEGORIES } from '@/lib/data/categories'
+import { CloudinaryUploadWidget } from '@/components/ui/cloudinary-upload-widget'
 
 export default function ExpertProfilePage() {
   const [loading, setLoading] = useState(true)
@@ -175,17 +176,24 @@ export default function ExpertProfilePage() {
             )}
           </div>
           <div>
-            <label className="inline-block cursor-pointer rounded-full border border-[#dedbd5] bg-white px-4 py-2 text-xs font-bold text-[#14243b] hover:border-[#14243b]">
-              {uploadingImage ? 'Uploading...' : 'Change Profile Photo'}
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                disabled={uploadingImage}
-                className="hidden"
-              />
-            </label>
-            <p className="mt-1 text-[11px] text-[#8b94a1]">JPG, PNG or WebP under 5MB</p>
+            <CloudinaryUploadWidget
+              folder="bokbok/avatars"
+              cropping={true}
+              croppingAspectRatio={1}
+              fallbackType="avatar"
+              onSuccess={(result) => {
+                setImage(result.url)
+                setMessage('Photo uploaded & compressed. Click "Save Profile" below to apply.')
+              }}
+            >
+              <button
+                type="button"
+                className="inline-block cursor-pointer rounded-full border border-[#dedbd5] bg-white px-4 py-2 text-xs font-bold text-[#14243b] hover:border-[#14243b] hover:shadow-sm transition"
+              >
+                Change Profile Photo
+              </button>
+            </CloudinaryUploadWidget>
+            <p className="mt-1 text-[11px] text-[#8b94a1]">Cloudinary Widget (1:1 Crop, Auto-compressed WebP)</p>
           </div>
         </div>
 

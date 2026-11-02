@@ -7,6 +7,7 @@ import { BrandLogo } from '@/components/brand/logo'
 import { useRouter } from 'next/navigation'
 import { BookingsManager } from '@/components/dashboard/bookings-manager'
 import { CategoriesManager } from '@/components/dashboard/categories-manager'
+import { AttendanceManager } from '@/components/dashboard/attendance-manager'
 
 interface ExpertItem {
   _id: string
@@ -85,7 +86,7 @@ interface UserItem {
 export default function AdminConsolePage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<
-    'queue' | 'services' | 'bookings' | 'categories' | 'experts' | 'users' | 'tags'
+    'queue' | 'services' | 'bookings' | 'attendance' | 'categories' | 'experts' | 'users' | 'tags'
   >('queue')
   const [loading, setLoading] = useState(true)
 
@@ -187,7 +188,7 @@ export default function AdminConsolePage() {
       const urlTab = new URLSearchParams(window.location.search).get('tab')
       if (
         urlTab &&
-        ['queue', 'services', 'bookings', 'categories', 'experts', 'users', 'tags'].includes(urlTab)
+        ['queue', 'services', 'bookings', 'attendance', 'categories', 'experts', 'users', 'tags'].includes(urlTab)
       ) {
         setActiveTab(urlTab as any)
       }
@@ -423,6 +424,7 @@ export default function AdminConsolePage() {
             { id: 'queue', label: `Expert Queue (${pendingExperts.length})` },
             { id: 'services', label: `Services Review (${pendingServicesList.length})` },
             { id: 'bookings', label: 'All Bookings & Receipts' },
+            { id: 'attendance', label: 'Attendance & Disputes' },
             { id: 'categories', label: 'Categories & Subcategories' },
             { id: 'experts', label: `Directory Experts (${experts.length})` },
             { id: 'users', label: `Users & Staff (${users.length})` },
@@ -715,6 +717,13 @@ export default function AdminConsolePage() {
         {activeTab === 'bookings' && (
           <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-6">
             <BookingsManager isAdmin={true} />
+          </div>
+        )}
+
+        {/* TAB: Attendance Tracking & Disputes */}
+        {activeTab === 'attendance' && (
+          <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-6">
+            <AttendanceManager />
           </div>
         )}
 

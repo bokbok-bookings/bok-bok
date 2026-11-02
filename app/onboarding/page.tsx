@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { BrandLogo } from '@/components/brand/logo'
 import { CATEGORIES } from '@/lib/data/categories'
 import { AvailabilityManager } from '@/components/dashboard/availability-manager'
+import { CloudinaryUploadWidget } from '@/components/ui/cloudinary-upload-widget'
 
 interface SelectedCategoryItem {
   categorySlug: string
@@ -363,18 +364,20 @@ export default function OnboardingPage() {
                   <p className="text-xs font-bold text-[#101F49]">Profile Picture *</p>
                   <p className="text-[11px] text-[#8b94a1]">Professional, high-resolution headshot.</p>
                 </div>
-                <label className="cursor-pointer rounded-full border border-[#E8E2D8] bg-white px-4 py-2 text-xs font-bold text-[#101F49] hover:border-[#101F49]">
-                  {uploadingAvatar ? 'Uploading...' : avatarUrl ? 'Change Photo' : 'Upload Photo'}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0]
-                      if (f) handleUploadFile(f, 'avatar', setAvatarUrl, setUploadingAvatar)
-                    }}
-                  />
-                </label>
+                <CloudinaryUploadWidget
+                  folder="bokbok/avatars"
+                  cropping={true}
+                  croppingAspectRatio={1}
+                  fallbackType="avatar"
+                  onSuccess={(result) => setAvatarUrl(result.url)}
+                >
+                  <button
+                    type="button"
+                    className="cursor-pointer rounded-full border border-[#E8E2D8] bg-white px-4 py-2 text-xs font-bold text-[#101F49] hover:border-[#101F49] hover:shadow-sm transition"
+                  >
+                    {avatarUrl ? 'Change Photo' : 'Upload Photo'}
+                  </button>
+                </CloudinaryUploadWidget>
               </div>
 
               {/* National ID Front & Back */}
@@ -394,18 +397,39 @@ export default function OnboardingPage() {
                     )}
                   </div>
                   <p className="mt-1 text-[11px] text-[#8b94a1]">Front face of National ID card or passport.</p>
-                  <label className="mt-3 block cursor-pointer rounded-xl border border-dashed border-[#E8E2D8] p-2.5 text-center text-xs font-bold text-[#101F49] hover:border-[#2855C5]">
-                    {uploadingIdFront ? 'Uploading...' : nationalIdFrontUrl ? 'Replace Front ID' : 'Select Front ID Image'}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0]
-                        if (f) handleUploadFile(f, 'id_document', setNationalIdFrontUrl, setUploadingIdFront)
-                      }}
-                    />
-                  </label>
+                  {nationalIdFrontUrl ? (
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50/50 p-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={nationalIdFrontUrl}
+                        alt="ID Front"
+                        className="size-10 rounded-lg object-cover border border-emerald-200 shrink-0"
+                      />
+                      <CloudinaryUploadWidget
+                        folder="bokbok/national_ids"
+                        fallbackType="id_document"
+                        onSuccess={(result) => setNationalIdFrontUrl(result.url)}
+                      >
+                        <button
+                          type="button"
+                          className="text-xs font-bold text-emerald-700 hover:text-emerald-900 underline"
+                        >
+                          Replace Front ID
+                        </button>
+                      </CloudinaryUploadWidget>
+                    </div>
+                  ) : (
+                    <CloudinaryUploadWidget
+                      folder="bokbok/national_ids"
+                      fallbackType="id_document"
+                      onSuccess={(result) => setNationalIdFrontUrl(result.url)}
+                      className="mt-3 block"
+                    >
+                      <div className="cursor-pointer rounded-xl border border-dashed border-[#E8E2D8] p-2.5 text-center text-xs font-bold text-[#101F49] hover:border-[#2855C5] transition">
+                        Select Front ID Image
+                      </div>
+                    </CloudinaryUploadWidget>
+                  )}
                 </div>
 
                 {/* ID Back */}
@@ -423,18 +447,39 @@ export default function OnboardingPage() {
                     )}
                   </div>
                   <p className="mt-1 text-[11px] text-[#8b94a1]">Back side of National ID card.</p>
-                  <label className="mt-3 block cursor-pointer rounded-xl border border-dashed border-[#E8E2D8] p-2.5 text-center text-xs font-bold text-[#101F49] hover:border-[#2855C5]">
-                    {uploadingIdBack ? 'Uploading...' : nationalIdBackUrl ? 'Replace Back ID' : 'Select Back ID Image'}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0]
-                        if (f) handleUploadFile(f, 'id_document', setNationalIdBackUrl, setUploadingIdBack)
-                      }}
-                    />
-                  </label>
+                  {nationalIdBackUrl ? (
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50/50 p-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={nationalIdBackUrl}
+                        alt="ID Back"
+                        className="size-10 rounded-lg object-cover border border-emerald-200 shrink-0"
+                      />
+                      <CloudinaryUploadWidget
+                        folder="bokbok/national_ids"
+                        fallbackType="id_document"
+                        onSuccess={(result) => setNationalIdBackUrl(result.url)}
+                      >
+                        <button
+                          type="button"
+                          className="text-xs font-bold text-emerald-700 hover:text-emerald-900 underline"
+                        >
+                          Replace Back ID
+                        </button>
+                      </CloudinaryUploadWidget>
+                    </div>
+                  ) : (
+                    <CloudinaryUploadWidget
+                      folder="bokbok/national_ids"
+                      fallbackType="id_document"
+                      onSuccess={(result) => setNationalIdBackUrl(result.url)}
+                      className="mt-3 block"
+                    >
+                      <div className="cursor-pointer rounded-xl border border-dashed border-[#E8E2D8] p-2.5 text-center text-xs font-bold text-[#101F49] hover:border-[#2855C5] transition">
+                        Select Back ID Image
+                      </div>
+                    </CloudinaryUploadWidget>
+                  )}
                 </div>
               </div>
             </div>

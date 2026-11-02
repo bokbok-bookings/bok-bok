@@ -6,8 +6,10 @@ import {
   saveExpertDateOverride,
   removeExpertDateOverride,
   getCanonicalExpertId,
+  getCanonicalExpertObjectId,
 } from '@/lib/availability-server'
 import { DEFAULT_SLOT_INTERVAL } from '@/lib/data/availability'
+import { getExpertsCollection } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,8 +23,12 @@ export async function GET(request: Request) {
       '6708a0000000000000000001'
 
     const expertId = await getCanonicalExpertId(rawExpertId)
+    const expertObjId = await getCanonicalExpertObjectId(rawExpertId)
     const settings = await getExpertAvailabilitySettings(expertId)
     const overrides = await getExpertDateOverrides(expertId)
+
+    const expertsCol = await getExpertsCollection()
+    const expertDoc = await expertsCol.findOne({ _id: expertObjId })
 
     return NextResponse.json({
       success: true,
@@ -30,6 +36,8 @@ export async function GET(request: Request) {
         expertId,
         weeklySchedule: settings.weeklySchedule,
         slotIntervalMinutes: settings.slotIntervalMinutes,
+        rescheduleDeadlineHours: expertDoc?.rescheduleDeadlineHours || 24,
+        defaultGoogleMeetLink: expertDoc?.defaultGoogleMeetLink || '',
         overrides,
       },
     })
@@ -46,7 +54,7 @@ export async function PUT(request: Request) {
   try {
     const body = await request.json()
     const rawExpertId = body.expertId || body.expertSlug
-    const { weeklySchedule, slotIntervalMinutes } = body
+    const { weeklySchedule, slotIntervalMinutes, rescheduleDeadlineHours, defaultGoogleMeetLink } = body
 
     if (!rawExpertId) {
       return NextResponse.json(
@@ -63,10 +71,24 @@ export async function PUT(request: Request) {
     }
 
     const expertId = await getCanonicalExpertId(rawExpertId)
+    const expertObjId = await getCanonicalExpertObjectId(rawExpertId)
     const updated = await saveExpertAvailabilitySettings(expertId, {
       weeklySchedule,
       slotIntervalMinutes: Number(slotIntervalMinutes) || DEFAULT_SLOT_INTERVAL,
     })
+
+    const expertUpdates: any = {}
+    if (rescheduleDeadlineHours !== undefined) {
+      expertUpdates.rescheduleDeadlineHours = Number(rescheduleDeadlineHours) || 24
+    }
+    if (defaultGoogleMeetLink !== undefined) {
+      expertUpdates.defaultGoogleMeetLink = String(defaultGoogleMeetLink).trim()
+    }
+
+    if (Object.keys(expertUpdates).length > 0) {
+      const expertsCol = await getExpertsCollection()
+      await expertsCol.updateOne({ _id: expertObjId }, { $set: expertUpdates })
+    }
 
     return NextResponse.json({
       success: true,

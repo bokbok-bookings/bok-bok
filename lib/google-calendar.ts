@@ -186,6 +186,43 @@ export async function createCalendarEvent(
 }
 
 /**
+ * Update Google Calendar event time when a booking is rescheduled
+ */
+export async function updateCalendarEvent(
+  eventId: string,
+  input: { date: string; time: string; durationMinutes: number }
+): Promise<void> {
+  if (!eventId) return
+  try {
+    const calendar = await getOAuthCalendarClient()
+    const startDateTime = `${input.date}T${input.time}:00`
+    const startDate = new Date(`${input.date}T${input.time}:00`)
+    startDate.setMinutes(startDate.getMinutes() + input.durationMinutes)
+    const endHours = String(startDate.getHours()).padStart(2, '0')
+    const endMinutes = String(startDate.getMinutes()).padStart(2, '0')
+    const endDateTime = `${input.date}T${endHours}:${endMinutes}:00`
+
+    await calendar.events.patch({
+      calendarId: 'primary',
+      eventId,
+      sendUpdates: 'all',
+      requestBody: {
+        start: {
+          dateTime: startDateTime,
+          timeZone: 'Africa/Cairo',
+        },
+        end: {
+          dateTime: endDateTime,
+          timeZone: 'Africa/Cairo',
+        },
+      },
+    })
+  } catch (error: any) {
+    console.error('[Google Calendar] Failed to update event:', error.message)
+  }
+}
+
+/**
  * Delete event when booking is cancelled or rejected
  */
 export async function deleteCalendarEvent(eventId: string): Promise<void> {
@@ -222,7 +259,7 @@ export async function confirmBookingAndCreateCalendar(bookingIdOrReference: stri
   }
 
   // Already has calendar event
-  if ((booking as any).googleCalendarEventId) {
+  if ((booking as any).googleCalendarEventId && booking.googleMeetLink) {
     return booking
   }
 
@@ -274,6 +311,7 @@ export async function confirmBookingAndCreateCalendar(bookingIdOrReference: stri
     googleCalendarEventId: calendarResult.eventId,
     googleCalendarEventLink: calendarResult.eventLink,
     googleMeetLink: calendarResult.meetLink,
+    googleMeetUpdatedAt: new Date(),
     updatedAt: new Date(),
   }
 

@@ -1,4 +1,8 @@
+import 'server-only'
 import { v2 as cloudinary } from 'cloudinary'
+import { optimizeCloudinaryUrl } from './cloudinary-client'
+
+export * from './cloudinary-client'
 
 const cloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || ''
 const apiKey = process.env.CLOUDINARY_API_KEY || ''
@@ -21,15 +25,23 @@ export interface CloudinaryUploadResult {
   public_id: string
   format: string
   bytes: number
+  width?: number
+  height?: number
 }
 
 export async function uploadBuffer(
   buffer: Buffer,
-  folder = 'bokbok/uploads'
+  folder = 'bokbok/uploads',
+  options: {
+    maxWidth?: number
+    maxHeight?: number
+    quality?: 'auto' | 'auto:good' | 'auto:eco'
+  } = {}
 ): Promise<CloudinaryUploadResult> {
+  const { maxWidth = 1920, maxHeight = 1920, quality = 'auto:good' } = options
+
   if (!isCloudinaryConfigured) {
-    // Graceful fallback for development before user supplies Cloudinary keys:
-    // Store as data URI so the application remains 100% testable
+    // Graceful fallback for development before Cloudinary keys are supplied
     const base64 = buffer.toString('base64')
     const mime = 'image/jpeg'
     const dataUrl = `data:${mime};base64,${base64}`
@@ -46,18 +58,31 @@ export async function uploadBuffer(
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder,
-        resource_type: 'auto',
+        resource_type: 'image',
+        // High compression + automatic next-gen formatting upon upload
+        transformation: [
+          { width: maxWidth, height: maxHeight, crop: 'limit' },
+          { quality },
+          { fetch_format: 'auto' },
+        ],
+        // Strip unnecessary EXIF metadata to minimize byte weight
+        flags: 'strip_profile',
       },
       (error, result) => {
         if (error || !result) {
           reject(error || new Error('Upload failed'))
         } else {
+          const compressedSecureUrl = optimizeCloudinaryUrl(result.secure_url, {
+            quality,
+          })
           resolve({
-            url: result.url,
-            secure_url: result.secure_url,
+            url: compressedSecureUrl,
+            secure_url: compressedSecureUrl,
             public_id: result.public_id,
             format: result.format,
             bytes: result.bytes,
+            width: result.width,
+            height: result.height,
           })
         }
       }
@@ -67,11 +92,11 @@ export async function uploadBuffer(
 }
 
 export async function uploadReceiptBuffer(buffer: Buffer): Promise<CloudinaryUploadResult> {
-  return uploadBuffer(buffer, 'bokbok/receipts')
+  return uploadBuffer(buffer, 'bokbok/receipts', { maxWidth: 1600, quality: 'auto:good' })
 }
 
 export async function uploadAvatarBuffer(buffer: Buffer): Promise<CloudinaryUploadResult> {
-  return uploadBuffer(buffer, 'bokbok/avatars')
+  return uploadBuffer(buffer, 'bokbok/avatars', { maxWidth: 800, maxHeight: 800, quality: 'auto:good' })
 }
 
 export default cloudinary
