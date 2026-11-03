@@ -22,8 +22,21 @@ export interface Category {
 }
 
 /**
- * Resilient static fallback representing the 11 Bok Bok top-level categories.
- * Stored and synchronized with MongoDB database collections.
+ * Categories explicitly removed from active use in the reduced-risk MVP scope.
+ * Historical bookings and transactions referencing these remain preserved,
+ * while any offers under them are unpublished/deactivated and new offers are blocked.
+ */
+export const REMOVED_CATEGORY_SLUGS = [
+  'education-learning',
+  'fitness-wellness',
+  'photography-videography',
+  'beauty-personal-care',
+  'travel-tourism',
+] as const
+
+/**
+ * Allowed MVP taxonomy (9 top-level categories and 63 approved subcategories)
+ * for Consultations, Workshops, and Webinars.
  */
 export const CATEGORIES: Category[] = [
   {
@@ -31,22 +44,20 @@ export const CATEGORIES: Category[] = [
     slug: 'marketing',
     title: { en: 'Marketing', ar: 'التسويق' },
     description: {
-      en: 'Digital marketing, SEO, paid ads, branding, and growth strategies.',
-      ar: 'التسويق الرقمي، تحسين محركات البحث، الإعلانات، وبناء العلامات التجارية.',
+      en: 'Marketing strategy, content, social media, SEO, branding, and campaign reviews.',
+      ar: 'استراتيجيات التسويق، التسويق بالمحتوى، وسائل التواصل الاجتماعي، تحسين محركات البحث، ومراجعة الحملات.',
     },
     isActive: true,
     sortOrder: 1,
     subcategories: [
-      { id: 'digital-marketing', slug: 'digital-marketing', title: { en: 'Digital Marketing', ar: 'التسويق الرقمي' } },
-      { id: 'social-media-marketing', slug: 'social-media-marketing', title: { en: 'Social Media Marketing', ar: 'التسويق عبر وسائل التواصل الاجتماعي' } },
-      { id: 'seo-search-engine-optimization', slug: 'seo-search-engine-optimization', title: { en: 'Search Engine Optimization (SEO)', ar: 'تحسين محركات البحث' } },
-      { id: 'paid-advertising', slug: 'paid-advertising', title: { en: 'Paid Advertising', ar: 'الإعلانات المدفوعة' } },
-      { id: 'content-marketing', slug: 'content-marketing', title: { en: 'Content Marketing', ar: 'التسويق بالمحتوى' } },
-      { id: 'branding-positioning', slug: 'branding-positioning', title: { en: 'Branding & Positioning', ar: 'بناء العلامة التجارية وتحديد مكانتها' } },
-      { id: 'email-marketing', slug: 'email-marketing', title: { en: 'Email Marketing', ar: 'التسويق عبر البريد الإلكتروني' } },
-      { id: 'marketing-strategy', slug: 'marketing-strategy', title: { en: 'Marketing Strategy', ar: 'استراتيجيات التسويق' } },
-      { id: 'public-relations', slug: 'public-relations', title: { en: 'Public Relations', ar: 'العلاقات العامة' } },
-      { id: 'marketing-analytics', slug: 'marketing-analytics', title: { en: 'Marketing Analytics', ar: 'تحليل بيانات التسويق' } },
+      { id: 'marketing-strategy', slug: 'marketing-strategy', title: { en: 'Marketing Strategy', ar: 'استراتيجية التسويق' }, isActive: true, sortOrder: 1 },
+      { id: 'content-marketing', slug: 'content-marketing', title: { en: 'Content Marketing', ar: 'التسويق بالمحتوى' }, isActive: true, sortOrder: 2 },
+      { id: 'social-media-strategy', slug: 'social-media-strategy', title: { en: 'Social Media Strategy', ar: 'استراتيجية وسائل التواصل الاجتماعي' }, isActive: true, sortOrder: 3 },
+      { id: 'seo', slug: 'seo', title: { en: 'SEO', ar: 'تحسين محركات البحث (SEO)' }, isActive: true, sortOrder: 4 },
+      { id: 'email-marketing-strategy', slug: 'email-marketing-strategy', title: { en: 'Email Marketing Strategy', ar: 'استراتيجية التسويق عبر البريد الإلكتروني' }, isActive: true, sortOrder: 5 },
+      { id: 'branding-brand-strategy', slug: 'branding-brand-strategy', title: { en: 'Branding & Brand Strategy', ar: 'بناء العلامة التجارية واستراتيجيتها' }, isActive: true, sortOrder: 6 },
+      { id: 'personal-branding', slug: 'personal-branding', title: { en: 'Personal Branding', ar: 'بناء العلامة الشخصية' }, isActive: true, sortOrder: 7 },
+      { id: 'campaign-review', slug: 'campaign-review', title: { en: 'Campaign Review', ar: 'مراجعة الحملات التسويقية' }, isActive: true, sortOrder: 8 },
     ],
   },
   {
@@ -54,22 +65,20 @@ export const CATEGORIES: Category[] = [
     slug: 'business-entrepreneurship',
     title: { en: 'Business & Entrepreneurship', ar: 'الأعمال وريادة الأعمال' },
     description: {
-      en: 'Business strategy, startup founding, planning, sales, and operations.',
-      ar: 'استراتيجيات الأعمال، تأسيس الشركات، المبيعات، وإدارة العمليات.',
+      en: 'Business planning, startup mentoring, market research, pricing, sales, and small business management.',
+      ar: 'تخطيط الأعمال، إرشاد الشركات الناشئة، أبحاث السوق، التسعير، المبيعات، وإدارة المشاريع الصغيرة.',
     },
     isActive: true,
     sortOrder: 2,
     subcategories: [
-      { id: 'business-strategy', slug: 'business-strategy', title: { en: 'Business Strategy', ar: 'استراتيجيات الأعمال' } },
-      { id: 'starting-a-business', slug: 'starting-a-business', title: { en: 'Starting a Business', ar: 'تأسيس المشاريع' } },
-      { id: 'business-planning', slug: 'business-planning', title: { en: 'Business Planning', ar: 'تخطيط الأعمال' } },
-      { id: 'business-development', slug: 'business-development', title: { en: 'Business Development', ar: 'تطوير الأعمال' } },
-      { id: 'sales-strategy', slug: 'sales-strategy', title: { en: 'Sales Strategy', ar: 'استراتيجيات المبيعات' } },
-      { id: 'ecommerce', slug: 'ecommerce', title: { en: 'E-commerce', ar: 'التجارة الإلكترونية' } },
-      { id: 'financial-planning-businesses', slug: 'financial-planning-businesses', title: { en: 'Financial Planning for Businesses', ar: 'التخطيط المالي للمشروعات' } },
-      { id: 'operations-management', slug: 'operations-management', title: { en: 'Operations Management', ar: 'إدارة العمليات' } },
-      { id: 'leadership-management', slug: 'leadership-management', title: { en: 'Leadership & Management', ar: 'القيادة والإدارة' } },
-      { id: 'startup-growth', slug: 'startup-growth', title: { en: 'Startup Growth', ar: 'نمو الشركات الناشئة' } },
+      { id: 'business-planning', slug: 'business-planning', title: { en: 'Business Planning', ar: 'تخطيط الأعمال' }, isActive: true, sortOrder: 1 },
+      { id: 'business-model-development', slug: 'business-model-development', title: { en: 'Business Model Development', ar: 'تطوير نماذج الأعمال' }, isActive: true, sortOrder: 2 },
+      { id: 'startup-mentoring', slug: 'startup-mentoring', title: { en: 'Startup Mentoring', ar: 'إرشاد الشركات الناشئة' }, isActive: true, sortOrder: 3 },
+      { id: 'market-research', slug: 'market-research', title: { en: 'Market Research', ar: 'أبحاث السوق' }, isActive: true, sortOrder: 4 },
+      { id: 'pricing-strategy', slug: 'pricing-strategy', title: { en: 'Pricing Strategy', ar: 'استراتيجيات التسعير' }, isActive: true, sortOrder: 5 },
+      { id: 'sales-negotiation', slug: 'sales-negotiation', title: { en: 'Sales & Negotiation', ar: 'المبيعات والتفاوض' }, isActive: true, sortOrder: 6 },
+      { id: 'ecommerce-strategy', slug: 'ecommerce-strategy', title: { en: 'E-commerce Strategy', ar: 'استراتيجيات التجارة الإلكترونية' }, isActive: true, sortOrder: 7 },
+      { id: 'small-business-management', slug: 'small-business-management', title: { en: 'Small Business Management', ar: 'إدارة المشاريع الصغيرة' }, isActive: true, sortOrder: 8 },
     ],
   },
   {
@@ -77,22 +86,21 @@ export const CATEGORIES: Category[] = [
     slug: 'technology-it',
     title: { en: 'Technology & IT', ar: 'التكنولوجيا وتقنية المعلومات' },
     description: {
-      en: 'Web development, mobile apps, software engineering, AI, and cybersecurity.',
-      ar: 'تطوير الويب والتطبيقات، هندسة البرمجيات، الذكاء الاصطناعي، والأمن السيبراني.',
+      en: 'Web and mobile development, software engineering, AI, data analysis, cloud/DevOps, code review, and tech careers.',
+      ar: 'تطوير الويب والتطبيقات، هندسة البرمجيات، الذكاء الاصطناعي، تحليل البيانات، الحوسبة السحابية، ومراجعة الكود.',
     },
     isActive: true,
     sortOrder: 3,
     subcategories: [
-      { id: 'web-development', slug: 'web-development', title: { en: 'Web Development', ar: 'تطوير الويب' } },
-      { id: 'mobile-app-development', slug: 'mobile-app-development', title: { en: 'Mobile App Development', ar: 'تطوير تطبيقات الموبايل' } },
-      { id: 'software-engineering', slug: 'software-engineering', title: { en: 'Software Engineering', ar: 'هندسة البرمجيات' } },
-      { id: 'ai-machine-learning', slug: 'ai-machine-learning', title: { en: 'Artificial Intelligence & Machine Learning', ar: 'الذكاء الاصطناعي وتعلم الآلة' } },
-      { id: 'data-analysis-data-science', slug: 'data-analysis-data-science', title: { en: 'Data Analysis & Data Science', ar: 'تحليل البيانات وعلم البيانات' } },
-      { id: 'cybersecurity', slug: 'cybersecurity', title: { en: 'Cybersecurity', ar: 'الأمن السيبراني' } },
-      { id: 'cloud-computing-devops', slug: 'cloud-computing-devops', title: { en: 'Cloud Computing & DevOps', ar: 'الحوسبة السحابية وDevOps' } },
-      { id: 'tech-ui-ux-design', slug: 'tech-ui-ux-design', title: { en: 'UI/UX Design', ar: 'تصميم واجهات وتجربة المستخدم' } },
-      { id: 'it-support', slug: 'it-support', title: { en: 'IT Support', ar: 'الدعم الفني' } },
-      { id: 'no-code-automation', slug: 'no-code-automation', title: { en: 'No-Code & Automation', ar: 'البرمجة بدون كود والأتمتة' } },
+      { id: 'web-development', slug: 'web-development', title: { en: 'Web Development', ar: 'تطوير الويب' }, isActive: true, sortOrder: 1 },
+      { id: 'mobile-app-development', slug: 'mobile-app-development', title: { en: 'Mobile App Development', ar: 'تطوير تطبيقات الموبايل' }, isActive: true, sortOrder: 2 },
+      { id: 'programming-software-engineering', slug: 'programming-software-engineering', title: { en: 'Programming & Software Engineering', ar: 'البرمجة وهندسة البرمجيات' }, isActive: true, sortOrder: 3 },
+      { id: 'ai-machine-learning', slug: 'ai-machine-learning', title: { en: 'AI & Machine Learning', ar: 'الذكاء الاصطناعي وتعلم الآلة' }, isActive: true, sortOrder: 4 },
+      { id: 'data-analysis', slug: 'data-analysis', title: { en: 'Data Analysis', ar: 'تحليل البيانات' }, isActive: true, sortOrder: 5 },
+      { id: 'cloud-computing-devops', slug: 'cloud-computing-devops', title: { en: 'Cloud Computing & DevOps', ar: 'الحوسبة السحابية وDevOps' }, isActive: true, sortOrder: 6 },
+      { id: 'software-architecture', slug: 'software-architecture', title: { en: 'Software Architecture', ar: 'معمارية البرمجيات' }, isActive: true, sortOrder: 7 },
+      { id: 'code-review', slug: 'code-review', title: { en: 'Code Review', ar: 'مراجعة الكود البرمجي' }, isActive: true, sortOrder: 8 },
+      { id: 'tech-career-guidance', slug: 'tech-career-guidance', title: { en: 'Tech Career Guidance', ar: 'التوجيه المهني التقني' }, isActive: true, sortOrder: 9 },
     ],
   },
   {
@@ -100,45 +108,21 @@ export const CATEGORIES: Category[] = [
     slug: 'career-professional-development',
     title: { en: 'Career & Professional Development', ar: 'التطوير المهني والوظيفي' },
     description: {
-      en: 'Resume writing, LinkedIn optimization, interview prep, and career strategy.',
-      ar: 'كتابة السيرة الذاتية، تحسين لينكدإن، التحضير للمقابلات، والتوجيه الوظيفي.',
+      en: 'CV & LinkedIn reviews, interview preparation, career planning, freelancing guidance, and workplace skills.',
+      ar: 'مراجعة السيرة الذاتية وحساب لينكدإن، التحضير للمقابلات، التخطيط المهني، إرشاد العمل الحر، ومهارات العمل.',
     },
     isActive: true,
     sortOrder: 4,
     subcategories: [
-      { id: 'cv-resume-writing', slug: 'cv-resume-writing', title: { en: 'CV & Resume Writing', ar: 'كتابة السيرة الذاتية' } },
-      { id: 'linkedin-profile-optimization', slug: 'linkedin-profile-optimization', title: { en: 'LinkedIn Profile Optimization', ar: 'تحسين حساب LinkedIn' } },
-      { id: 'interview-preparation', slug: 'interview-preparation', title: { en: 'Interview Preparation', ar: 'التحضير للمقابلات الشخصية' } },
-      { id: 'career-coaching', slug: 'career-coaching', title: { en: 'Career Coaching', ar: 'الإرشاد المهني' } },
-      { id: 'job-search-strategy', slug: 'job-search-strategy', title: { en: 'Job Search Strategy', ar: 'استراتيجيات البحث عن عمل' } },
-      { id: 'freelancing', slug: 'freelancing', title: { en: 'Freelancing', ar: 'العمل الحر' } },
-      { id: 'salary-negotiation', slug: 'salary-negotiation', title: { en: 'Salary Negotiation', ar: 'التفاوض على الراتب' } },
-      { id: 'portfolio-development', slug: 'portfolio-development', title: { en: 'Portfolio Development', ar: 'بناء ملف الأعمال' } },
-      { id: 'personal-branding', slug: 'personal-branding', title: { en: 'Personal Branding', ar: 'بناء العلامة الشخصية' } },
-      { id: 'professional-communication', slug: 'professional-communication', title: { en: 'Professional Communication', ar: 'التواصل المهني' } },
-    ],
-  },
-  {
-    id: 'education-learning',
-    slug: 'education-learning',
-    title: { en: 'Education & Learning', ar: 'التعليم والتعلم' },
-    description: {
-      en: 'Academic tutoring, STEM, languages, research, and exam preparation.',
-      ar: 'الدروس الأكاديمية، العلوم والرياضيات، التحضير للامتحانات، والبحث العلمي.',
-    },
-    isActive: true,
-    sortOrder: 5,
-    subcategories: [
-      { id: 'mathematics', slug: 'mathematics', title: { en: 'Mathematics', ar: 'الرياضيات' } },
-      { id: 'science', slug: 'science', title: { en: 'Science', ar: 'العلوم' } },
-      { id: 'programming-education', slug: 'programming-education', title: { en: 'Programming Education', ar: 'تعليم البرمجة' } },
-      { id: 'business-management-education', slug: 'business-management-education', title: { en: 'Business & Management Education', ar: 'تعليم الأعمال والإدارة' } },
-      { id: 'exam-preparation', slug: 'exam-preparation', title: { en: 'Exam Preparation', ar: 'التحضير للامتحانات' } },
-      { id: 'academic-tutoring', slug: 'academic-tutoring', title: { en: 'Academic Tutoring', ar: 'الدروس والمساعدة الأكاديمية' } },
-      { id: 'study-skills', slug: 'study-skills', title: { en: 'Study Skills', ar: 'مهارات المذاكرة' } },
-      { id: 'research-academic-writing', slug: 'research-academic-writing', title: { en: 'Research & Academic Writing', ar: 'البحث والكتابة الأكاديمية' } },
-      { id: 'online-teaching', slug: 'online-teaching', title: { en: 'Online Teaching', ar: 'التدريس عبر الإنترنت' } },
-      { id: 'learning-strategies', slug: 'learning-strategies', title: { en: 'Learning Strategies', ar: 'استراتيجيات التعلم' } },
+      { id: 'cv-resume-review', slug: 'cv-resume-review', title: { en: 'CV & Resume Review', ar: 'مراجعة السيرة الذاتية' }, isActive: true, sortOrder: 1 },
+      { id: 'linkedin-profile-review', slug: 'linkedin-profile-review', title: { en: 'LinkedIn Profile Review', ar: 'مراجعة حساب LinkedIn' }, isActive: true, sortOrder: 2 },
+      { id: 'interview-preparation', slug: 'interview-preparation', title: { en: 'Interview Preparation', ar: 'التحضير للمقابلات الشخصية' }, isActive: true, sortOrder: 3 },
+      { id: 'career-planning', slug: 'career-planning', title: { en: 'Career Planning', ar: 'التخطيط المهني' }, isActive: true, sortOrder: 4 },
+      { id: 'career-change', slug: 'career-change', title: { en: 'Career Change', ar: 'تغيير المسار المهني' }, isActive: true, sortOrder: 5 },
+      { id: 'freelancing-guidance', slug: 'freelancing-guidance', title: { en: 'Freelancing Guidance', ar: 'إرشاد العمل الحر' }, isActive: true, sortOrder: 6 },
+      { id: 'personal-portfolio-review', slug: 'personal-portfolio-review', title: { en: 'Personal Portfolio Review', ar: 'مراجعة معرض الأعمال الشخصي' }, isActive: true, sortOrder: 7 },
+      { id: 'salary-negotiation', slug: 'salary-negotiation', title: { en: 'Salary Negotiation', ar: 'التفاوض على الراتب' }, isActive: true, sortOrder: 8 },
+      { id: 'leadership-workplace-skills', slug: 'leadership-workplace-skills', title: { en: 'Leadership & Workplace Skills', ar: 'القيادة ومهارات بيئة العمل' }, isActive: true, sortOrder: 9 },
     ],
   },
   {
@@ -146,22 +130,22 @@ export const CATEGORIES: Category[] = [
     slug: 'design-creative',
     title: { en: 'Design & Creative', ar: 'التصميم والإبداع' },
     description: {
-      en: 'Graphic design, UI/UX, interior design, branding, and video production.',
-      ar: 'التصميم الجرافيكي، تصميم الواجهات، التصميم الداخلي، الهوية البصرية، والمونتاج.',
+      en: 'Graphic design, UI/UX, product design, visual identity, illustration, motion graphics, photo/video, and interior styling.',
+      ar: 'التصميم الجرافيكي، واجهات وتجربة المستخدم، تصميم المنتجات الرقمية، الهوية البصرية، الموشن جرافيك، والتنسيق الداخلي.',
     },
     isActive: true,
-    sortOrder: 6,
+    sortOrder: 5,
     subcategories: [
-      { id: 'graphic-design', slug: 'graphic-design', title: { en: 'Graphic Design', ar: 'التصميم الجرافيكي' } },
-      { id: 'creative-ui-ux-design', slug: 'creative-ui-ux-design', title: { en: 'UI/UX Design', ar: 'تصميم واجهات وتجربة المستخدم' } },
-      { id: 'interior-design', slug: 'interior-design', title: { en: 'Interior Design', ar: 'التصميم الداخلي' } },
-      { id: 'architecture', slug: 'architecture', title: { en: 'Architecture', ar: 'الهندسة المعمارية' } },
-      { id: 'branding-visual-identity', slug: 'branding-visual-identity', title: { en: 'Branding & Visual Identity', ar: 'تصميم الهوية البصرية' } },
-      { id: 'motion-graphics-animation', slug: 'motion-graphics-animation', title: { en: 'Motion Graphics & Animation', ar: 'الموشن جرافيك والرسوم المتحركة' } },
-      { id: 'photography', slug: 'photography', title: { en: 'Photography', ar: 'التصوير الفوتوغرافي' } },
-      { id: 'video-production-editing', slug: 'video-production-editing', title: { en: 'Video Production & Editing', ar: 'إنتاج ومونتاج الفيديو' } },
-      { id: 'illustration-digital-art', slug: 'illustration-digital-art', title: { en: 'Illustration & Digital Art', ar: 'الرسم والتصميم الرقمي' } },
-      { id: 'product-design', slug: 'product-design', title: { en: 'Product Design', ar: 'تصميم المنتجات' } },
+      { id: 'graphic-design', slug: 'graphic-design', title: { en: 'Graphic Design', ar: 'التصميم الجرافيكي' }, isActive: true, sortOrder: 1 },
+      { id: 'ui-ux-design', slug: 'ui-ux-design', title: { en: 'UI/UX Design', ar: 'تصميم واجهات وتجربة المستخدم' }, isActive: true, sortOrder: 2 },
+      { id: 'digital-product-design', slug: 'digital-product-design', title: { en: 'Digital Product Design', ar: 'تصميم المنتجات الرقمية' }, isActive: true, sortOrder: 3 },
+      { id: 'branding-visual-identity', slug: 'branding-visual-identity', title: { en: 'Branding & Visual Identity', ar: 'العلامة التجارية والهوية البصرية' }, isActive: true, sortOrder: 4 },
+      { id: 'illustration', slug: 'illustration', title: { en: 'Illustration', ar: 'الرسم التوضيحي (Illustration)' }, isActive: true, sortOrder: 5 },
+      { id: 'motion-graphics', slug: 'motion-graphics', title: { en: 'Motion Graphics', ar: 'الموشن جرافيك' }, isActive: true, sortOrder: 6 },
+      { id: 'photography', slug: 'photography', title: { en: 'Photography', ar: 'التصوير الفوتوغرافي' }, isActive: true, sortOrder: 7 },
+      { id: 'videography', slug: 'videography', title: { en: 'Videography', ar: 'تصوير الفيديو' }, isActive: true, sortOrder: 8 },
+      { id: 'video-editing', slug: 'video-editing', title: { en: 'Video Editing', ar: 'مونتاج وتحرير الفيديو' }, isActive: true, sortOrder: 9 },
+      { id: 'interior-styling-home-decoration', slug: 'interior-styling-home-decoration', title: { en: 'Interior Styling & Home Decoration', ar: 'التنسيق الداخلي وديكور المنزل' }, isActive: true, sortOrder: 10 },
     ],
   },
   {
@@ -169,22 +153,17 @@ export const CATEGORIES: Category[] = [
     slug: 'languages-communication',
     title: { en: 'Languages & Communication', ar: 'اللغات والتواصل' },
     description: {
-      en: 'Conversation practice, Business English, public speaking, and translation.',
-      ar: 'ممارسة المحادثة، الإنجليزية للأعمال، التحدث أمام الجمهور، والترجمة.',
+      en: 'Conversation practice, business communication, presentation skills, pronunciation, and everyday language practice.',
+      ar: 'ممارسة المحادثة، التواصل في العمل، مهارات العرض والتقديم، التدريب على النطق، وممارسة اللغة اليومية.',
     },
     isActive: true,
-    sortOrder: 7,
+    sortOrder: 6,
     subcategories: [
-      { id: 'english-language', slug: 'english-language', title: { en: 'English Language', ar: 'اللغة الإنجليزية' } },
-      { id: 'arabic-language', slug: 'arabic-language', title: { en: 'Arabic Language', ar: 'اللغة العربية' } },
-      { id: 'other-languages', slug: 'other-languages', title: { en: 'Other Languages', ar: 'لغات أخرى' } },
-      { id: 'conversation-practice', slug: 'conversation-practice', title: { en: 'Conversation Practice', ar: 'ممارسة المحادثة' } },
-      { id: 'business-english', slug: 'business-english', title: { en: 'Business English', ar: 'الإنجليزية للأعمال' } },
-      { id: 'public-speaking', slug: 'public-speaking', title: { en: 'Public Speaking', ar: 'التحدث أمام الجمهور' } },
-      { id: 'presentation-skills', slug: 'presentation-skills', title: { en: 'Presentation Skills', ar: 'مهارات العرض والتقديم' } },
-      { id: 'writing-editing', slug: 'writing-editing', title: { en: 'Writing & Editing', ar: 'الكتابة والتحرير' } },
-      { id: 'translation', slug: 'translation', title: { en: 'Translation', ar: 'الترجمة' } },
-      { id: 'communication-skills', slug: 'communication-skills', title: { en: 'Communication Skills', ar: 'مهارات التواصل' } },
+      { id: 'conversation-practice', slug: 'conversation-practice', title: { en: 'Conversation Practice', ar: 'ممارسة المحادثة' }, isActive: true, sortOrder: 1 },
+      { id: 'business-communication', slug: 'business-communication', title: { en: 'Business Communication', ar: 'التواصل في بيئة الأعمال' }, isActive: true, sortOrder: 2 },
+      { id: 'presentation-skills', slug: 'presentation-skills', title: { en: 'Presentation Skills', ar: 'مهارات العرض والتقديم' }, isActive: true, sortOrder: 3 },
+      { id: 'pronunciation-practice', slug: 'pronunciation-practice', title: { en: 'Pronunciation Practice', ar: 'التدريب على النطق' }, isActive: true, sortOrder: 4 },
+      { id: 'everyday-language-practice', slug: 'everyday-language-practice', title: { en: 'Everyday Language Practice', ar: 'ممارسة اللغة اليومية' }, isActive: true, sortOrder: 5 },
     ],
   },
   {
@@ -192,43 +171,17 @@ export const CATEGORIES: Category[] = [
     slug: 'personal-skills-lifestyle',
     title: { en: 'Personal Skills & Lifestyle', ar: 'المهارات الشخصية ونمط الحياة' },
     description: {
-      en: 'Productivity, time management, goal setting, habits, and self-confidence.',
-      ar: 'الإنتاجية، إدارة الوقت، تحديد الأهداف، التوازن الحياتي، وتطوير العادات.',
+      en: 'Time management, productivity, goal setting, personal organization, and public speaking.',
+      ar: 'إدارة الوقت، الإنتاجية، تحديد الأهداف، التنظيم الشخصي، والتحدث أمام الجمهور.',
     },
     isActive: true,
-    sortOrder: 8,
+    sortOrder: 7,
     subcategories: [
-      { id: 'time-management', slug: 'time-management', title: { en: 'Time Management', ar: 'إدارة الوقت' } },
-      { id: 'productivity', slug: 'productivity', title: { en: 'Productivity', ar: 'الإنتاجية' } },
-      { id: 'goal-setting', slug: 'goal-setting', title: { en: 'Goal Setting', ar: 'تحديد الأهداف' } },
-      { id: 'decision-making', slug: 'decision-making', title: { en: 'Decision Making', ar: 'اتخاذ القرارات' } },
-      { id: 'personal-development', slug: 'personal-development', title: { en: 'Personal Development', ar: 'التطوير الشخصي' } },
-      { id: 'confidence-self-expression', slug: 'confidence-self-expression', title: { en: 'Confidence & Self-Expression', ar: 'الثقة بالنفس والتعبير عن الذات' } },
-      { id: 'work-life-balance', slug: 'work-life-balance', title: { en: 'Work-Life Balance', ar: 'التوازن بين العمل والحياة' } },
-      { id: 'organization-skills', slug: 'organization-skills', title: { en: 'Organization Skills', ar: 'مهارات التنظيم' } },
-      { id: 'creativity-problem-solving', slug: 'creativity-problem-solving', title: { en: 'Creativity & Problem Solving', ar: 'الإبداع وحل المشكلات' } },
-      { id: 'habit-building', slug: 'habit-building', title: { en: 'Habit Building', ar: 'بناء العادات' } },
-    ],
-  },
-  {
-    id: 'fitness-wellness',
-    slug: 'fitness-wellness',
-    title: { en: 'Fitness & Wellness', ar: 'اللياقة والعافية' },
-    description: {
-      en: 'Personal fitness, yoga, mindfulness, and healthy habits. Not a substitute for licensed medical care.',
-      ar: 'اللياقة البدنية، تخطيط التمارين، اليوجا، واليقظة الذهنية. استشارات غير طبية.',
-    },
-    isActive: true,
-    sortOrder: 9,
-    subcategories: [
-      { id: 'personal-fitness-guidance', slug: 'personal-fitness-guidance', title: { en: 'Personal Fitness Guidance', ar: 'الإرشاد في اللياقة البدنية' } },
-      { id: 'workout-planning', slug: 'workout-planning', title: { en: 'Workout Planning', ar: 'تخطيط التمارين' } },
-      { id: 'yoga', slug: 'yoga', title: { en: 'Yoga', ar: 'اليوجا' } },
-      { id: 'meditation-mindfulness', slug: 'meditation-mindfulness', title: { en: 'Meditation & Mindfulness', ar: 'التأمل واليقظة الذهنية' } },
-      { id: 'general-wellness', slug: 'general-wellness', title: { en: 'General Wellness', ar: 'العافية العامة' } },
-      { id: 'sports-coaching', slug: 'sports-coaching', title: { en: 'Sports Coaching', ar: 'التدريب الرياضي' } },
-      { id: 'healthy-lifestyle-habits', slug: 'healthy-lifestyle-habits', title: { en: 'Healthy Lifestyle Habits', ar: 'عادات الحياة الصحية' } },
-      { id: 'mobility-flexibility', slug: 'mobility-flexibility', title: { en: 'Mobility & Flexibility', ar: 'الحركة والمرونة' } },
+      { id: 'time-management', slug: 'time-management', title: { en: 'Time Management', ar: 'إدارة الوقت' }, isActive: true, sortOrder: 1 },
+      { id: 'productivity', slug: 'productivity', title: { en: 'Productivity', ar: 'الإنتاجية' }, isActive: true, sortOrder: 2 },
+      { id: 'goal-setting', slug: 'goal-setting', title: { en: 'Goal Setting', ar: 'تحديد الأهداف' }, isActive: true, sortOrder: 3 },
+      { id: 'personal-organization', slug: 'personal-organization', title: { en: 'Personal Organization', ar: 'التنظيم الشخصي' }, isActive: true, sortOrder: 4 },
+      { id: 'public-speaking', slug: 'public-speaking', title: { en: 'Public Speaking', ar: 'التحدث أمام الجمهور' }, isActive: true, sortOrder: 5 },
     ],
   },
   {
@@ -236,94 +189,107 @@ export const CATEGORIES: Category[] = [
     slug: 'hobbies-skills',
     title: { en: 'Hobbies & Skills', ar: 'الهوايات والمهارات' },
     description: {
-      en: 'Music, cooking, handicrafts, painting, gardening, gaming, and creative arts.',
-      ar: 'الموسيقى، الرسم، الطهي، الحرف اليدوية، البستنة، والألعاب.',
+      en: 'Drawing & painting, crafts, creative writing, music, hobby photography, and gardening basics.',
+      ar: 'الرسم والتلوين، الحرف اليدوية، الكتابة الإبداعية، الموسيقى، التصوير كهواية، وأساسيات البستنة.',
     },
     isActive: true,
-    sortOrder: 10,
+    sortOrder: 8,
     subcategories: [
-      { id: 'music', slug: 'music', title: { en: 'Music', ar: 'الموسيقى' } },
-      { id: 'drawing-painting', slug: 'drawing-painting', title: { en: 'Drawing & Painting', ar: 'الرسم والتلوين' } },
-      { id: 'cooking-baking', slug: 'cooking-baking', title: { en: 'Cooking & Baking', ar: 'الطهي والخبز' } },
-      { id: 'handicrafts-diy', slug: 'handicrafts-diy', title: { en: 'Handicrafts & DIY', ar: 'الحرف اليدوية والأعمال الذاتية' } },
-      { id: 'writing-creative-writing', slug: 'writing-creative-writing', title: { en: 'Writing & Creative Writing', ar: 'الكتابة والكتابة الإبداعية' } },
-      { id: 'gaming', slug: 'gaming', title: { en: 'Gaming', ar: 'الألعاب' } },
-      { id: 'gardening', slug: 'gardening', title: { en: 'Gardening', ar: 'البستنة' } },
-      { id: 'crafts-handmade-products', slug: 'crafts-handmade-products', title: { en: 'Crafts & Handmade Products', ar: 'الحرف والمنتجات اليدوية' } },
-      { id: 'public-speaking-practice', slug: 'public-speaking-practice', title: { en: 'Public Speaking Practice', ar: 'التدريب على التحدث أمام الجمهور' } },
-      { id: 'creative-skills', slug: 'creative-skills', title: { en: 'Creative Skills', ar: 'المهارات الإبداعية' } },
+      { id: 'drawing-painting', slug: 'drawing-painting', title: { en: 'Drawing & Painting', ar: 'الرسم والتلوين' }, isActive: true, sortOrder: 1 },
+      { id: 'crafts', slug: 'crafts', title: { en: 'Crafts', ar: 'الحرف اليدوية' }, isActive: true, sortOrder: 2 },
+      { id: 'creative-writing', slug: 'creative-writing', title: { en: 'Creative Writing', ar: 'الكتابة الإبداعية' }, isActive: true, sortOrder: 3 },
+      { id: 'music', slug: 'music', title: { en: 'Music', ar: 'الموسيقى' }, isActive: true, sortOrder: 4 },
+      { id: 'photography-as-a-hobby', slug: 'photography-as-a-hobby', title: { en: 'Photography as a Hobby', ar: 'التصوير الفوتوغرافي كهواية' }, isActive: true, sortOrder: 5 },
+      { id: 'gardening-basics', slug: 'gardening-basics', title: { en: 'Gardening Basics', ar: 'أساسيات البستنة والعناية بالنباتات' }, isActive: true, sortOrder: 6 },
     ],
   },
   {
-    id: 'travel-tourism',
-    slug: 'travel-tourism',
-    title: { en: 'Travel & Tourism', ar: 'السفر والسياحة' },
+    id: 'travel',
+    slug: 'travel',
+    title: { en: 'Travel', ar: 'السفر' },
     description: {
-      en: 'Trip planning, destination guidance, itineraries, cultural tourism, and travel tips.',
-      ar: 'تخطيط الرحلات، الإرشاد السياحي، السياحة الثقافية، ونصائح السفر.',
+      en: 'Destination information, general travel tips, and travel preparation guidance.',
+      ar: 'معلومات الوجهات السياحية، نصائح السفر العامة، وإرشادات الاستعداد للسفر.',
     },
     isActive: true,
-    sortOrder: 11,
+    sortOrder: 9,
     subcategories: [
-      { id: 'travel-planning', slug: 'travel-planning', title: { en: 'Travel Planning', ar: 'تخطيط الرحلات' } },
-      { id: 'destination-guidance', slug: 'destination-guidance', title: { en: 'Destination Guidance', ar: 'الإرشاد حول الوجهات السياحية' } },
-      { id: 'itinerary-planning', slug: 'itinerary-planning', title: { en: 'Itinerary Planning', ar: 'تخطيط برامج الرحلات' } },
-      { id: 'budget-travel', slug: 'budget-travel', title: { en: 'Budget Travel', ar: 'السفر الاقتصادي' } },
-      { id: 'luxury-travel', slug: 'luxury-travel', title: { en: 'Luxury Travel', ar: 'السفر الفاخر' } },
-      { id: 'local-experiences', slug: 'local-experiences', title: { en: 'Local Experiences', ar: 'التجارب المحلية' } },
-      { id: 'cultural-tourism', slug: 'cultural-tourism', title: { en: 'Cultural Tourism', ar: 'السياحة الثقافية' } },
-      { id: 'adventure-travel', slug: 'adventure-travel', title: { en: 'Adventure Travel', ar: 'سياحة المغامرات' } },
-      { id: 'travel-photography', slug: 'travel-photography', title: { en: 'Travel Photography', ar: 'التصوير أثناء السفر' } },
-      { id: 'travel-tips-preparation', slug: 'travel-tips-preparation', title: { en: 'Travel Tips & Preparation', ar: 'نصائح السفر والاستعداد للرحلات' } },
-    ],
-  },
-  {
-    id: 'photography-videography',
-    slug: 'photography-videography',
-    title: { en: 'Photography & Videography', ar: 'التصوير الفوتوغرافي والفيديو' },
-    description: {
-      en: 'Professional portrait, wedding, event, and commercial photography & video shooting.',
-      ar: 'تصوير البورتريه، الأفراح، المناسبات، وتصوير الفيديو والإعلانات التجارية.',
-    },
-    isActive: true,
-    sortOrder: 12,
-    subcategories: [
-      { id: 'portrait-personal-photography', slug: 'portrait-personal-photography', title: { en: 'Portrait & Personal Photography', ar: 'تصوير البورتريه والتصوير الشخصي' } },
-      { id: 'wedding-photography', slug: 'wedding-photography', title: { en: 'Wedding Photography', ar: 'تصوير حفلات الزفاف' } },
-      { id: 'event-photography', slug: 'event-photography', title: { en: 'Event Photography', ar: 'تصوير المناسبات' } },
-      { id: 'product-photography', slug: 'product-photography', title: { en: 'Product Photography', ar: 'تصوير المنتجات' } },
-      { id: 'fashion-photography', slug: 'fashion-photography', title: { en: 'Fashion Photography', ar: 'تصوير الأزياء' } },
-      { id: 'videography-video-shooting', slug: 'videography-video-shooting', title: { en: 'Videography & Video Shooting', ar: 'تصوير الفيديو' } },
-      { id: 'commercial-photography', slug: 'commercial-photography', title: { en: 'Commercial Photography', ar: 'التصوير التجاري' } },
-    ],
-  },
-  {
-    id: 'beauty-personal-care',
-    slug: 'beauty-personal-care',
-    title: { en: 'Beauty & Personal Care', ar: 'الجمال والعناية الشخصية' },
-    description: {
-      en: 'Makeup, bridal styling, haircare, skincare, nail services, and personal grooming.',
-      ar: 'خدمات المكياج، مكياج العرائس، العناية بالشعر والبشرة، وخدمات الأظافر والمظهر الشخصي.',
-    },
-    isActive: true,
-    sortOrder: 13,
-    subcategories: [
-      { id: 'makeup-services', slug: 'makeup-services', title: { en: 'Makeup Services', ar: 'خدمات المكياج' } },
-      { id: 'bridal-makeup', slug: 'bridal-makeup', title: { en: 'Bridal Makeup', ar: 'مكياج العرائس' } },
-      { id: 'hairstyling', slug: 'hairstyling', title: { en: 'Hairstyling', ar: 'تصفيف الشعر' } },
-      { id: 'hair-care', slug: 'hair-care', title: { en: 'Hair Care', ar: 'العناية بالشعر' } },
-      { id: 'skincare-services', slug: 'skincare-services', title: { en: 'Skincare Services', ar: 'خدمات العناية بالبشرة' } },
-      { id: 'nail-services', slug: 'nail-services', title: { en: 'Nail Services', ar: 'خدمات الأظافر' } },
-      { id: 'personal-grooming', slug: 'personal-grooming', title: { en: 'Personal Grooming', ar: 'العناية بالمظهر الشخصي' } },
+      { id: 'destination-information', slug: 'destination-information', title: { en: 'Destination Information', ar: 'معلومات الوجهات السياحية' }, isActive: true, sortOrder: 1 },
+      { id: 'general-travel-tips', slug: 'general-travel-tips', title: { en: 'General Travel Tips', ar: 'نصائح السفر العامة' }, isActive: true, sortOrder: 2 },
+      { id: 'travel-preparation-guidance', slug: 'travel-preparation-guidance', title: { en: 'Travel Preparation Guidance', ar: 'إرشادات الاستعداد للسفر' }, isActive: true, sortOrder: 3 },
     ],
   },
 ]
+
+export const ALLOWED_CATEGORY_SLUGS = new Set<string>(CATEGORIES.map((c) => c.slug))
+
+export const ALLOWED_SUBCATEGORY_SLUGS_BY_CATEGORY: Record<string, Set<string>> = Object.fromEntries(
+  CATEGORIES.map((c) => [c.slug, new Set(c.subcategories.map((s) => s.slug))]),
+)
+
+export const ALL_ALLOWED_SUBCATEGORY_SLUGS = new Set<string>(
+  CATEGORIES.flatMap((c) => c.subcategories.map((s) => s.slug)),
+)
+
+export function isRemovedCategory(slug: string | undefined | null): boolean {
+  if (!slug) return false
+  return (REMOVED_CATEGORY_SLUGS as readonly string[]).includes(String(slug).trim().toLowerCase())
+}
+
+export function isAllowedMvpCategory(slug: string | undefined | null): boolean {
+  if (!slug) return false
+  return ALLOWED_CATEGORY_SLUGS.has(String(slug).trim().toLowerCase())
+}
+
+export function isAllowedMvpSubcategory(
+  categorySlug: string | undefined | null,
+  subcategorySlug: string | undefined | null,
+): boolean {
+  if (!categorySlug || !subcategorySlug) return false
+  const catSet = ALLOWED_SUBCATEGORY_SLUGS_BY_CATEGORY[String(categorySlug).trim().toLowerCase()]
+  if (!catSet) return false
+  return catSet.has(String(subcategorySlug).trim().toLowerCase())
+}
 
 export function getCategoryBySlug(slug: string): Category | undefined {
   return CATEGORIES.find((cat) => cat.slug === slug || cat.id === slug)
 }
 
+export function getSubcategoryBySlug(
+  categorySlug: string | undefined,
+  subcategorySlug: string | undefined,
+): Subcategory | undefined {
+  if (!subcategorySlug) return undefined
+  if (categorySlug) {
+    const cat = getCategoryBySlug(categorySlug)
+    const found = cat?.subcategories.find((s) => s.slug === subcategorySlug || s.id === subcategorySlug)
+    if (found) return found
+  }
+  for (const cat of CATEGORIES) {
+    const found = cat.subcategories.find((s) => s.slug === subcategorySlug || s.id === subcategorySlug)
+    if (found) return found
+  }
+  return undefined
+}
+
+export function getCategoryLabel(slug: string | undefined, locale: 'en' | 'ar' = 'en'): string {
+  if (!slug) return ''
+  const cat = getCategoryBySlug(slug)
+  if (!cat) return slug
+  return locale === 'ar' ? `${cat.title.ar} (${cat.title.en})` : `${cat.title.en} — ${cat.title.ar}`
+}
+
+export function getSubcategoryLabel(
+  categorySlug: string | undefined,
+  subcategorySlug: string | undefined,
+  locale: 'en' | 'ar' = 'en',
+): string {
+  if (!subcategorySlug) return ''
+  const sub = getSubcategoryBySlug(categorySlug, subcategorySlug)
+  if (!sub) return subcategorySlug
+  return locale === 'ar' ? `${sub.title.ar} (${sub.title.en})` : `${sub.title.en} — ${sub.title.ar}`
+}
+
 export function getAllCategories(): Category[] {
   return CATEGORIES
 }
-

@@ -1,11 +1,14 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { BrandLogo } from '@/components/brand/logo'
-import { CATEGORIES } from '@/lib/data/categories'
+import {
+  CATEGORIES,
+  isAllowedMvpCategory,
+  isAllowedMvpSubcategory,
+} from '@/lib/data/categories'
 import { AvailabilityManager } from '@/components/dashboard/availability-manager'
 
 interface SelectedCategoryItem {
@@ -37,20 +40,28 @@ export default function OnboardingPage() {
   const [nationalIdBackUrl, setNationalIdBackUrl] = useState('')
   const [uploadingIdBack, setUploadingIdBack] = useState(false)
 
-  // Categories Selection (Maximum 3 Categories & their subcategories)
+  // Categories Selection (Maximum 3 Categories & their subcategories from approved MVP taxonomy)
   const [categoriesList, setCategoriesList] = useState<any[]>(CATEGORIES)
   const [selectedCategories, setSelectedCategories] = useState<SelectedCategoryItem[]>([
     {
       categorySlug: 'marketing',
-      subcategories: ['branding-positioning', 'digital-marketing'],
+      subcategories: ['marketing-strategy', 'branding-brand-strategy'],
     },
   ])
 
-  // Step 2: First Service
-  const [serviceTitleEn, setServiceTitleEn] = useState('1-on-1 Strategy & Advisory')
+  // Step 2: First Consultation Offering
+  const [serviceTitleEn, setServiceTitleEn] = useState('1-on-1 Strategy & Advisory Consultation')
   const [serviceTitleAr, setServiceTitleAr] = useState('جلسة استشارية فردية واستراتيجية')
-  const [serviceDescEn, setServiceDescEn] = useState('Detailed assessment and actionable guidance tailored to your goals.')
-  const [serviceDescAr, setServiceDescAr] = useState('تقييم مفصل وتوجيه عملي مصمم خصيصاً لأهدافك.')
+  const [serviceDescEn, setServiceDescEn] = useState(
+    'Detailed 1-on-1 consultation and actionable strategic guidance tailored to your goals.'
+  )
+  const [serviceDescAr, setServiceDescAr] = useState(
+    'استشارة فردية مفصلة وتوجيه استراتيجي عملي مصمم خصيصاً لأهدافك.'
+  )
+  const [audienceEn, setAudienceEn] = useState('Adult professionals and founders (18+)')
+  const [audienceAr, setAudienceAr] = useState('المهنيون ورواد الأعمال البالغون (+18)')
+  const [adultsOnly, setAdultsOnly] = useState(true)
+  const [isStructuredVocationalProgramme, setIsStructuredVocationalProgramme] = useState(false)
   const [serviceDuration, setServiceDuration] = useState(45)
   const [serviceBreak, setServiceBreak] = useState(10)
   const [priceEGP, setPriceEGP] = useState(500)
@@ -105,12 +116,25 @@ export default function OnboardingPage() {
                 if (d.tags?.length) setTagsStr(d.tags.join(', '))
                 if (d.instapayUsername) setInstapayUsername(d.instapayUsername)
                 if (Array.isArray(d.categories) && d.categories.length > 0) {
-                  setSelectedCategories(d.categories)
-                } else if (d.categorySlug) {
+                  const validCats = d.categories
+                    .filter((c: any) => isAllowedMvpCategory(c.categorySlug))
+                    .map((c: any) => ({
+                      categorySlug: c.categorySlug,
+                      subcategories: (c.subcategories || []).filter((sub: string) =>
+                        isAllowedMvpSubcategory(c.categorySlug, sub)
+                      ),
+                    }))
+                  if (validCats.length > 0) {
+                    setSelectedCategories(validCats)
+                  }
+                } else if (d.categorySlug && isAllowedMvpCategory(d.categorySlug)) {
+                  const validSub = isAllowedMvpSubcategory(d.categorySlug, d.subcategorySlug)
+                    ? [d.subcategorySlug]
+                    : []
                   setSelectedCategories([
                     {
                       categorySlug: d.categorySlug,
-                      subcategories: d.subcategorySlug ? [d.subcategorySlug] : [],
+                      subcategories: validSub,
                     },
                   ])
                 }
@@ -202,14 +226,14 @@ export default function OnboardingPage() {
       return
     }
 
-    if (selectedCategories.length === 0) {
-      alert('Please select at least 1 primary category')
+    if (selectedCategories.length === 0 || !selectedCategories[0].subcategories.length) {
+      alert('Please select at least 1 approved MVP category and subcategory')
       return
     }
 
     try {
       const primaryCat = selectedCategories[0]
-      await fetch('/api/dashboard/profile', {
+      const res = await fetch('/api/dashboard/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -230,6 +254,11 @@ export default function OnboardingPage() {
           instapayUsername,
         }),
       })
+      const json = await res.json()
+      if (!json.success) {
+        alert(json.error || 'Failed to save profile')
+        return
+      }
       setStep(2)
     } catch (err: any) {
       alert(err.message || 'Error saving profile')
@@ -239,20 +268,42 @@ export default function OnboardingPage() {
   const handleSaveStep2 = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!serviceTitleEn || !serviceTitleAr) {
-      alert('Service titles in English and Arabic are required')
+      alert('Offer titles in English and Arabic are required')
+      return
+    }
+    if (!serviceDescEn || !serviceDescAr) {
+      alert('Clear activity descriptions in English and Arabic are required')
+      return
+    }
+    if (!audienceEn || !audienceAr) {
+      alert('Intended adult audience (18+) in English and Arabic is required')
+      return
+    }
+    if (!adultsOnly) {
+      alert('All Bok Bok MVP offers are restricted to adults aged 18 and over.')
       return
     }
 
     try {
-      const primaryCat = selectedCategories[0] || { categorySlug: 'marketing-growth', subcategories: [] }
-      await fetch(`/api/dashboard/services?expertId=${expertId}`, {
+      const primaryCat = selectedCategories[0] || {
+        categorySlug: 'marketing',
+        subcategories: ['marketing-strategy'],
+      }
+      const res = await fetch(`/api/dashboard/services?expertId=${expertId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          bookingType: 'APPOINTMENT',
+          serviceKind: 'CONSULTATION',
+          deliveryMode: 'ONLINE',
           title: { en: serviceTitleEn, ar: serviceTitleAr },
           description: { en: serviceDescEn, ar: serviceDescAr },
+          intendedAudience: { en: audienceEn, ar: audienceAr },
+          adultsOnly: true,
+          minimumAge: 18,
+          isStructuredVocationalProgramme,
           categorySlug: primaryCat.categorySlug,
-          subcategorySlug: primaryCat.subcategories[0] || '',
+          subcategorySlug: primaryCat.subcategories[0] || 'marketing-strategy',
           durationMinutes: serviceDuration,
           breakAfterMinutes: serviceBreak,
           pricing: {
@@ -263,9 +314,14 @@ export default function OnboardingPage() {
           isMostBooked: true,
         }),
       })
+      const json = await res.json()
+      if (!json.success) {
+        alert(json.error || 'Failed to create offering')
+        return
+      }
       setStep(3)
     } catch (err: any) {
-      alert(err.message || 'Error creating service')
+      alert(err.message || 'Error creating offering')
     }
   }
 
@@ -306,14 +362,12 @@ export default function OnboardingPage() {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#E8E2D8] pb-6">
           <BrandLogo href="/" size="sm" subtitle="Onboarding" />
-          <span className="text-xs font-bold text-[#8b94a1]">
-            Step {step} of 4
-          </span>
+          <span className="text-xs font-bold text-[#8b94a1]">Step {step} of 4</span>
         </div>
 
         {/* Stepper bar */}
         <div className="mt-6 grid grid-cols-4 gap-2">
-          {['Profile & Identity', 'First Service', 'Working Schedule', 'Review & Submit'].map((title, idx) => {
+          {['Profile & Identity', 'First Consultation', 'Working Schedule', 'Review & Submit'].map((title, idx) => {
             const stepNum = idx + 1
             const isDone = step > stepNum
             const isCurrent = step === stepNum
@@ -338,7 +392,7 @@ export default function OnboardingPage() {
             <div>
               <h2 className="text-2xl font-bold text-[#101F49]">Create your verified expert profile</h2>
               <p className="mt-1 text-xs text-[#637084]">
-                Upload your credentials and specify up to 3 primary areas of expertise.
+                Upload your credentials and select up to 3 categories from Bok Bok&apos;s approved MVP taxonomy.
               </p>
             </div>
 
@@ -457,21 +511,21 @@ export default function OnboardingPage() {
                   required
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
-                  placeholder="e.g. Senior Product & Growth Consultant"
+                  placeholder="e.g. Senior Marketing & Growth Consultant"
                   className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                 />
               </label>
             </div>
 
-            {/* Categories & Subcategories (Max 3) */}
+            {/* Categories & Subcategories (Max 3, Approved MVP Taxonomy only) */}
             <div className="rounded-2xl border border-[#E8E2D8] p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-xs font-black uppercase tracking-wider text-[#101F49]">
-                    Specialty Categories (Max 3) *
+                    Approved MVP Specialty Categories (Max 3) *
                   </h3>
                   <p className="text-[11px] text-[#8b94a1] mt-0.5">
-                    Select up to 3 main categories and customize their subcategories.
+                    Select up to 3 approved MVP categories and their corresponding subcategories. (Free-text categories are not allowed.)
                   </p>
                 </div>
                 <span className="rounded-full bg-[#E8EFFF] px-2.5 py-1 text-xs font-bold text-[#101F49]">
@@ -494,7 +548,7 @@ export default function OnboardingPage() {
                           : 'border border-[#E8E2D8] bg-white text-[#637084] hover:border-[#101F49]'
                       }`}
                     >
-                      {cat.title?.en || cat.name?.en} {isSelected ? '✓' : '+'}
+                      {cat.title?.en || cat.name?.en} ({cat.title?.ar || cat.name?.ar}) {isSelected ? '✓' : '+'}
                     </button>
                   )
                 })}
@@ -509,7 +563,10 @@ export default function OnboardingPage() {
                     <div key={selCat.categorySlug} className="rounded-xl border border-[#E8E2D8] bg-[#FFF9EE] p-3.5">
                       <div className="flex items-center justify-between mb-2.5">
                         <span className="text-xs font-bold text-[#101F49]">
-                          {fullCat.title?.en || fullCat.name?.en} — <span className="text-[#8b94a1] font-normal" dir="rtl">{fullCat.title?.ar || fullCat.name?.ar}</span>
+                          {fullCat.title?.en || fullCat.name?.en} —{' '}
+                          <span className="text-[#8b94a1] font-normal" dir="rtl">
+                            {fullCat.title?.ar || fullCat.name?.ar}
+                          </span>
                         </span>
                         <span className="text-[10px] text-[#8b94a1]">
                           {selCat.subcategories.length} subcategories selected
@@ -529,7 +586,7 @@ export default function OnboardingPage() {
                                   : 'border border-[#E8E2D8] bg-white text-[#637084] hover:border-[#2855C5]'
                               }`}
                             >
-                              {sub.title.en}
+                              {sub.title?.en || sub.name?.en} • {sub.title?.ar || sub.name?.ar}
                             </button>
                           )
                         })}
@@ -566,7 +623,7 @@ export default function OnboardingPage() {
               <input
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                placeholder="I help founders build clear roadmaps and scalable brands."
+                placeholder="I help founders build clear marketing roadmaps and scalable brands."
                 className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
               />
             </label>
@@ -587,7 +644,7 @@ export default function OnboardingPage() {
               <input
                 value={tagsStr}
                 onChange={(e) => setTagsStr(e.target.value)}
-                placeholder="Marketing, Growth, Strategy, Product"
+                placeholder="Marketing, Growth, Strategy, Branding"
                 className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
               />
             </label>
@@ -597,25 +654,25 @@ export default function OnboardingPage() {
                 type="submit"
                 className="rounded-full bg-[#2855C5] px-7 py-3 text-xs font-bold text-white shadow-sm hover:bg-[#101F49]"
               >
-                Continue to Services →
+                Continue to First Consultation →
               </button>
             </div>
           </form>
         )}
 
-        {/* Step 2: First Service */}
+        {/* Step 2: First Consultation Offering */}
         {step === 2 && (
           <form onSubmit={handleSaveStep2} className="mt-8 rounded-3xl border border-[#E8E2D8] bg-white p-6 sm:p-10 shadow-sm space-y-5">
             <div>
               <h2 className="text-2xl font-bold text-[#101F49]">Define your first consultation offering</h2>
               <p className="mt-1 text-xs text-[#637084]">
-                Create your primary offering. New services are submitted for admin approval before going live to clients.
+                Create your primary 1-on-1 consultation. All MVP offers require a clear activity description, intended adult audience (18+), and administrator review before publication.
               </p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 pt-2">
               <label className="text-xs font-bold text-[#101F49]">
-                Service Title (English) *
+                Consultation Title (English) *
                 <input
                   required
                   value={serviceTitleEn}
@@ -624,7 +681,7 @@ export default function OnboardingPage() {
                 />
               </label>
               <label className="text-xs font-bold text-[#101F49]">
-                Service Title (Arabic) *
+                Consultation Title (Arabic) *
                 <input
                   required
                   dir="rtl"
@@ -637,8 +694,9 @@ export default function OnboardingPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-xs font-bold text-[#101F49]">
-                Description (English)
+                Clear Description of Actual Activity (English) *
                 <textarea
+                  required
                   rows={2}
                   value={serviceDescEn}
                   onChange={(e) => setServiceDescEn(e.target.value)}
@@ -646,13 +704,36 @@ export default function OnboardingPage() {
                 />
               </label>
               <label className="text-xs font-bold text-[#101F49]">
-                Description (Arabic)
+                Clear Description of Actual Activity (Arabic) *
                 <textarea
+                  required
                   rows={2}
                   dir="rtl"
                   value={serviceDescAr}
                   onChange={(e) => setServiceDescAr(e.target.value)}
                   className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2 text-xs outline-none focus:border-[#2855C5]"
+                />
+              </label>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-xs font-bold text-[#101F49]">
+                Intended Adult Audience (English, 18+) *
+                <input
+                  required
+                  value={audienceEn}
+                  onChange={(e) => setAudienceEn(e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
+                />
+              </label>
+              <label className="text-xs font-bold text-[#101F49]">
+                Intended Adult Audience (Arabic, 18+) *
+                <input
+                  required
+                  dir="rtl"
+                  value={audienceAr}
+                  onChange={(e) => setAudienceAr(e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                 />
               </label>
             </div>
@@ -683,9 +764,9 @@ export default function OnboardingPage() {
             </div>
 
             {/* Pricing */}
-            <div className="rounded-2xl border border-[#E8E2D8] bg-[#FFF9EE] p-5">
+            <div className="rounded-2xl border border-[#E8E2D8] bg-[#FFF9EE] p-5 space-y-3">
               <h3 className="text-xs font-black uppercase tracking-wider text-[#101F49]">Multi-Currency Pricing</h3>
-              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-3">
                 <label className="text-xs font-bold text-[#101F49]">
                   Price in EGP *
                   <input
@@ -712,6 +793,32 @@ export default function OnboardingPage() {
                     onChange={(e) => setPriceSAR(Number(e.target.value))}
                     className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                   />
+                </label>
+              </div>
+
+              <div className="pt-3 border-t border-[#E8E2D8] space-y-2">
+                <label className="flex items-start gap-2 text-xs font-bold text-[#101F49] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    required
+                    checked={adultsOnly}
+                    onChange={(e) => setAdultsOnly(e.target.checked)}
+                    className="mt-0.5 size-4 rounded accent-[#2855C5]"
+                  />
+                  <span>
+                    I confirm this offer is restricted to <strong>adults aged 18 and over</strong> and excludes all prohibited medical, legal, financial, tutoring, and unverified accreditation claims. *
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 text-xs font-bold text-[#101F49] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isStructuredVocationalProgramme}
+                    onChange={(e) => setIsStructuredVocationalProgramme(e.target.checked)}
+                    className="mt-0.5 size-4 rounded accent-[#2855C5]"
+                  />
+                  <span>
+                    This offer is a structured vocational training programme (requires separate licensing review before publication).
+                  </span>
                 </label>
               </div>
             </div>
@@ -744,10 +851,7 @@ export default function OnboardingPage() {
               </p>
             </div>
 
-            <AvailabilityManager
-              initialExpertId={expertId}
-              showExpertPicker={false}
-            />
+            <AvailabilityManager initialExpertId={expertId} showExpertPicker={false} />
 
             <div className="flex items-center justify-between border-t border-[#E8E2D8] pt-5">
               <button
@@ -774,7 +878,7 @@ export default function OnboardingPage() {
             <div>
               <h2 className="text-2xl font-bold text-[#101F49]">Ready to submit for review</h2>
               <p className="mt-1 text-xs text-[#637084]">
-                Once submitted, your profile and initial offering will be reviewed by an administrator.
+                Once submitted, your profile and initial offering will be reviewed by an administrator before going live.
               </p>
             </div>
 
@@ -797,23 +901,20 @@ export default function OnboardingPage() {
               </div>
 
               <div className="flex justify-between border-b border-[#E8E2D8] pb-2">
-                <span className="text-[#8b94a1]">Selected Categories:</span>
-                <strong className="text-[#101F49] text-right">
-                  {selectedCategories.map((c) => {
-                    const found = CATEGORIES.find((cat) => cat.slug === c.categorySlug)
-                    return found?.title.en
-                  }).join(', ')}
-                </strong>
+                <span className="text-[#8b94a1]">Selected MVP Categories:</span>
+                <strong>{selectedCategories.map((c) => c.categorySlug).join(', ')}</strong>
               </div>
 
               <div className="flex justify-between border-b border-[#E8E2D8] pb-2">
-                <span className="text-[#8b94a1]">Primary Offering:</span>
-                <strong className="text-[#101F49]">{serviceTitleEn} ({serviceDuration} min — {priceEGP} EGP)</strong>
+                <span className="text-[#8b94a1]">Initial Consultation:</span>
+                <strong>
+                  {serviceTitleEn} ({priceEGP} EGP)
+                </strong>
               </div>
 
               <div className="flex justify-between">
-                <span className="text-[#8b94a1]">InstaPay Handle:</span>
-                <strong className="text-[#101F49]">{instapayUsername || 'Not provided yet'}</strong>
+                <span className="text-[#8b94a1]">Intended Audience:</span>
+                <strong>{audienceEn} (18+ Adults Only)</strong>
               </div>
             </div>
 
@@ -827,11 +928,11 @@ export default function OnboardingPage() {
               </button>
               <button
                 type="button"
-                disabled={submitting || !avatarUrl || !nationalIdFrontUrl || !nationalIdBackUrl}
+                disabled={submitting}
                 onClick={handleSubmitForReview}
-                className="rounded-full bg-[#101F49] px-8 py-3 text-xs font-bold text-white shadow-sm hover:bg-[#2855C5] disabled:opacity-50"
+                className="rounded-full bg-[#101F49] px-8 py-3.5 text-xs font-bold text-white shadow-md hover:bg-[#2855C5] disabled:opacity-50"
               >
-                {submitting ? 'Submitting...' : 'Submit Profile for Admin Approval ✓'}
+                {submitting ? 'Submitting Application...' : 'Submit Profile for Review ✓'}
               </button>
             </div>
           </div>
@@ -840,4 +941,3 @@ export default function OnboardingPage() {
     </main>
   )
 }
-

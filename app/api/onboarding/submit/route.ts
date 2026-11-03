@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getExpertsCollection, toObjectId } from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
+import { isAllowedMvpCategory, isAllowedMvpSubcategory } from '@/lib/data/categories'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +25,29 @@ export async function POST(request: Request) {
     const expert = await expertsCol.findOne({ _id: expertObjId })
     if (!expert) {
       return NextResponse.json({ success: false, error: 'Expert not found' }, { status: 404 })
+    }
+
+    if (!expert.categorySlug || !isAllowedMvpCategory(expert.categorySlug)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Please select a valid category from the approved MVP taxonomy before submitting.',
+        },
+        { status: 400 }
+      )
+    }
+
+    if (
+      !expert.subcategorySlug ||
+      !isAllowedMvpSubcategory(expert.categorySlug, expert.subcategorySlug)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Please select at least one valid subcategory from the approved MVP taxonomy before submitting.',
+        },
+        { status: 400 }
+      )
     }
 
     if (!expert.image && !expert.avatarUrl) {

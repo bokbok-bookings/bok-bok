@@ -3,17 +3,15 @@
 import React, { useState, useEffect, use } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { BrandLogo } from '@/components/brand/logo'
+import { getCategoryLabel, getSubcategoryLabel } from '@/lib/data/categories'
 import {
   Calendar,
   Clock,
   MapPin,
-  Globe,
   Share2,
   Check,
   Star,
   Users,
-  Video,
   ArrowRight,
   ShieldCheck,
 } from 'lucide-react'
@@ -48,6 +46,7 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
   const [clientName, setClientName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [clientPhone, setClientPhone] = useState('')
+  const [adultsOnlyConfirmed, setAdultsOnlyConfirmed] = useState(false)
   const [receiptUrl, setReceiptUrl] = useState('')
   const [uploadingReceipt, setUploadingReceipt] = useState(false)
 
@@ -148,6 +147,10 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
       alert('Please enter your full name and email address')
       return
     }
+    if (!adultsOnlyConfirmed) {
+      alert('Please confirm that you are 18 years of age or older.')
+      return
+    }
     if (!isEvent && (!selectedDate || !selectedTime)) {
       alert('Please select a date and time slot')
       return
@@ -163,6 +166,7 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
         clientName: clientName.trim(),
         clientEmail: clientEmail.trim(),
         clientPhone: clientPhone.trim(),
+        adultsOnlyConfirmed: true,
         paymentReceiptUrl: receiptUrl || undefined,
       }
 
@@ -198,7 +202,7 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
   if (loading) {
     return (
       <main className="min-h-screen bg-[#fbfaf7] text-[#14243b] flex items-center justify-center p-6">
-        <p className="text-sm font-bold text-[#8b94a1]">Loading service details...</p>
+        <p className="text-sm font-bold text-[#8b94a1]">Loading offer details...</p>
       </main>
     )
   }
@@ -206,10 +210,12 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
   if (!service) {
     return (
       <main className="min-h-screen bg-[#fbfaf7] text-[#14243b] flex flex-col items-center justify-center p-6 text-center">
-        <h1 className="text-3xl font-bold">Service Not Found</h1>
-        <p className="mt-2 text-xs text-[#637084]">This service offering may have been deleted or is inactive.</p>
-        <Link href="/services" className="mt-6 rounded-full bg-[#14243b] px-6 py-2.5 text-xs font-bold text-white">
-          ← Browse Services
+        <h1 className="text-3xl font-bold">Offer Not Found</h1>
+        <p className="mt-2 text-xs text-[#637084]">
+          This offer may be inactive, outside the approved MVP taxonomy, or pending administrator review.
+        </p>
+        <Link href="/explore" className="mt-6 rounded-full bg-[#14243b] px-6 py-2.5 text-xs font-bold text-white">
+          ← Explore Approved Offerings
         </Link>
       </main>
     )
@@ -217,6 +223,10 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
 
   const baseCurrency = service.pricing?.baseCurrency || 'EGP'
   const price = service.pricing?.prices?.[baseCurrency] ?? 0
+  const catLabelEn = getCategoryLabel(service.categorySlug, 'en')
+  const catLabelAr = getCategoryLabel(service.categorySlug, 'ar')
+  const subLabelEn = getSubcategoryLabel(service.categorySlug, service.subcategorySlug, 'en')
+  const subLabelAr = getSubcategoryLabel(service.categorySlug, service.subcategorySlug, 'ar')
 
   return (
     <main className="min-h-screen bg-[#fbfaf7] text-[#14243b] overflow-x-hidden">
@@ -224,7 +234,13 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
         {/* Action / Breadcrumb Bar */}
         <div className="flex py-5 flex-wrap items-center justify-between gap-4 border-b border-[#e7e2da] min-w-0">
           <Link
-            href={isEvent ? (service.bookingType === 'WORKSHOP' ? '/workshops' : '/webinars') : '/services'}
+            href={
+              isEvent
+                ? service.bookingType === 'WORKSHOP'
+                  ? '/workshops'
+                  : '/webinars'
+                : '/consultations'
+            }
             className="text-xs font-bold text-[#ef5b4c] hover:underline"
           >
             ← Back to Catalog
@@ -234,7 +250,7 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
             className="inline-flex items-center gap-1.5 rounded-full border border-[#dedbd5] bg-white px-3.5 py-1.5 text-xs font-bold text-[#14243b] hover:border-[#14243b] transition"
           >
             {copied ? <Check size={13} className="text-emerald-600" /> : <Share2 size={13} />}
-            {copied ? 'Link Copied!' : 'Share Service'}
+            {copied ? 'Link Copied!' : 'Share Offer'}
           </button>
         </div>
 
@@ -242,25 +258,35 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
           {/* Left Column: Offering details & Provider Card */}
           <div className="space-y-8 min-w-0 w-full">
             <div>
-              {/* Type & Delivery Mode Badges */}
+              {/* Type & Delivery Mode & Taxonomy Badges */}
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-[#ef5b4c]/10 px-3 py-1 text-xs font-black uppercase tracking-wider text-[#ef5b4c]">
                   {service.bookingType === 'WORKSHOP'
-                    ? 'Workshop'
+                    ? 'Workshop / ورشة عمل'
                     : service.bookingType === 'WEBINAR'
-                      ? 'Webinar'
-                      : service.serviceKind === 'GENERAL_SERVICE'
-                        ? 'General Service'
-                        : '1-on-1 Consultation'}
+                      ? 'Webinar / ندوة مباشرة'
+                      : '1-on-1 Consultation / استشارة فردية'}
                 </span>
                 <span className="rounded-full bg-[#faf8f5] border border-[#dedbd5] px-3 py-1 text-xs font-semibold text-[#637084]">
-                  {service.deliveryMode === 'ONLINE' ? '🌐 Online Remote' : service.deliveryMode === 'IN_PERSON' ? '📍 In-Person' : '🔄 Hybrid'}
+                  {service.deliveryMode === 'ONLINE'
+                    ? '🌐 Online Remote'
+                    : service.deliveryMode === 'IN_PERSON'
+                      ? '📍 In-Person'
+                      : '🔄 Hybrid'}
                 </span>
                 {service.categorySlug && (
-                  <span className="rounded-full bg-[#faf8f5] border border-[#dedbd5] px-3 py-1 text-xs font-semibold text-[#637084]">
-                    {service.categorySlug}
+                  <span className="rounded-full bg-[#faf8f5] border border-[#dedbd5] px-3 py-1 text-xs font-semibold text-[#14243b]">
+                    {catLabelEn} • {catLabelAr}
                   </span>
                 )}
+                {subLabelEn && (
+                  <span className="rounded-full bg-[#fff2ed] border border-[#f4cfc8] px-3 py-1 text-xs font-bold text-[#ef5b4c]">
+                    {subLabelEn} • {subLabelAr}
+                  </span>
+                )}
+                <span className="rounded-full bg-[#14243b] px-3 py-1 text-xs font-bold text-white">
+                  18+ Adults Only
+                </span>
               </div>
 
               <h1 className="mt-4 text-3xl sm:text-4xl font-extrabold text-[#14243b] leading-tight break-words">
@@ -276,11 +302,15 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                   <>
                     <div className="flex items-center gap-2">
                       <Calendar size={16} className="text-[#ef5b4c] shrink-0" />
-                      <span>{service.event?.date} · {service.event?.startTime} to {service.event?.endTime}</span>
+                      <span>
+                        {service.event?.date} · {service.event?.startTime} to {service.event?.endTime}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Users size={16} className="text-[#ef5b4c] shrink-0" />
-                      <span>Capacity: {service.event?.capacity || 20} seats ({service.event?.registeredCount || 0} enrolled)</span>
+                      <span>
+                        Capacity: {service.event?.capacity || 20} seats ({service.event?.registeredCount || 0} enrolled)
+                      </span>
                     </div>
                   </>
                 ) : (
@@ -290,7 +320,9 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                       <span>{service.durationMinutes} minutes session</span>
                     </div>
                     {service.breakAfterMinutes > 0 && (
-                      <span className="text-[11px] text-[#8b94a1]">({service.breakAfterMinutes}m break buffer)</span>
+                      <span className="text-[11px] text-[#8b94a1]">
+                        ({service.breakAfterMinutes}m break buffer)
+                      </span>
                     )}
                   </>
                 )}
@@ -298,22 +330,45 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                 {service.deliveryMode !== 'ONLINE' && service.location?.address && (
                   <div className="flex items-center gap-2">
                     <MapPin size={16} className="text-[#ef5b4c] shrink-0" />
-                    <span>{service.location.address}{service.location.city ? `, ${service.location.city}` : ''}</span>
+                    <span>
+                      {service.location.address}
+                      {service.location.city ? `, ${service.location.city}` : ''}
+                    </span>
                   </div>
                 )}
               </div>
 
-              {/* Description */}
+              {/* Activity Description */}
               <div className="mt-6 space-y-4 min-w-0">
-                <h2 className="text-base font-bold text-[#14243b]">About This Offering</h2>
+                <h2 className="text-base font-bold text-[#14243b]">Actual Activity & Scope</h2>
                 {service.description?.en && (
                   <p className="text-sm leading-relaxed text-[#4b5565] whitespace-pre-line break-words">
                     {service.description.en}
                   </p>
                 )}
                 {service.description?.ar && (
-                  <p className="text-sm leading-relaxed text-[#4b5565] whitespace-pre-line text-right break-words" dir="rtl">
+                  <p
+                    className="text-sm leading-relaxed text-[#4b5565] whitespace-pre-line text-right break-words"
+                    dir="rtl"
+                  >
                     {service.description.ar}
+                  </p>
+                )}
+              </div>
+
+              {/* Intended Audience Box */}
+              <div className="mt-6 rounded-2xl border border-[#e7e2da] bg-white p-4 space-y-1.5">
+                <p className="text-xs font-bold text-[#14243b] flex items-center gap-1.5">
+                  <Users size={14} className="text-[#ef5b4c]" />
+                  Intended Audience (Adults 18+ Only)
+                </p>
+                <p className="text-xs text-[#637084]">
+                  {service.intendedAudience?.en ||
+                    'Adult professionals, founders, and learners aged 18 and over.'}
+                </p>
+                {service.intendedAudience?.ar && (
+                  <p className="text-xs text-[#8b94a1]" dir="rtl">
+                    {service.intendedAudience.ar}
                   </p>
                 )}
               </div>
@@ -336,7 +391,9 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
             {/* Provider Info Card */}
             {service.expert && (
               <div className="rounded-3xl border border-[#e7e2da] bg-white p-5 sm:p-7 shadow-xs min-w-0 w-full">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-[#8b94a1] mb-4">Offered By</p>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#8b94a1] mb-4">
+                  Offered By
+                </p>
                 <div className="flex items-start gap-4 min-w-0">
                   <div className="relative size-16 shrink-0 overflow-hidden rounded-2xl bg-[#f5c3a8]">
                     <Image
@@ -388,7 +445,7 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                 </span>
               </div>
               <span className="shrink-0 rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold text-[#f5c3a8]">
-                InstaPay
+                InstaPay • 18+
               </span>
             </div>
 
@@ -425,12 +482,13 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                               type="button"
                               disabled={!d.hasSlots}
                               onClick={() => setSelectedDate(d.date)}
-                              className={`shrink-0 rounded-2xl p-2.5 text-center transition min-w-[64px] ${selectedDate === d.date
+                              className={`shrink-0 rounded-2xl p-2.5 text-center transition min-w-[64px] ${
+                                selectedDate === d.date
                                   ? 'bg-[#ef5b4c] text-white shadow-md'
                                   : d.hasSlots
                                     ? 'bg-white/10 text-white hover:bg-white/20'
                                     : 'bg-white/5 text-white/30 cursor-not-allowed'
-                                }`}
+                              }`}
                             >
                               <span className="block text-[10px] font-bold uppercase">
                                 {new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(
@@ -463,12 +521,13 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                                 type="button"
                                 disabled={!s.available}
                                 onClick={() => setSelectedTime(s.time)}
-                                className={`rounded-xl py-2 px-2 text-xs font-bold transition ${selectedTime === s.time
+                                className={`rounded-xl py-2 px-2 text-xs font-bold transition ${
+                                  selectedTime === s.time
                                     ? 'bg-[#ef5b4c] text-white shadow-sm'
                                     : s.available
                                       ? 'bg-white/10 text-white hover:bg-white/20'
                                       : 'bg-white/5 text-white/20 line-through cursor-not-allowed'
-                                  }`}
+                                }`}
                               >
                                 {formatSlotLabel(s.time)}
                               </button>
@@ -508,6 +567,18 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                     placeholder="Phone Number (e.g. +20 10...)"
                     className="w-full rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-xs text-white outline-none placeholder:text-white/40 focus:border-[#ef5b4c]"
                   />
+
+                  <label className="flex items-start gap-2.5 rounded-xl bg-white/5 border border-white/15 p-3 text-[11px] text-white/90 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={adultsOnlyConfirmed}
+                      onChange={(e) => setAdultsOnlyConfirmed(e.target.checked)}
+                      className="mt-0.5 size-4 rounded accent-[#ef5b4c]"
+                    />
+                    <span>
+                      I confirm that I am <strong>18 years of age or older</strong> (أؤكد أن عمري 18 عاماً أو أكثر). *
+                    </span>
+                  </label>
                 </div>
 
                 {/* Step 3: InstaPay Transfer Instructions */}
@@ -515,7 +586,9 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                   <div className="rounded-2xl bg-white/5 border border-white/10 p-3.5 text-xs space-y-1">
                     <p className="font-bold text-[#f5c3a8]">InstaPay Payment Details</p>
                     <p className="text-white/80 font-mono text-[11px]">IPA: bokbok@instapay</p>
-                    <p className="text-white/80 font-mono text-[11px]">Amount: {price} {baseCurrency}</p>
+                    <p className="text-white/80 font-mono text-[11px]">
+                      Amount: {price} {baseCurrency}
+                    </p>
                     <p className="text-[10px] text-white/60">
                       Transfer via your banking app or InstaPay, then upload the confirmation receipt below.
                     </p>
@@ -540,16 +613,20 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                 {/* Submit Booking */}
                 <button
                   type="button"
-                  disabled={bookingLoading || (!isEvent && (!selectedDate || !selectedTime))}
+                  disabled={bookingLoading || !adultsOnlyConfirmed || (!isEvent && (!selectedDate || !selectedTime))}
                   onClick={handleBook}
                   className="w-full rounded-full bg-[#ef5b4c] py-3.5 text-xs font-bold text-white shadow-lg transition hover:bg-[#ff7568] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {bookingLoading ? 'Processing Booking...' : isEvent ? 'Confirm Registration' : 'Confirm & Request Session'}
+                  {bookingLoading
+                    ? 'Processing Booking...'
+                    : isEvent
+                      ? 'Confirm Registration (18+)'
+                      : 'Confirm & Request Session (18+)'}
                 </button>
 
                 <div className="flex items-center justify-center gap-2 text-[11px] text-white/50 pt-1">
                   <ShieldCheck size={14} className="text-[#ef5b4c]" />
-                  <span>Secure booking with direct expert confirmation</span>
+                  <span>Admin-reviewed offer • Adults 18+ only</span>
                 </div>
               </div>
             )}

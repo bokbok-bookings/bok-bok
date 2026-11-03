@@ -5,10 +5,10 @@ import { CatalogListing } from '@/components/catalog/catalog-listing'
 export default function ServicesPage() {
   return (
     <CatalogListing
-      view="services"
-      title="Appointment Services"
-      subtitle="Discover and book professional appointment-based services from top photography sessions, beauty & bridal styling, to design audits."
-      badgeText="Direct Services"
+      view="all"
+      title="Consultations, Workshops & Webinars"
+      subtitle="Bok Bok is an adults-only (18+) marketplace for Consultations, Workshops, and Webinars across 9 approved fields. Professional Services are outside the MVP."
+      badgeText="MVP Marketplace"
     />
   )
 }

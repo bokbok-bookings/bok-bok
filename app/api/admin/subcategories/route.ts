@@ -8,6 +8,7 @@ import {
   toObjectId,
 } from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
+import { isAllowedMvpCategory, isAllowedMvpSubcategory, isRemovedCategory } from '@/lib/data/categories'
 
 export const dynamic = 'force-dynamic'
 
@@ -158,6 +159,20 @@ export async function POST(request: Request) {
       )
     }
 
+    if (
+      isRemovedCategory(parent.slug) ||
+      !isAllowedMvpCategory(parent.slug) ||
+      !isAllowedMvpSubcategory(parent.slug, slug)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Subcategory "${slug}" under "${parent.slug}" is outside the approved MVP taxonomy. Custom or removed subcategories are not permitted in the MVP.`,
+        },
+        { status: 400 }
+      )
+    }
+
     const subcategoriesCol = await getSubcategoriesCollection()
     const existing = await subcategoriesCol.findOne({
       categoryId,
@@ -288,6 +303,22 @@ export async function PATCH(request: Request) {
 
     const targetSlug = customSlug ? slugify(customSlug) : existing.slug
     if (customSlug || newCatId) {
+      const categoriesCol = await getCategoriesCollection()
+      const parentDoc = await categoriesCol.findOne({ _id: targetCategoryId })
+      if (
+        !parentDoc ||
+        !isAllowedMvpCategory(parentDoc.slug) ||
+        !isAllowedMvpSubcategory(parentDoc.slug, targetSlug)
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Subcategory slug "${targetSlug}" is outside the approved MVP taxonomy for "${parentDoc?.slug || ''}".`,
+          },
+          { status: 400 }
+        )
+      }
+
       // Check for slug collision in target parent category
       const slugConflict = await subcategoriesCol.findOne({
         categoryId: targetCategoryId,
@@ -314,6 +345,23 @@ export async function PATCH(request: Request) {
     }
 
     if (isActive !== undefined) {
+      if (Boolean(isActive)) {
+        const categoriesCol = await getCategoriesCollection()
+        const parentDoc = await categoriesCol.findOne({ _id: targetCategoryId })
+        if (
+          !parentDoc ||
+          !isAllowedMvpCategory(parentDoc.slug) ||
+          !isAllowedMvpSubcategory(parentDoc.slug, targetSlug)
+        ) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `Cannot activate subcategory "${targetSlug}" because it is outside the approved MVP taxonomy.`,
+            },
+            { status: 400 }
+          )
+        }
+      }
       updateFields.isActive = Boolean(isActive)
     }
 

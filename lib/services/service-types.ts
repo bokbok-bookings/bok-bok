@@ -4,11 +4,11 @@
  * IMPORTANT: this module must stay free of runtime imports so it can be executed
  * directly by Node's test runner (`node --experimental-strip-types --test`).
  *
- * Concepts (kept deliberately separate):
- *  - bookingType  → which booking WORKFLOW applies (appointment slots vs event registration)
- *  - serviceKind  → public classification of APPOINTMENT services (navigation placement)
- *  - category / subcategory → professional field (discovery)
- *  - tags         → extra searchable descriptors (never control behaviour)
+ * Reduced-Risk MVP Scope:
+ *  - Bok Bok is a marketplace for Consultations, Workshops, and Webinars.
+ *  - Professional Services (GENERAL_SERVICE) are outside the MVP.
+ *  - Calling an offer a "consultation," "workshop," or "webinar" does not exempt
+ *    it from applicable licensing requirements.
  */
 
 export const BOOKING_TYPES = ['APPOINTMENT', 'WORKSHOP', 'WEBINAR'] as const
@@ -22,12 +22,16 @@ export type DeliveryMode = (typeof DELIVERY_MODES)[number]
 
 export const EVENT_BOOKING_TYPES: BookingType[] = ['WORKSHOP', 'WEBINAR']
 
-/** Public listing contexts (one per navigation item, plus "all"). */
+/** Public listing contexts (Consultations, Workshops, Webinars, plus "all"). */
 export const CATALOG_VIEWS = ['consultations', 'services', 'workshops', 'webinars', 'all'] as const
 export type CatalogView = (typeof CATALOG_VIEWS)[number]
 export type ListingContext = Exclude<CatalogView, 'all'>
 
-/** Provider-facing "offering type" — a UI convenience mapping onto bookingType + serviceKind. */
+/** Allowed MVP offering types (Professional Services / GENERAL_SERVICE excluded from MVP). */
+export const MVP_OFFERING_TYPES = ['CONSULTATION', 'WORKSHOP', 'WEBINAR'] as const
+export type MvpOfferingType = (typeof MVP_OFFERING_TYPES)[number]
+
+/** Provider-facing "offering type" — retains GENERAL_SERVICE in union only for legacy record inspection. */
 export const OFFERING_TYPES = ['CONSULTATION', 'GENERAL_SERVICE', 'WORKSHOP', 'WEBINAR'] as const
 export type OfferingType = (typeof OFFERING_TYPES)[number]
 
@@ -58,6 +62,12 @@ export function isBookingType(value: unknown): value is BookingType {
 
 export function isServiceKind(value: unknown): value is ServiceKind {
   return typeof value === 'string' && (SERVICE_KINDS as readonly string[]).includes(value)
+}
+
+export function isMvpOfferingService(service: ClassifiableService): boolean {
+  const bType = resolveBookingType(service)
+  if (bType === 'WORKSHOP' || bType === 'WEBINAR') return true
+  return resolveServiceKind(service) !== 'GENERAL_SERVICE'
 }
 
 export function isDeliveryMode(value: unknown): value is DeliveryMode {
@@ -138,7 +148,7 @@ const APPOINTMENT_TYPE_FILTER = {
 
 /**
  * MongoDB filter selecting services for one listing context.
- * Must stay consistent with getListingContext() (covered by tests).
+ * Note: Professional Services (GENERAL_SERVICE) are outside the MVP scope.
  */
 export function buildClassificationFilter(
   view: CatalogView | ListingContext,
@@ -159,7 +169,25 @@ export function buildClassificationFilter(
         ],
       }
     case 'services':
-      return { $and: [APPOINTMENT_TYPE_FILTER, { serviceKind: 'GENERAL_SERVICE' }] }
+      // Professional Services are outside the MVP; only return MVP-eligible offerings
+      return {
+        $or: [
+          { bookingType: 'WORKSHOP' },
+          { bookingType: 'WEBINAR' },
+          {
+            $and: [
+              APPOINTMENT_TYPE_FILTER,
+              {
+                $or: [
+                  { serviceKind: 'CONSULTATION' },
+                  { serviceKind: { $exists: false } },
+                  { serviceKind: null },
+                ],
+              },
+            ],
+          },
+        ],
+      }
     case 'workshops':
       return { bookingType: 'WORKSHOP' }
     case 'webinars':

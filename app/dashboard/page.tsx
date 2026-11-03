@@ -11,6 +11,16 @@ import {
 
 export const dynamic = 'force-dynamic'
 
+function getSafeHttpsUrl(value?: string): string {
+  if (!value) return ''
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === 'https:' ? parsed.toString() : ''
+  } catch {
+    return ''
+  }
+}
+
 export default async function DashboardPage() {
   const session = await verifySession()
 
@@ -101,7 +111,8 @@ export default async function DashboardPage() {
             {expertDoc?.name || session.displayName}
           </h1>
           <p className="text-xs text-[#637084] mt-0.5">
-            Today is {now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}.
+            Today is{' '}
+            {now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}.
           </p>
         </div>
 
@@ -176,35 +187,57 @@ export default async function DashboardPage() {
           <div className="mt-5 space-y-3">
             {todayBookings.length === 0 ? (
               <div className="py-10 text-center">
-                <p className="text-xs font-bold text-[#637084]">No appointments scheduled for today.</p>
+                <p className="text-xs font-bold text-[#637084]">
+                  No appointments scheduled for today.
+                </p>
                 <p className="text-[11px] text-[#8b94a1] mt-0.5">Your schedule is clear.</p>
               </div>
             ) : (
-              todayBookings.map((b) => (
-                <div
-                  key={b._id.toString()}
-                  className="flex items-center justify-between rounded-2xl border border-[#eeeae4] bg-[#faf8f5] p-4"
-                >
-                  <div>
-                    <span className="text-sm font-black text-[#14243b]">{b.time}</span>
-                    <p className="text-xs font-bold text-[#14243b] mt-0.5">{b.clientName}</p>
-                    <p className="text-[11px] text-[#637084]">{b.serviceTitle?.en || 'Consultation'}</p>
+              todayBookings.map((b) => {
+                const safeMeet = getSafeHttpsUrl(b.googleMeetLink)
+                return (
+                  <div
+                    key={b._id.toString()}
+                    className="flex items-center justify-between rounded-2xl border border-[#eeeae4] bg-[#faf8f5] p-4"
+                  >
+                    <div>
+                      <span className="text-sm font-black text-[#14243b]">{b.time}</span>
+                      <p className="text-xs font-bold text-[#14243b] mt-0.5">{b.clientName}</p>
+                      <p className="text-[11px] text-[#637084]">
+                        {b.serviceTitle?.en || 'Consultation'}
+                      </p>
+                    </div>
+                    <div className="text-right space-y-1.5">
+                      <div>
+                        <span
+                          className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                            b.status === 'confirmed'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {b.status}
+                        </span>
+                      </div>
+                      {safeMeet && (
+                        <div>
+                          <a
+                            href={safeMeet}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-block rounded-full bg-emerald-600 px-3 py-1 text-[10px] font-bold text-white hover:bg-emerald-700"
+                          >
+                            Join Meet ↗
+                          </a>
+                        </div>
+                      )}
+                      <p className="text-xs font-bold text-[#14243b]">
+                        {b.amount ? `${b.amount} ${b.currency || 'EGP'}` : ''}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span
-                      className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${b.status === 'confirmed'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-amber-100 text-amber-800'
-                        }`}
-                    >
-                      {b.status}
-                    </span>
-                    <p className="text-xs font-bold text-[#14243b] mt-1">
-                      {b.amount ? `${b.amount} ${b.currency || 'EGP'}` : ''}
-                    </p>
-                  </div>
-                </div>
-              ))
+                )
+              })
             )}
           </div>
         </div>
@@ -290,41 +323,62 @@ export default async function DashboardPage() {
                   <th className="pb-3 font-semibold">Service</th>
                   <th className="pb-3 font-semibold">Price</th>
                   <th className="pb-3 font-semibold">Status</th>
+                  <th className="pb-3 font-semibold">Google Meet</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f4f2ee]">
-                {recentBookings.map((b) => (
-                  <tr key={b._id.toString()} className="hover:bg-[#faf8f5]">
-                    <td className="py-3 font-mono font-bold text-[#14243b]">
-                      {b.reference || b._id.toString().slice(-6).toUpperCase()}
-                    </td>
-                    <td className="py-3">
-                      <p className="font-bold text-[#14243b]">{b.clientName}</p>
-                      <p className="text-[11px] text-[#8b94a1]">{b.clientEmail}</p>
-                    </td>
-                    <td className="py-3 font-medium text-[#637084]">
-                      {b.date} at {b.time}
-                    </td>
-                    <td className="py-3 font-medium text-[#14243b]">
-                      {b.serviceTitle?.en || 'General Session'}
-                    </td>
-                    <td className="py-3 font-bold text-[#14243b]">
-                      {b.amount ? `${b.amount} ${b.currency || 'EGP'}` : '—'}
-                    </td>
-                    <td className="py-3">
-                      <span
-                        className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${b.status === 'confirmed'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : b.status === 'awaiting_verification'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-neutral-100 text-neutral-700'
+                {recentBookings.map((b) => {
+                  const safeMeet = getSafeHttpsUrl(b.googleMeetLink)
+                  return (
+                    <tr key={b._id.toString()} className="hover:bg-[#faf8f5]">
+                      <td className="py-3 font-mono font-bold text-[#14243b]">
+                        {b.reference || b._id.toString().slice(-6).toUpperCase()}
+                      </td>
+                      <td className="py-3">
+                        <p className="font-bold text-[#14243b]">{b.clientName}</p>
+                        <p className="text-[11px] text-[#8b94a1]">{b.clientEmail}</p>
+                      </td>
+                      <td className="py-3 font-medium text-[#637084]">
+                        {b.date} at {b.time}
+                      </td>
+                      <td className="py-3 font-medium text-[#14243b]">
+                        {b.serviceTitle?.en || 'General Session'}
+                      </td>
+                      <td className="py-3 font-bold text-[#14243b]">
+                        {b.amount ? `${b.amount} ${b.currency || 'EGP'}` : '—'}
+                      </td>
+                      <td className="py-3">
+                        <span
+                          className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                            b.status === 'confirmed'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : b.status === 'awaiting_verification'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-neutral-100 text-neutral-700'
                           }`}
-                      >
-                        {b.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                        >
+                          {b.status}
+                        </span>
+                      </td>
+                      <td className="py-3">
+                        {safeMeet ? (
+                          <a
+                            href={safeMeet}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-block rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700"
+                          >
+                            Join Meet ↗
+                          </a>
+                        ) : b.status === 'confirmed' ? (
+                          <span className="text-[10px] font-bold text-amber-700">Pending Sync</span>
+                        ) : (
+                          <span className="text-[11px] text-[#8b94a1]">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           )}

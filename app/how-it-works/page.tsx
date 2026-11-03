@@ -17,7 +17,6 @@ import {
   ChevronDown,
   HelpCircle,
   Briefcase,
-  Layers,
   GraduationCap,
 } from 'lucide-react'
 
@@ -33,14 +32,14 @@ export default function HowItWorksPage() {
     {
       num: '01',
       title: 'Find the Right Expert & Offering',
-      desc: 'Explore vetted industry leaders across 11 key fields including Tech, Marketing, Business, and Career. Filter by service type, language, and session duration.',
+      desc: 'Explore vetted specialists across 9 approved MVP categories including Marketing, Business, Technology, Career, and Design. Filter by consultation, workshop, or webinar.',
       icon: Compass,
-      highlight: 'Tailored matching',
+      highlight: '9 Approved Categories',
     },
     {
       num: '02',
       title: 'Pick a Date & Time Slot',
-      desc: 'Browse real-time expert availability with zero email back-and-forth. Select session lengths that fit your need — from a quick 45-min advisory to 2–4 hour deep dives.',
+      desc: 'Browse real-time expert availability with zero email back-and-forth. Select session lengths that fit your need — from a 45-min consultation to interactive group cohorts.',
       icon: Calendar,
       highlight: 'Direct live calendar',
     },
@@ -54,7 +53,7 @@ export default function HowItWorksPage() {
     {
       num: '04',
       title: 'Meet & Leave With a Concrete Plan',
-      desc: 'Connect over online video or in-person. Walk away with clear recommendations, recorded insights, and a concrete roadmap for your next breakthrough.',
+      desc: 'Connect over online video or in-person. Walk away with clear recommendations, practical guidance, and a concrete roadmap for your next breakthrough.',
       icon: Video,
       highlight: 'Actionable outcomes',
     },
@@ -63,10 +62,10 @@ export default function HowItWorksPage() {
   const expertSteps = [
     {
       num: '01',
-      title: 'Build Your Service Catalog',
-      desc: 'Package what you know into 1-on-1 consultations, audits, hands-on workshops, or masterclass webinars with your own pricing in EGP, USD, or SAR.',
+      title: 'Build Your Offer Catalog',
+      desc: 'Package what you know into 1-on-1 consultations, hands-on workshops, or masterclass webinars within the approved MVP taxonomy, with clear scope and adult (18+) audience.',
       icon: Briefcase,
-      highlight: 'Full catalog control',
+      highlight: 'Admin-reviewed quality',
     },
     {
       num: '02',
@@ -85,7 +84,7 @@ export default function HowItWorksPage() {
     {
       num: '04',
       title: 'Deliver Impact & Build Reputation',
-      desc: 'Conduct your sessions, earn verified client reviews, share your dedicated service slugs directly on social media, and grow your advisory practice.',
+      desc: 'Conduct your sessions, earn verified client reviews, share your dedicated offer slugs directly on social media, and grow your advisory practice.',
       icon: Sparkles,
       highlight: 'Shareable links by slug',
     },
@@ -94,21 +93,12 @@ export default function HowItWorksPage() {
   const offeringFormats = [
     {
       title: '1-on-1 Consultations',
-      desc: 'Focused advice and high-leverage strategic guidance customized to your specific challenges.',
+      desc: 'Focused advice, reviews (CV, code, portfolio, campaigns), and strategic mentoring customized to your specific challenges.',
       badge: 'Personalized',
       icon: Sparkles,
       color: 'bg-[#fff2ed] text-[#ef5b4c]',
       link: '/consultations',
       cta: 'Browse Consultations',
-    },
-    {
-      title: 'Direct Services',
-      desc: 'Outcome-based sessions like code reviews, marketing audits, pitch deck evaluations, and roadmaps.',
-      badge: 'Deliverable-Focused',
-      icon: Layers,
-      color: 'bg-emerald-50 text-emerald-600',
-      link: '/services',
-      cta: 'Explore Services',
     },
     {
       title: 'Interactive Workshops',
@@ -132,24 +122,24 @@ export default function HowItWorksPage() {
 
   const faqs = [
     {
-      q: 'How are Bok Bok experts vetted?',
-      a: 'Every expert undergoes a thorough identity, professional track record, and portfolio verification before being published to the public directory. We verify real-world industry impact, credentials, and past client feedback.',
+      q: 'How are Bok Bok experts and offers reviewed?',
+      a: 'Every expert undergoes identity and portfolio verification, and every offer requires administrator review before publication. Structured vocational training programmes are additionally flagged for a separate licensing review before publication.',
+    },
+    {
+      q: 'What offerings are included in the Bok Bok MVP?',
+      a: 'Bok Bok is a marketplace for Consultations, Workshops, and Webinars across 9 approved categories (Marketing, Business & Entrepreneurship, Technology & IT, Career & Professional Development, Design & Creative, Languages & Communication, Personal Skills & Lifestyle, Hobbies & Skills, and Travel). Professional Services and regulated medical, legal, financial, or school tutoring services are outside the MVP.',
+    },
+    {
+      q: 'Who can book or offer sessions on Bok Bok?',
+      a: 'All MVP offers on Bok Bok are restricted to adults aged 18 and over. Services directed at children or school/university exam preparation are excluded from the platform.',
     },
     {
       q: 'How does payment with InstaPay work?',
-      a: 'When you choose a slot or ticket, you will see the official Bok Bok InstaPay address. Make the transfer from your banking app or InstaPay, upload a screenshot or PDF receipt, and our automated verification team approves your booking.',
-    },
-    {
-      q: 'What is the difference between a Consultation and a Service?',
-      a: 'A Consultation is an open advisory session focused on conversation and strategy. A Service is an outcome-driven package (such as an SEO Audit, UX Review, or Architecture Deep Dive) that includes pre-requisites and concrete deliverables.',
+      a: 'When you choose a slot or ticket, you will see the official Bok Bok InstaPay address. Make the transfer from your banking app or InstaPay, upload a screenshot or PDF receipt, and our verification team approves your booking.',
     },
     {
       q: 'Can sessions be scheduled for longer than 1 hour?',
-      a: 'Yes! Bok Bok supports multi-hour sessions (up to 4 hours) with automated break buffers so experts can deliver comprehensive half-day workshops or extensive project deep dives.',
-    },
-    {
-      q: 'How can an expert share their services directly?',
-      a: 'Each service has a clean, human-readable shareable link (e.g., bokbok.com/services/product-strategy-roadmap) that experts can copy straight from their workspace to share on LinkedIn, Instagram, or WhatsApp.',
+      a: 'Yes! Bok Bok supports multi-hour sessions (up to 4 hours) with automated break buffers so experts can deliver comprehensive workshops or deep-dive consultations.',
     },
     {
       q: 'What if I need to reschedule?',
@@ -164,7 +154,7 @@ export default function HowItWorksPage() {
         <div className="mx-auto max-w-[1140px] px-5 sm:px-8 text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-[#f4cfc8] bg-[#fff2ed] px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-[#d95347]">
             <span className="size-1.5 rounded-full bg-[#ef5b4c]" />
-            Transparent & Simple by Design
+            Consultations • Workshops • Webinars
           </div>
 
           <h1 className="mt-5 text-4xl sm:text-6xl font-extrabold tracking-tight text-[#14243b] max-w-3xl mx-auto leading-tight">
@@ -172,7 +162,7 @@ export default function HowItWorksPage() {
           </h1>
 
           <p className="mt-5 max-w-2xl mx-auto text-base sm:text-lg text-[#637084] leading-relaxed">
-            Direct access to proven specialists. Seamless live scheduling, verified InstaPay payments, and zero administrative back-and-forth.
+            Direct access to vetted specialists across 9 approved fields for adults aged 18+. Seamless live scheduling, verified InstaPay payments, and admin-reviewed quality.
           </p>
 
           {/* Audience Switcher */}
@@ -180,20 +170,22 @@ export default function HowItWorksPage() {
             <button
               type="button"
               onClick={() => setActiveAudience('clients')}
-              className={`rounded-full px-6 py-2.5 text-xs font-bold transition ${activeAudience === 'clients'
-                ? 'bg-[#14243b] text-white shadow-sm'
-                : 'text-[#637084] hover:text-[#14243b]'
-                }`}
+              className={`rounded-full px-6 py-2.5 text-xs font-bold transition ${
+                activeAudience === 'clients'
+                  ? 'bg-[#14243b] text-white shadow-sm'
+                  : 'text-[#637084] hover:text-[#14243b]'
+              }`}
             >
-              For Clients & Businesses
+              For Clients & Businesses (18+)
             </button>
             <button
               type="button"
               onClick={() => setActiveAudience('experts')}
-              className={`rounded-full px-6 py-2.5 text-xs font-bold transition ${activeAudience === 'experts'
-                ? 'bg-[#14243b] text-white shadow-sm'
-                : 'text-[#637084] hover:text-[#14243b]'
-                }`}
+              className={`rounded-full px-6 py-2.5 text-xs font-bold transition ${
+                activeAudience === 'experts'
+                  ? 'bg-[#14243b] text-white shadow-sm'
+                  : 'text-[#637084] hover:text-[#14243b]'
+              }`}
             >
               For Experts & Advisors
             </button>
@@ -210,7 +202,7 @@ export default function HowItWorksPage() {
             </p>
             <h2 className="mt-2 text-3xl font-extrabold tracking-tight">
               {activeAudience === 'clients'
-                ? 'Your path from problem to breakthrough'
+                ? 'Your path from question to breakthrough'
                 : 'Monetize and manage your advisory with ease'}
             </h2>
           </div>
@@ -243,22 +235,22 @@ export default function HowItWorksPage() {
         </div>
       </section>
 
-      {/* 4 Formats Section */}
+      {/* 3 MVP Formats Section */}
       <section className="border-t border-[#e7e2da] bg-white py-20">
         <div className="mx-auto max-w-[1140px] px-5 sm:px-8">
           <div className="text-center max-w-xl mx-auto mb-14">
             <p className="text-xs font-bold uppercase tracking-widest text-[#ef5b4c]">
-              Four Flexible Formats
+              Three Focused MVP Formats
             </p>
             <h2 className="mt-2 text-3xl font-extrabold tracking-tight">
-              Choose the format that fits your learning style
+              Choose the format that fits your goals
             </h2>
             <p className="mt-2 text-xs text-[#637084]">
-              From targeted private consultations to group cohorts and broadcast masterclasses.
+              From targeted private consultations to interactive group workshops and live webinars. (Professional Services are outside the MVP.)
             </p>
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-6 sm:grid-cols-3">
             {offeringFormats.map((fmt) => {
               const Icon = fmt.icon
               return (
@@ -304,30 +296,30 @@ export default function HowItWorksPage() {
                   The <BokBok /> Standard
                 </p>
                 <h2 className="mt-3 text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight">
-                  Built on verification, respect, and tangible progress.
+                  Built on verification, clear scope, and tangible progress.
                 </h2>
                 <p className="mt-4 text-xs text-[#b9c2ce] leading-relaxed">
-                  We built <BokBok /> to eliminate noisy marketplaces and replace them with focused, verified advisory where every minute counts.
+                  We built <BokBok /> to eliminate noisy marketplaces and replace them with focused, admin-reviewed consultations, workshops, and webinars where every minute counts.
                 </p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 {[
                   {
-                    title: '100% Vetted Advisors',
-                    text: 'Real practitioners with documented accomplishments, not theoretical gurus.',
+                    title: 'Admin-Reviewed Offers',
+                    text: 'Every offer requires a clear activity description, intended adult audience, and admin approval.',
                   },
                   {
                     title: 'Guaranteed Availability',
                     text: 'Direct slots locked upon receipt verification with automated calendar sync.',
                   },
                   {
-                    title: 'Session Preparation',
-                    text: 'Share intake notes and files in advance so sessions dive straight into solutions.',
+                    title: 'Approved Taxonomy',
+                    text: 'Curated across 9 MVP categories and 63 specialized subcategories.',
                   },
                   {
-                    title: 'Direct Client Support',
-                    text: 'Dedicated assistance for any scheduling adjustments or technical needs.',
+                    title: 'Adults 18+ Scope',
+                    text: 'All MVP sessions are designed exclusively for adult learners and professionals aged 18+.',
                   },
                 ].map((item) => (
                   <div key={item.title} className="rounded-2xl bg-white/5 border border-white/10 p-5">
@@ -370,8 +362,9 @@ export default function HowItWorksPage() {
                     <span>{withBokBok(faq.q)}</span>
                     <ChevronDown
                       size={17}
-                      className={`text-[#8b94a1] transition-transform duration-200 shrink-0 ml-4 ${isOpen ? 'rotate-180 text-[#ef5b4c]' : ''
-                        }`}
+                      className={`text-[#8b94a1] transition-transform duration-200 shrink-0 ml-4 ${
+                        isOpen ? 'rotate-180 text-[#ef5b4c]' : ''
+                      }`}
                     />
                   </button>
                   {isOpen && (
@@ -398,7 +391,7 @@ export default function HowItWorksPage() {
                 Book a session or share your expertise.
               </h2>
               <p className="mt-1 text-xs text-[#637084]">
-                Join thousands of founders, engineers, and creators leveling up through direct mentorship.
+                Join founders, engineers, and creators leveling up through direct consultations, workshops, and webinars.
               </p>
             </div>
 

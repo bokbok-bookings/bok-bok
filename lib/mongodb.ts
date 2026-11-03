@@ -1,8 +1,9 @@
 import dns from 'dns'
 import { MongoClient, MongoClientOptions } from 'mongodb'
 
-// Ensure Node's DNS resolver can query MongoDB Atlas records if needed
+// Ensure Node's DNS resolver can query MongoDB Atlas records if needed and prefers IPv4
 try {
+  dns.setDefaultResultOrder('ipv4first')
   dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1'])
 } catch (_e) {
   // Ignore if not supported in runtime

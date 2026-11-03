@@ -32,14 +32,11 @@ export function SiteHeader() {
 
   const navLinks = [
     { label: 'Consultations', href: '/consultations' },
-    { label: 'Services', href: '/services' },
     { label: 'Workshops', href: '/workshops' },
     { label: 'Webinars', href: '/webinars' },
     { label: 'Explore All', href: '/explore' },
     { label: 'Experts', href: '/experts' },
-    { label: 'How It Works', href: '/how-it-works' }
-    // { label: 'Workspace', href: '/dashboard' },
-    // { label: 'Admin Ops', href: '/admin' },
+    { label: 'How It Works', href: '/how-it-works' },
   ]
 
   const isActive = (href: string) => {
@@ -61,10 +58,11 @@ export function SiteHeader() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`transition-colors py-1 ${active
-                  ? 'font-bold text-[#ef5b4c] border-b-2 border-[#ef5b4c]'
-                  : 'hover:text-[#ef5b4c]'
-                  }`}
+                className={`transition-colors py-1 ${
+                  active
+                    ? 'font-bold text-[#ef5b4c] border-b-2 border-[#ef5b4c]'
+                    : 'hover:text-[#ef5b4c]'
+                }`}
               >
                 {link.label}
               </Link>
@@ -118,8 +116,9 @@ export function SiteHeader() {
                   key={link.href}
                   href={link.href}
                   onClick={() => setMobileOpen(false)}
-                  className={`py-1.5 transition ${active ? 'font-bold text-[#ef5b4c]' : 'text-[#14243b] hover:text-[#ef5b4c]'
-                    }`}
+                  className={`py-1.5 transition ${
+                    active ? 'font-bold text-[#ef5b4c]' : 'text-[#14243b] hover:text-[#ef5b4c]'
+                  }`}
                 >
                   {link.label}
                 </Link>

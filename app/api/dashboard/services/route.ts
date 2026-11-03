@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import { getServicesCollection, toObjectId } from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
+import { validateServiceInput, stripUnverifiedAccreditationClaims } from '@/lib/services/service-validation'
+import { slugify } from '@/lib/services/service-types'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,9 +76,6 @@ export async function GET(request: Request) {
   }
 }
 
-import { validateServiceInput } from '@/lib/services/service-validation'
-import { resolveBookingType, resolveServiceKind, slugify } from '@/lib/services/service-types'
-
 // POST: Create new service
 export async function POST(request: Request) {
   try {
@@ -93,6 +92,11 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
+    // Non-admins cannot self-verify accreditation authorization
+    if (auth.session.role !== 'admin') {
+      body.hasVerifiedAccreditationAuthorization = false
+    }
+
     const todayISO = new Date().toISOString().slice(0, 10)
     const validation = validateServiceInput(body, { todayISO, existing: null })
 
@@ -122,14 +126,36 @@ export async function POST(request: Request) {
       )
     }
 
-    const approvalStatus = auth.session.role === 'admin' ? 'approved' : 'pending'
+    // MVP control: Require admin review before publishing offers.
+    // Even if created by an admin, if it requires separate licensing review, hold it in pending.
+    const canAutoApprove =
+      auth.session.role === 'admin' &&
+      body.approveImmediately === true &&
+      !validation.value.requiresLicensingReview
+    const approvalStatus = canAutoApprove ? 'approved' : 'pending'
+
+    const sanitizedTitle = validation.value.hasVerifiedAccreditationAuthorization
+      ? validation.value.title
+      : {
+        en: stripUnverifiedAccreditationClaims(validation.value.title.en),
+        ar: stripUnverifiedAccreditationClaims(validation.value.title.ar),
+      }
+    const sanitizedDescription = validation.value.hasVerifiedAccreditationAuthorization
+      ? validation.value.description
+      : {
+        en: stripUnverifiedAccreditationClaims(validation.value.description.en),
+        ar: stripUnverifiedAccreditationClaims(validation.value.description.ar),
+      }
 
     const newService: any = {
       _id: new ObjectId(),
       expertId: auth.expertId, // Native BSON ObjectId!
       slug: candidateSlug,
-      title: validation.value.title,
-      description: validation.value.description,
+      title: sanitizedTitle,
+      description: sanitizedDescription,
+      intendedAudience: validation.value.intendedAudience,
+      adultsOnly: true,
+      minimumAge: 18,
       categorySlug: validation.value.categorySlug,
       subcategorySlug: validation.value.subcategorySlug,
       tags: validation.value.tags,
@@ -145,11 +171,16 @@ export async function POST(request: Request) {
       isMostBooked: Boolean(body.isMostBooked),
       sortOrder: Number(body.sortOrder) || 1,
       approvalStatus,
+      isStructuredVocationalProgramme: validation.value.isStructuredVocationalProgramme,
+      requiresLicensingReview: validation.value.requiresLicensingReview,
+      licensingReviewStatus: validation.value.licensingReviewStatus,
+      licensingReviewReason: validation.value.licensingReviewReason,
+      hasVerifiedAccreditationAuthorization: validation.value.hasVerifiedAccreditationAuthorization,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
 
-    if (auth.session.role === 'admin') {
+    if (canAutoApprove) {
       newService.approvedAt = new Date()
       newService.approvedBy = new ObjectId(auth.session.userId)
     }
@@ -201,6 +232,10 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: false, error: 'Service not found or unauthorized' }, { status: 404 })
     }
 
+    if (auth.session.role !== 'admin') {
+      body.hasVerifiedAccreditationAuthorization = Boolean(existing.hasVerifiedAccreditationAuthorization)
+    }
+
     const todayISO = new Date().toISOString().slice(0, 10)
     const validation = validateServiceInput(body, { todayISO, existing })
 
@@ -218,10 +253,26 @@ export async function PUT(request: Request) {
       )
     }
 
+    const sanitizedTitle = validation.value.hasVerifiedAccreditationAuthorization
+      ? validation.value.title
+      : {
+        en: stripUnverifiedAccreditationClaims(validation.value.title.en),
+        ar: stripUnverifiedAccreditationClaims(validation.value.title.ar),
+      }
+    const sanitizedDescription = validation.value.hasVerifiedAccreditationAuthorization
+      ? validation.value.description
+      : {
+        en: stripUnverifiedAccreditationClaims(validation.value.description.en),
+        ar: stripUnverifiedAccreditationClaims(validation.value.description.ar),
+      }
+
     const updateDoc: any = {
       updatedAt: new Date(),
-      title: validation.value.title,
-      description: validation.value.description,
+      title: sanitizedTitle,
+      description: sanitizedDescription,
+      intendedAudience: validation.value.intendedAudience,
+      adultsOnly: true,
+      minimumAge: 18,
       categorySlug: validation.value.categorySlug,
       subcategorySlug: validation.value.subcategorySlug,
       tags: validation.value.tags,
@@ -231,6 +282,11 @@ export async function PUT(request: Request) {
       durationMinutes: validation.value.durationMinutes,
       breakAfterMinutes: validation.value.breakAfterMinutes,
       pricing: validation.value.pricing,
+      isStructuredVocationalProgramme: validation.value.isStructuredVocationalProgramme,
+      requiresLicensingReview: validation.value.requiresLicensingReview,
+      licensingReviewStatus: validation.value.licensingReviewStatus,
+      licensingReviewReason: validation.value.licensingReviewReason,
+      hasVerifiedAccreditationAuthorization: validation.value.hasVerifiedAccreditationAuthorization,
     }
 
     // Ensure slug exists on existing document or handle custom update
@@ -264,7 +320,13 @@ export async function PUT(request: Request) {
     if (body.isMostBooked !== undefined) updateDoc.isMostBooked = Boolean(body.isMostBooked)
     if (body.sortOrder !== undefined) updateDoc.sortOrder = Number(body.sortOrder)
 
-    if (auth.session.role !== 'admin') {
+    // MVP control: Expert edits always require admin review before publishing.
+    // Also if licensing review is required and not yet approved, hold in pending.
+    if (
+      auth.session.role !== 'admin' ||
+      (validation.value.requiresLicensingReview &&
+        validation.value.licensingReviewStatus !== 'licensing_approved')
+    ) {
       updateDoc.approvalStatus = 'pending'
       updateDoc.rejectionReason = null
     }
@@ -281,7 +343,7 @@ export async function PUT(request: Request) {
 
     await servicesCol.updateOne({ _id: serviceObjId }, updateOps)
 
-    return NextResponse.json({ success: true, message: 'Service updated successfully' })
+    return NextResponse.json({ success: true, message: 'Service updated and submitted for admin review' })
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to update service' },

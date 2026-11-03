@@ -37,8 +37,25 @@ interface ServiceItem {
   slug?: string
   title: { en: string; ar: string }
   description: { en: string; ar: string }
+  intendedAudience?: { en: string; ar: string }
+  adultsOnly?: boolean
+  minimumAge?: number
   categorySlug?: string
   subcategorySlug?: string
+  categoryLabel?: string
+  subcategoryLabel?: string
+  isMvpTaxonomyValid?: boolean
+  excludedPolicyViolation?: string | null
+  isStructuredVocationalProgramme?: boolean
+  requiresLicensingReview?: boolean
+  licensingReviewStatus?:
+    | 'not_required'
+    | 'pending_licensing_review'
+    | 'licensing_approved'
+    | 'licensing_rejected'
+  licensingReviewReason?: string
+  hasVerifiedAccreditationAuthorization?: boolean
+  adminReviewNote?: string
   bookingType?: 'APPOINTMENT' | 'WORKSHOP' | 'WEBINAR'
   serviceKind?: 'CONSULTATION' | 'GENERAL_SERVICE'
   deliveryMode?: 'ONLINE' | 'IN_PERSON' | 'HYBRID'
@@ -50,8 +67,10 @@ interface ServiceItem {
   }
   event?: {
     startDate?: string
+    date?: string
     capacity?: number
     enrolledCount?: number
+    registeredCount?: number
   }
   tags?: string[]
   durationMinutes: number
@@ -60,6 +79,7 @@ interface ServiceItem {
     baseCurrency: string
     prices: Record<string, number>
   }
+  isActive?: boolean
   approvalStatus?: 'pending' | 'approved' | 'rejected'
   rejectionReason?: string
   createdAt: string
@@ -221,21 +241,31 @@ export default function AdminConsolePage() {
     }
   }
 
-  const handleServiceAction = async (serviceId: string, action: 'approve' | 'reject') => {
+  const handleServiceAction = async (
+    serviceId: string,
+    action: 'approve' | 'reject' | 'unpublish' | 'approve_licensing' | 'reject_licensing'
+  ) => {
     let rejectionReason = ''
-    if (action === 'reject') {
-      const reason = prompt('Rejection reason for this consultation service offering:')
+    let adminReviewNote = ''
+    if (action === 'reject' || action === 'reject_licensing') {
+      const reason = prompt('Rejection reason for this offering:')
       if (reason === null) return
       rejectionReason = reason
+    } else if (action === 'unpublish') {
+      const note = prompt('Admin note for unpublishing this offering for review:', 'Unpublished for MVP taxonomy/scope review.')
+      if (note === null) return
+      adminReviewNote = note
+    } else if (action === 'approve_licensing') {
+      if (!confirm('Approve separate vocational/licensing review for this programme?')) return
     } else {
-      if (!confirm('Approve this consultation service offering and publish to the expert profile?')) return
+      if (!confirm('Approve this offering and publish it to the marketplace?')) return
     }
 
     try {
       const res = await fetch('/api/admin/services', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ serviceId, action, rejectionReason }),
+        body: JSON.stringify({ serviceId, action, rejectionReason, adminReviewNote }),
       })
       const json = await res.json()
       if (json.success) {
@@ -386,10 +416,10 @@ export default function AdminConsolePage() {
 
           <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
             <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">
-              Pending Services
+              Pending Offers
             </span>
             <p className="mt-2 text-3xl font-black text-amber-300">{pendingServicesList.length}</p>
-            <p className="mt-1 text-xs text-amber-200/70">Offerings awaiting review</p>
+            <p className="mt-1 text-xs text-amber-200/70">Awaiting admin / licensing review</p>
           </div>
 
           <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-5">
@@ -421,9 +451,9 @@ export default function AdminConsolePage() {
         <div className="flex border-b border-slate-800 gap-1 overflow-x-auto">
           {[
             { id: 'queue', label: `Expert Queue (${pendingExperts.length})` },
-            { id: 'services', label: `Services Review (${pendingServicesList.length})` },
+            { id: 'services', label: `Offers Review (${pendingServicesList.length})` },
             { id: 'bookings', label: 'All Bookings & Receipts' },
-            { id: 'categories', label: 'Categories & Subcategories' },
+            { id: 'categories', label: 'MVP Categories & Subcategories' },
             { id: 'experts', label: `Directory Experts (${experts.length})` },
             { id: 'users', label: `Users & Staff (${users.length})` },
             { id: 'tags', label: `Tags & Taxonomy (${tags.length})` },
@@ -536,7 +566,12 @@ export default function AdminConsolePage() {
                         </div>
                         {exp.nationalIdFrontUrl ? (
                           <button
-                            onClick={() => setDocModal({ title: `${exp.name} — National ID Front`, url: exp.nationalIdFrontUrl! })}
+                            onClick={() =>
+                              setDocModal({
+                                title: `${exp.name} — National ID Front`,
+                                url: exp.nationalIdFrontUrl!,
+                              })
+                            }
                             className="rounded-full bg-slate-800 border border-slate-700 px-3 py-1 text-[11px] font-bold text-slate-200 hover:bg-slate-700"
                           >
                             Inspect ID Front ↗
@@ -555,7 +590,12 @@ export default function AdminConsolePage() {
                         </div>
                         {exp.nationalIdBackUrl ? (
                           <button
-                            onClick={() => setDocModal({ title: `${exp.name} — National ID Back`, url: exp.nationalIdBackUrl! })}
+                            onClick={() =>
+                              setDocModal({
+                                title: `${exp.name} — National ID Back`,
+                                url: exp.nationalIdBackUrl!,
+                              })
+                            }
                             className="rounded-full bg-slate-800 border border-slate-700 px-3 py-1 text-[11px] font-bold text-slate-200 hover:bg-slate-700"
                           >
                             Inspect ID Back ↗
@@ -572,13 +612,13 @@ export default function AdminConsolePage() {
           </div>
         )}
 
-        {/* TAB 2: Services Approval Review */}
+        {/* TAB 2: Services / Offers Approval & Licensing Review */}
         {activeTab === 'services' && (
           <div className="space-y-4">
             {services.length === 0 ? (
               <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-12 text-center">
-                <p className="text-base font-bold text-white">No Services Found</p>
-                <p className="mt-1 text-xs text-slate-400">No services or offerings have been created yet.</p>
+                <p className="text-base font-bold text-white">No Offers Found</p>
+                <p className="mt-1 text-xs text-slate-400">No offers have been created yet.</p>
               </div>
             ) : (
               services.map((srv) => {
@@ -589,8 +629,8 @@ export default function AdminConsolePage() {
                 let typeLabel = 'Consultation'
                 let typeColor = 'bg-blue-500/20 text-blue-300'
                 if (bType === 'APPOINTMENT') {
-                  typeLabel = sKind === 'GENERAL_SERVICE' ? 'General Service' : 'Consultation'
-                  typeColor = sKind === 'GENERAL_SERVICE' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-blue-500/20 text-blue-300'
+                  typeLabel = sKind === 'GENERAL_SERVICE' ? 'General Service (Outside MVP)' : 'Consultation'
+                  typeColor = sKind === 'GENERAL_SERVICE' ? 'bg-rose-500/20 text-rose-300' : 'bg-blue-500/20 text-blue-300'
                 } else if (bType === 'WORKSHOP') {
                   typeLabel = 'Workshop'
                   typeColor = 'bg-purple-500/20 text-purple-300'
@@ -606,8 +646,8 @@ export default function AdminConsolePage() {
                       srv.approvalStatus === 'pending'
                         ? 'border-amber-500/30 bg-amber-500/5'
                         : srv.approvalStatus === 'rejected'
-                        ? 'border-rose-500/30'
-                        : 'border-slate-800'
+                          ? 'border-rose-500/30'
+                          : 'border-slate-800'
                     }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -624,47 +664,87 @@ export default function AdminConsolePage() {
                             className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
                               srv.approvalStatus === 'pending'
                                 ? 'bg-amber-500/20 text-amber-300'
-                                : srv.approvalStatus === 'approved' || !srv.approvalStatus
-                                ? 'bg-emerald-500/20 text-emerald-300'
-                                : 'bg-rose-500/20 text-rose-300'
+                                : srv.approvalStatus === 'approved'
+                                  ? 'bg-emerald-500/20 text-emerald-300'
+                                  : 'bg-rose-500/20 text-rose-300'
                             }`}
                           >
-                            {srv.approvalStatus === 'pending' ? 'Pending Review' : srv.approvalStatus || 'approved'}
+                            {srv.approvalStatus === 'pending'
+                              ? 'Pending Admin Review'
+                              : srv.approvalStatus || 'pending'}
                           </span>
+                          {!srv.isActive && (
+                            <span className="rounded-full bg-slate-700 px-2.5 py-0.5 text-[10px] font-bold text-slate-300">
+                              Unpublished / Inactive
+                            </span>
+                          )}
+                          {srv.requiresLicensingReview && (
+                            <span className="rounded-full bg-purple-500/20 border border-purple-500/40 px-2.5 py-0.5 text-[10px] font-bold text-purple-300">
+                              {srv.licensingReviewStatus === 'licensing_approved'
+                                ? '✓ Licensing Review Approved'
+                                : srv.licensingReviewStatus === 'licensing_rejected'
+                                  ? '✕ Licensing Review Rejected'
+                                  : '⚠ Separate Licensing Review Required'}
+                            </span>
+                          )}
+                          {srv.isMvpTaxonomyValid === false && (
+                            <span className="rounded-full bg-rose-500/20 border border-rose-500/40 px-2.5 py-0.5 text-[10px] font-bold text-rose-300">
+                              ⚠ Outside Approved MVP Taxonomy
+                            </span>
+                          )}
                         </div>
-                        <p className="text-xs text-slate-400 font-medium" dir="rtl">{srv.title.ar}</p>
+                        <p className="text-xs text-slate-400 font-medium" dir="rtl">
+                          {srv.title.ar}
+                        </p>
 
                         <p className="text-xs text-slate-300 pt-1">
-                          Expert: <strong className="text-white">{srv.expertName}</strong>
+                          Expert: <strong className="text-white">{srv.expertName}</strong> • Category:{' '}
+                          <strong className="text-sky-300">
+                            {srv.categoryLabel || srv.categorySlug || 'None'} /{' '}
+                            {srv.subcategoryLabel || srv.subcategorySlug || 'None'}
+                          </strong>
                           {bType === 'APPOINTMENT' ? (
-                            <> • {srv.durationMinutes} min session {srv.breakAfterMinutes ? `(${srv.breakAfterMinutes}m break)` : ''}</>
+                            <>
+                              {' '}
+                              • {srv.durationMinutes} min session{' '}
+                              {srv.breakAfterMinutes ? `(${srv.breakAfterMinutes}m break)` : ''}
+                            </>
                           ) : (
-                            <> • {srv.event?.startDate ? new Date(srv.event.startDate).toLocaleString() : 'Date TBD'} • {srv.event?.enrolledCount || 0} / {srv.event?.capacity || 0} seats booked</>
+                            <>
+                              {' '}
+                              • {srv.event?.date || srv.event?.startDate || 'Date TBD'} •{' '}
+                              {srv.event?.registeredCount || srv.event?.enrolledCount || 0} /{' '}
+                              {srv.event?.capacity || 0} seats booked
+                            </>
                           )}
                         </p>
 
-                        {dMode !== 'ONLINE' && srv.location?.address && (
-                          <p className="text-xs text-slate-400">
-                            📍 Location: {srv.location.address}{srv.location.city ? `, ${srv.location.city}` : ''}
+                        {srv.intendedAudience?.en && (
+                          <p className="text-xs text-slate-300">
+                            Intended Audience (18+): <strong>{srv.intendedAudience.en}</strong>
+                            {srv.intendedAudience.ar ? ` (${srv.intendedAudience.ar})` : ''}
+                          </p>
+                        )}
+
+                        {srv.adminReviewNote && (
+                          <p className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-1.5">
+                            <strong>Review Scope Note:</strong> {srv.adminReviewNote}
+                          </p>
+                        )}
+
+                        {srv.excludedPolicyViolation && (
+                          <p className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-2.5 py-1.5">
+                            <strong>Excluded Service Alert:</strong> {srv.excludedPolicyViolation}
                           </p>
                         )}
 
                         <p className="text-xs font-mono text-slate-400">
-                          Pricing: {srv.pricing?.prices?.EGP ?? 0} EGP • ${srv.pricing?.prices?.USD ?? 0} • {srv.pricing?.prices?.SAR ?? 0} SAR
+                          Pricing: {srv.pricing?.prices?.EGP ?? 0} EGP • ${srv.pricing?.prices?.USD ?? 0} •{' '}
+                          {srv.pricing?.prices?.SAR ?? 0} SAR
                         </p>
 
-                        {srv.tags && srv.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-1">
-                            {srv.tags.map((t) => (
-                              <span key={t} className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-300">
-                                #{t}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
                         {srv.description?.en && (
-                          <p className="text-xs text-slate-400 pt-1 line-clamp-2 max-w-2xl">{srv.description.en}</p>
+                          <p className="text-xs text-slate-400 pt-1 max-w-2xl">{srv.description.en}</p>
                         )}
 
                         {srv.rejectionReason && (
@@ -673,25 +753,59 @@ export default function AdminConsolePage() {
                           </p>
                         )}
 
-                        <div className="pt-2">
-                          <a
-                            href={`/services/${srv.slug || srv._id}`}
+                        <div className="pt-2 flex items-center gap-4">
+                          <Link
+                            href={`/dashboard?expertId=${srv.expertId}`}
                             target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-sky-400 hover:text-sky-300 hover:underline"
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-amber-300 hover:underline"
                           >
-                            Open Public Shareable Page ↗
-                          </a>
+                            Edit / Reassign in Expert Workspace ↗
+                          </Link>
+                          {srv.isActive && srv.approvalStatus === 'approved' && (
+                            <a
+                              href={`/services/${srv.slug || srv._id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-sky-400 hover:text-sky-300 hover:underline"
+                            >
+                              Open Public Shareable Page ↗
+                            </a>
+                          )}
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                      <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto shrink-0">
+                        {srv.requiresLicensingReview &&
+                          srv.licensingReviewStatus !== 'licensing_approved' && (
+                            <>
+                              <button
+                                onClick={() => handleServiceAction(srv._id, 'approve_licensing')}
+                                className="rounded-full bg-purple-500 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-purple-400 transition"
+                              >
+                                Approve Licensing ✓
+                              </button>
+                              <button
+                                onClick={() => handleServiceAction(srv._id, 'reject_licensing')}
+                                className="rounded-full border border-purple-400/40 px-3 py-1.5 text-xs font-bold text-purple-300 hover:bg-purple-950/40"
+                              >
+                                Reject Licensing
+                              </button>
+                            </>
+                          )}
                         {srv.approvalStatus !== 'approved' && (
                           <button
                             onClick={() => handleServiceAction(srv._id, 'approve')}
                             className="rounded-full bg-emerald-500 px-4 py-1.5 text-xs font-bold text-slate-950 hover:bg-emerald-400 transition"
                           >
-                            Approve Service ✓
+                            Approve Offer ✓
+                          </button>
+                        )}
+                        {srv.isActive && (
+                          <button
+                            onClick={() => handleServiceAction(srv._id, 'unpublish')}
+                            className="rounded-full border border-amber-500/40 px-3.5 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-950/40"
+                          >
+                            Unpublish for Review
                           </button>
                         )}
                         {srv.approvalStatus !== 'rejected' && (
@@ -742,15 +856,15 @@ export default function AdminConsolePage() {
                       <p className="text-[10px] text-slate-400 font-mono">/{exp.slug}</p>
                     </td>
                     <td className="py-3 px-4 text-slate-300">{exp.role}</td>
-                    <td className="py-3 px-4 text-slate-400">{exp.categorySlug || 'General'}</td>
+                    <td className="py-3 px-4 text-slate-400">{exp.categorySlug || 'marketing'}</td>
                     <td className="py-3 px-4">
                       <span
                         className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${
                           exp.status === 'approved' || !exp.status
                             ? 'bg-emerald-500/20 text-emerald-300'
                             : exp.status === 'pending_review'
-                            ? 'bg-amber-500/20 text-amber-300'
-                            : 'bg-rose-500/20 text-rose-300'
+                              ? 'bg-amber-500/20 text-amber-300'
+                              : 'bg-rose-500/20 text-rose-300'
                         }`}
                       >
                         {exp.status || 'approved'}
@@ -821,8 +935,8 @@ export default function AdminConsolePage() {
                           u.role === 'admin'
                             ? 'bg-rose-500/20 text-rose-300'
                             : u.role === 'expert'
-                            ? 'bg-blue-500/20 text-blue-300'
-                            : 'bg-slate-700 text-slate-300'
+                              ? 'bg-blue-500/20 text-blue-300'
+                              : 'bg-slate-700 text-slate-300'
                         }`}
                       >
                         {u.role}
@@ -845,7 +959,7 @@ export default function AdminConsolePage() {
             <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-6">
               <h3 className="text-base font-bold text-white mb-1">Add New Discovery Tag</h3>
               <p className="text-xs text-slate-400 mb-4">
-                Tags help clients search and filter across Consultations, General Services, Workshops, and Webinars.
+                Tags help clients search and filter across Consultations, Workshops, and Webinars.
               </p>
               <form onSubmit={handleCreateTag} className="flex flex-col sm:flex-row gap-3 items-end">
                 <label className="block text-xs font-bold text-slate-300 flex-1">
@@ -854,7 +968,7 @@ export default function AdminConsolePage() {
                     required
                     value={newTagEn}
                     onChange={(e) => setNewTagEn(e.target.value)}
-                    placeholder="e.g. Wedding Photography"
+                    placeholder="e.g. SEO Strategy"
                     className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
                   />
                 </label>
@@ -865,7 +979,7 @@ export default function AdminConsolePage() {
                     dir="rtl"
                     value={newTagAr}
                     onChange={(e) => setNewTagAr(e.target.value)}
-                    placeholder="مثال: تصوير حفلات الزفاف"
+                    placeholder="مثال: استراتيجية تحسين محركات البحث"
                     className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
                   />
                 </label>
@@ -901,7 +1015,9 @@ export default function AdminConsolePage() {
                     tags.map((tag) => (
                       <tr key={tag._id} className="hover:bg-slate-800/30">
                         <td className="py-3 px-4 font-bold text-white">{tag.name?.en}</td>
-                        <td className="py-3 px-4" dir="rtl">{tag.name?.ar}</td>
+                        <td className="py-3 px-4" dir="rtl">
+                          {tag.name?.ar}
+                        </td>
                         <td className="py-3 px-4 font-mono text-slate-400">{tag.slug}</td>
                         <td className="py-3 px-4">
                           <span
@@ -947,12 +1063,7 @@ export default function AdminConsolePage() {
               </button>
             </div>
             <div className="relative h-96 w-full overflow-hidden rounded-2xl bg-black">
-              <Image
-                src={docModal.url}
-                alt={docModal.title}
-                fill
-                className="object-contain"
-              />
+              <Image src={docModal.url} alt={docModal.title} fill className="object-contain" />
             </div>
           </div>
         </div>
@@ -1052,4 +1163,3 @@ export default function AdminConsolePage() {
     </main>
   )
 }
-

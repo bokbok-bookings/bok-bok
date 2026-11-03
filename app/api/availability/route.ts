@@ -7,6 +7,7 @@ import {
   getCanonicalExpertObjectId,
 } from '@/lib/availability-server'
 import { toObjectId, getServicesCollection, getExpertsCollection } from '@/lib/db'
+import { isAllowedMvpCategory, isAllowedMvpSubcategory } from '@/lib/data/categories'
 
 export const dynamic = 'force-dynamic'
 
@@ -64,11 +65,23 @@ export async function POST(request: Request) {
       serviceId,
       paymentReceiptUrl,
       paymentReceiptPublicId,
+      adultsOnlyConfirmed,
     } = body
 
     if (!rawExpertId || !clientName?.trim()) {
       return NextResponse.json(
         { success: false, error: 'expertId and clientName are required' },
+        { status: 400 }
+      )
+    }
+
+    // MVP control: Limit MVP offers to adults aged 18 and over
+    if (adultsOnlyConfirmed === false) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Bok Bok MVP offers are restricted to adults aged 18 and over.',
+        },
         { status: 400 }
       )
     }
@@ -93,68 +106,96 @@ export async function POST(request: Request) {
           _id: toObjectId(serviceId),
           expertId: expertObjId,
         })
-      } catch (err) {
+      } catch {
         // ignore invalid objectId
       }
 
-      if (serviceDoc) {
-        verifiedDuration = serviceDoc.durationMinutes || 45
-        verifiedBreak = serviceDoc.breakAfterMinutes || 0
-        verifiedServiceTitle = serviceDoc.title
-        verifiedCurrency = serviceDoc.pricing?.baseCurrency || 'EGP'
-        verifiedAmount =
-          serviceDoc.pricing?.prices?.[verifiedCurrency] ??
-          serviceDoc.pricing?.prices?.EGP ??
-          500
+      if (!serviceDoc) {
+        return NextResponse.json(
+          { success: false, error: 'Requested offer was not found.' },
+          { status: 404 }
+        )
+      }
 
-        // If it's a WORKSHOP or WEBINAR, event registration logic applies
-        if (serviceDoc.bookingType === 'WORKSHOP' || serviceDoc.bookingType === 'WEBINAR') {
-          const eventDate = serviceDoc.event?.date
-          const eventTime = serviceDoc.event?.startTime || '18:00'
-          const capacity = serviceDoc.event?.capacity || 20
-          const registered = serviceDoc.event?.registeredCount || 0
+      // Prevent new bookings on unpublished, unapproved, General Service, or removed-category offers
+      const isValidMvpOffer =
+        serviceDoc.isActive === true &&
+        serviceDoc.approvalStatus === 'approved' &&
+        serviceDoc.serviceKind !== 'GENERAL_SERVICE' &&
+        isAllowedMvpCategory(serviceDoc.categorySlug) &&
+        isAllowedMvpSubcategory(serviceDoc.categorySlug, serviceDoc.subcategorySlug) &&
+        !(
+          serviceDoc.requiresLicensingReview &&
+          serviceDoc.licensingReviewStatus !== 'licensing_approved'
+        )
 
-          if (registered >= capacity) {
-            return NextResponse.json(
-              { success: false, error: 'This event has reached full capacity.' },
-              { status: 400 }
-            )
-          }
+      if (!isValidMvpOffer) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'This offer is inactive, outside the approved MVP taxonomy, or pending admin/licensing review and cannot accept new bookings.',
+          },
+          { status: 400 }
+        )
+      }
 
-          // Atomically increment registeredCount
-          await servicesCol.updateOne(
-            { _id: serviceDoc._id, 'event.registeredCount': { $lt: capacity } },
-            { $inc: { 'event.registeredCount': 1 } }
+      verifiedDuration = serviceDoc.durationMinutes || 45
+      verifiedBreak = serviceDoc.breakAfterMinutes || 0
+      verifiedServiceTitle = serviceDoc.title
+      verifiedCurrency = serviceDoc.pricing?.baseCurrency || 'EGP'
+      verifiedAmount =
+        serviceDoc.pricing?.prices?.[verifiedCurrency] ??
+        serviceDoc.pricing?.prices?.EGP ??
+        500
+
+      // If it's a WORKSHOP or WEBINAR, event registration logic applies
+      if (serviceDoc.bookingType === 'WORKSHOP' || serviceDoc.bookingType === 'WEBINAR') {
+        const eventDate = serviceDoc.event?.date
+        const eventTime = serviceDoc.event?.startTime || '18:00'
+        const capacity = serviceDoc.event?.capacity || 20
+        const registered = serviceDoc.event?.registeredCount || 0
+
+        if (registered >= capacity) {
+          return NextResponse.json(
+            { success: false, error: 'This event has reached full capacity.' },
+            { status: 400 }
           )
-
-          const reference = `EV-${Math.floor(1000 + Math.random() * 9000)}`
-          const booking = await createExpertBooking({
-            reference,
-            expertId,
-            expertSlug,
-            serviceId: serviceDoc._id,
-            serviceTitle: verifiedServiceTitle,
-            date: eventDate || date,
-            time: eventTime,
-            clientName: clientName.trim(),
-            clientEmail: (clientEmail || '').trim(),
-            clientPhone: (clientPhone || '').trim(),
-            durationMinutes: serviceDoc.durationMinutes || 60,
-            amount: verifiedAmount,
-            currency: verifiedCurrency,
-            paymentMethod: 'instapay',
-            paymentStatus: paymentReceiptUrl ? 'receipt_uploaded' : 'pending',
-            paymentReceiptUrl: paymentReceiptUrl || undefined,
-            paymentReceiptPublicId: paymentReceiptPublicId || undefined,
-            status: paymentReceiptUrl ? 'awaiting_verification' : 'pending',
-          })
-
-          return NextResponse.json({ success: true, booking, reference })
         }
+
+        // Atomically increment registeredCount
+        await servicesCol.updateOne(
+          { _id: serviceDoc._id, 'event.registeredCount': { $lt: capacity } },
+          { $inc: { 'event.registeredCount': 1 } }
+        )
+
+        const reference = `EV-${Math.floor(1000 + Math.random() * 9000)}`
+        const booking = await createExpertBooking({
+          reference,
+          expertId,
+          expertSlug,
+          serviceId: serviceDoc._id,
+          serviceTitle: verifiedServiceTitle,
+          date: eventDate || date,
+          time: eventTime,
+          clientName: clientName.trim(),
+          clientEmail: (clientEmail || '').trim(),
+          clientPhone: (clientPhone || '').trim(),
+          durationMinutes: serviceDoc.durationMinutes || 60,
+          amount: verifiedAmount,
+          currency: verifiedCurrency,
+          paymentMethod: 'instapay',
+          paymentStatus: paymentReceiptUrl ? 'receipt_uploaded' : 'pending',
+          paymentReceiptUrl: paymentReceiptUrl || undefined,
+          paymentReceiptPublicId: paymentReceiptPublicId || undefined,
+          status: paymentReceiptUrl ? 'awaiting_verification' : 'pending',
+        })
+
+        return NextResponse.json({ success: true, booking, reference })
       }
     }
 
-    // For standard appointment-based services (Consultations & General Services):
+    // For standard appointment-based consultations:
     // MUST have valid date & time
     if (!date || !time) {
       return NextResponse.json(
@@ -167,6 +208,15 @@ export async function POST(request: Request) {
     if (!serviceDoc) {
       const exp = await expertsCol.findOne({ _id: expertObjId })
       if (exp) {
+        if (exp.categorySlug && !isAllowedMvpCategory(exp.categorySlug)) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'This expert profile references a category outside the approved MVP scope.',
+            },
+            { status: 400 }
+          )
+        }
         verifiedAmount = exp.priceNumber || 500
         verifiedDuration = exp.durationMinutes || 45
       }

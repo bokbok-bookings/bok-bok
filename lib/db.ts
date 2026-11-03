@@ -108,6 +108,8 @@ export interface ExpertDoc {
   googleCalendarEventId?: string
   googleCalendarEventLink?: string
   googleMeetLink?: string
+  googleMeetError?: string
+  googleMeetSyncedAt?: Date
 }
 
 export type ExpertItem = Omit<ExpertDoc, '_id'> & { _id: string; id: string }
@@ -118,6 +120,11 @@ export interface LocalizedText {
 }
 
 export type ServiceApprovalStatus = 'pending' | 'approved' | 'rejected'
+export type LicensingReviewStatus =
+  | 'not_required'
+  | 'pending_licensing_review'
+  | 'licensing_approved'
+  | 'licensing_rejected'
 
 export type BookingType = 'APPOINTMENT' | 'WORKSHOP' | 'WEBINAR'
 export type ServiceKind = 'CONSULTATION' | 'GENERAL_SERVICE'
@@ -145,6 +152,9 @@ export interface ServiceDoc {
   slug?: string // Unique URL-friendly slug (e.g. 'product-strategy-roadmap-deep-dive')
   title: LocalizedText
   description: LocalizedText
+  intendedAudience?: LocalizedText
+  adultsOnly?: boolean
+  minimumAge?: number
   categorySlug?: string
   subcategorySlug?: string
   tags: string[]
@@ -166,6 +176,14 @@ export interface ServiceDoc {
   rejectionReason?: string
   approvedAt?: Date
   approvedBy?: ObjectId
+  isStructuredVocationalProgramme?: boolean
+  requiresLicensingReview?: boolean
+  licensingReviewStatus?: LicensingReviewStatus
+  licensingReviewReason?: string
+  licensingReviewedAt?: Date
+  licensingReviewedBy?: ObjectId
+  hasVerifiedAccreditationAuthorization?: boolean
+  adminReviewNote?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -251,6 +269,8 @@ export interface BookingDoc {
   googleCalendarEventId?: string
   googleCalendarEventLink?: string
   googleMeetLink?: string
+  googleMeetError?: string
+  googleMeetSyncedAt?: Date
 }
 
 export type BookingItem = Omit<BookingDoc, '_id'> & { _id: string }
@@ -335,53 +355,78 @@ export async function getTagsCollection(): Promise<Collection<TagDoc>> {
   return db.collection<TagDoc>('tags')
 }
 
-let indexesEnsured = false
+const globalForDbIndexes = globalThis as unknown as {
+  _ensureDbIndexesPromise?: Promise<void>
+}
 
-/**
- * Ensures required indexes exist in MongoDB Atlas.
- * Safe to call multiple times (cached in-memory per server process).
- */
-export async function ensureDbIndexes(): Promise<void> {
-  if (indexesEnsured) return
+async function safeCreateIndex(
+  collection: Collection<any>,
+  indexSpec: Record<string, any>,
+  options?: Record<string, any>
+): Promise<void> {
   try {
-    const db = await getDb()
-    await Promise.all([
-      db.collection('users').createIndex({ email: 1 }, { unique: true }),
-      db.collection('users').createIndex({ role: 1 }),
-      db.collection('users').createIndex({ expertId: 1 }),
-      db.collection('experts').createIndex({ tags: 1 }),
-      db.collection('experts').createIndex({ slug: 1 }, { unique: true }),
-      db.collection('experts').createIndex({ status: 1 }),
-      db.collection('experts').createIndex({ tags: 1, priceNumber: 1 }),
-      db.collection('experts').createIndex(
-        { name: 'text', role: 'text', tags: 'text', about: 'text' },
-        { weights: { name: 10, role: 5, tags: 4, about: 1 } }
-      ),
-      db.collection('services').createIndex({ expertId: 1, isActive: 1, sortOrder: 1 }),
-      db.collection('services').createIndex({ slug: 1 }, { unique: true, sparse: true }),
-      db.collection('services').createIndex({ bookingType: 1, serviceKind: 1, isActive: 1 }),
-      db.collection('services').createIndex({ categorySlug: 1, isActive: 1 }),
-      db.collection('services').createIndex({ tags: 1, isActive: 1 }),
-      db.collection('settings').createIndex({ expertId: 1, key: 1 }),
-      db.collection('date_overrides').createIndex({ expertId: 1, date: 1 }),
-      db.collection('bookings').createIndex({ expertId: 1, date: 1, status: 1 }),
-      db.collection('bookings').createIndex({ serviceId: 1 }),
-      db.collection('bookings').createIndex({ reference: 1 }),
-      // Category & Subcategory indexes
-      db.collection('categories').createIndex({ slug: 1 }, { unique: true }),
-      db.collection('categories').createIndex({ isActive: 1, sortOrder: 1 }),
-      db.collection('subcategories').createIndex({ categoryId: 1, slug: 1 }, { unique: true }),
-      db.collection('subcategories').createIndex({ categoryId: 1, isActive: 1, sortOrder: 1 }),
-      db.collection('subcategories').createIndex({ slug: 1 }),
-      db.collection('subcategories').createIndex({ isActive: 1 }),
-      // Tags indexes
-      db.collection('tags').createIndex({ slug: 1 }, { unique: true }),
-      db.collection('tags').createIndex({ isActive: 1 }),
-    ])
-    indexesEnsured = true
-  } catch (err) {
-    console.warn('Failed to ensure database indexes:', err)
+    await collection.createIndex(indexSpec, options)
+  } catch (err: any) {
+    // Code 85 = IndexOptionsConflict (index with same key pattern already exists under a different name/options)
+    // Code 86 = IndexKeySpecsConflict (index with same name already exists)
+    if (err?.code === 85 || err?.code === 86 || err?.codeName === 'IndexOptionsConflict' || err?.codeName === 'IndexKeySpecsConflict') {
+      return
+    }
+    throw err
   }
 }
 
+/**
+ * Ensures required indexes exist in MongoDB Atlas.
+ * Safe to call multiple times (cached as a singleton promise per server process).
+ */
+export async function ensureDbIndexes(): Promise<void> {
+  if (globalForDbIndexes._ensureDbIndexesPromise) {
+    return globalForDbIndexes._ensureDbIndexesPromise
+  }
 
+  globalForDbIndexes._ensureDbIndexesPromise = (async () => {
+    try {
+      const db = await getDb()
+      await Promise.all([
+        safeCreateIndex(db.collection('users'), { email: 1 }, { unique: true }),
+        safeCreateIndex(db.collection('users'), { role: 1 }),
+        safeCreateIndex(db.collection('users'), { expertId: 1 }),
+        safeCreateIndex(db.collection('experts'), { tags: 1 }, { name: 'tags_1' }),
+        safeCreateIndex(db.collection('experts'), { slug: 1 }, { unique: true, name: 'slug_1_unique' }),
+        safeCreateIndex(db.collection('experts'), { status: 1 }),
+        safeCreateIndex(db.collection('experts'), { tags: 1, priceNumber: 1 }, { name: 'tags_1_priceNumber_1' }),
+        safeCreateIndex(
+          db.collection('experts'),
+          { name: 'text', role: 'text', tags: 'text', about: 'text' },
+          { weights: { name: 10, role: 5, tags: 4, about: 1 }, name: 'expert_text_search' }
+        ),
+        safeCreateIndex(db.collection('services'), { expertId: 1, isActive: 1, sortOrder: 1 }),
+        safeCreateIndex(db.collection('services'), { slug: 1 }, { unique: true, sparse: true }),
+        safeCreateIndex(db.collection('services'), { bookingType: 1, serviceKind: 1, isActive: 1 }),
+        safeCreateIndex(db.collection('services'), { categorySlug: 1, isActive: 1 }),
+        safeCreateIndex(db.collection('services'), { tags: 1, isActive: 1 }),
+        safeCreateIndex(db.collection('settings'), { expertId: 1, key: 1 }, { name: 'expertId_1_key_1' }),
+        safeCreateIndex(db.collection('date_overrides'), { expertId: 1, date: 1 }, { name: 'expertId_1_date_1' }),
+        safeCreateIndex(db.collection('bookings'), { expertId: 1, date: 1, status: 1 }, { name: 'expertId_1_date_1_status_1' }),
+        safeCreateIndex(db.collection('bookings'), { serviceId: 1 }),
+        safeCreateIndex(db.collection('bookings'), { reference: 1 }),
+        // Category & Subcategory indexes
+        safeCreateIndex(db.collection('categories'), { slug: 1 }, { unique: true }),
+        safeCreateIndex(db.collection('categories'), { isActive: 1, sortOrder: 1 }),
+        safeCreateIndex(db.collection('subcategories'), { categoryId: 1, slug: 1 }, { unique: true }),
+        safeCreateIndex(db.collection('subcategories'), { categoryId: 1, isActive: 1, sortOrder: 1 }),
+        safeCreateIndex(db.collection('subcategories'), { slug: 1 }),
+        safeCreateIndex(db.collection('subcategories'), { isActive: 1 }),
+        // Tags indexes
+        safeCreateIndex(db.collection('tags'), { slug: 1 }, { unique: true }),
+        safeCreateIndex(db.collection('tags'), { isActive: 1 }),
+      ])
+    } catch (err) {
+      globalForDbIndexes._ensureDbIndexesPromise = undefined
+      console.warn('Failed to ensure database indexes:', err)
+    }
+  })()
+
+  return globalForDbIndexes._ensureDbIndexesPromise
+}

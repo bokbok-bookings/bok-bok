@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getExpertsCollection, toObjectId } from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
+import { isAllowedMvpCategory, isRemovedCategory } from '@/lib/data/categories'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +13,13 @@ export async function GET(request: Request) {
     const category = searchParams.get('category')
     const tag = searchParams.get('tag')
     const q = searchParams.get('q')
+
+    // Reject removed or unapproved category filter queries
+    if (category && category !== 'All' && category !== 'All experts') {
+      if (isRemovedCategory(category) || !isAllowedMvpCategory(category)) {
+        return NextResponse.json({ success: true, data: [] })
+      }
+    }
 
     const expertsCol = await getExpertsCollection()
 
@@ -99,11 +107,13 @@ export async function GET(request: Request) {
       .sort({ rating: -1, reviews: -1, createdAt: -1 })
       .toArray()
 
-    const formatted = docs.map((e) => ({
-      ...e,
-      _id: e._id.toString(),
-      id: e._id.toString(),
-    }))
+    const formatted = docs
+      .filter((e) => !e.categorySlug || !isRemovedCategory(e.categorySlug))
+      .map((e) => ({
+        ...e,
+        _id: e._id.toString(),
+        id: e._id.toString(),
+      }))
 
     return NextResponse.json({
       success: true,

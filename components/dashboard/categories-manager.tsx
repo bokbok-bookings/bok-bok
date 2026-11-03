@@ -10,13 +10,9 @@ import {
   Edit2,
   Trash2,
   Layers,
-  ArrowRight,
   AlertCircle,
-  Eye,
-  EyeOff,
   ChevronRight,
   ArrowLeft,
-  Sparkles,
   RefreshCw,
 } from 'lucide-react'
 
@@ -114,7 +110,6 @@ export function CategoriesManager() {
       const json = await res.json()
       if (json.success) {
         setCategories(json.data || [])
-        // If viewing subcategories, refresh current selection
         if (selectedCategory) {
           const updated = json.data.find((c: CategoryItem) => c._id === selectedCategory._id)
           if (updated) setSelectedCategory(updated)
@@ -255,7 +250,6 @@ export function CategoriesManager() {
           'success',
           `Category "${cat.name.en}" is now ${nextStatus ? 'Active' : 'Inactive (hidden from public listings & services)'}.`
         )
-        // Optimistically update
         setCategories((prev) =>
           prev.map((c) => (c._id === cat._id ? { ...c, isActive: nextStatus } : c))
         )
@@ -475,8 +469,8 @@ export function CategoriesManager() {
   }, [subcategories, subSearch, subStatusFilter])
 
   // Calculate Statistics
-  const totalSubcategoriesCount = useMemo(() => {
-    return categories.reduce((acc, cat) => acc + (cat.subcategoriesCount || 0), 0)
+  const totalActiveSubcategoriesCount = useMemo(() => {
+    return categories.reduce((acc, cat) => acc + (cat.activeSubcategoriesCount || 0), 0)
   }, [categories])
 
   const activeCategoriesCount = useMemo(() => {
@@ -488,11 +482,10 @@ export function CategoriesManager() {
       {/* Toast Feedback */}
       {feedback && (
         <div
-          className={`flex items-center gap-2 rounded-xl p-4 text-xs font-semibold ${
-            feedback.type === 'success'
+          className={`flex items-center gap-2 rounded-xl p-4 text-xs font-semibold ${feedback.type === 'success'
               ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
               : 'border border-rose-500/30 bg-rose-500/10 text-rose-300'
-          }`}
+            }`}
         >
           <AlertCircle size={16} />
           <span>{feedback.text}</span>
@@ -526,11 +519,10 @@ export function CategoriesManager() {
                     {selectedCategory.name.ar}
                   </span>
                   <span
-                    className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                      selectedCategory.isActive
+                    className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${selectedCategory.isActive
                         ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                         : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                    }`}
+                      }`}
                   >
                     {selectedCategory.isActive ? 'Category Active' : 'Category Inactive'}
                   </span>
@@ -584,11 +576,10 @@ export function CategoriesManager() {
                 <button
                   key={s}
                   onClick={() => setSubStatusFilter(s)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-bold capitalize transition ${
-                    subStatusFilter === s
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold capitalize transition ${subStatusFilter === s
                       ? 'bg-[#2855C5] text-white'
                       : 'border border-slate-800 bg-[#121d2f] text-slate-400 hover:text-white'
-                  }`}
+                    }`}
                 >
                   {s}
                 </button>
@@ -653,11 +644,10 @@ export function CategoriesManager() {
                         <td className="py-3 px-4">
                           <button
                             onClick={() => handleToggleSubcategoryStatus(sub)}
-                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition ${
-                              sub.isActive
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition ${sub.isActive
                                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-400 hover:border-rose-500/30'
                                 : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-emerald-500/20 hover:text-emerald-400'
-                            }`}
+                              }`}
                             title="Click to toggle status"
                           >
                             {sub.isActive ? (
@@ -712,18 +702,18 @@ export function CategoriesManager() {
 
             <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-                Active Categories
+                Active MVP Categories
               </span>
               <p className="mt-2 text-3xl font-black text-emerald-300">{activeCategoriesCount}</p>
-              <p className="mt-1 text-xs text-emerald-200/70">Visible to public & experts</p>
+              <p className="mt-1 text-xs text-emerald-200/70">Visible to public & experts (9 MVP limit)</p>
             </div>
 
             <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-5">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Subcategories Count
+                Active Subcategories
               </span>
-              <p className="mt-2 text-3xl font-black text-white">{totalSubcategoriesCount}</p>
-              <p className="mt-1 text-xs text-slate-400">Across all 11 disciplines</p>
+              <p className="mt-2 text-3xl font-black text-white">{totalActiveSubcategoriesCount}</p>
+              <p className="mt-1 text-xs text-slate-400">Across 9 MVP disciplines</p>
             </div>
 
             <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-5 flex flex-col justify-between">
@@ -731,7 +721,7 @@ export function CategoriesManager() {
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Taxonomy Engine
                 </span>
-                <p className="mt-1 text-xs text-slate-300 font-semibold">MongoDB Atlas Store</p>
+                <p className="mt-1 text-xs text-slate-300 font-semibold">Reduced-Risk MVP Scope</p>
               </div>
               <button
                 onClick={openCreateCategory}
@@ -761,11 +751,10 @@ export function CategoriesManager() {
                 <button
                   key={s}
                   onClick={() => setStatusFilter(s)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-bold capitalize transition ${
-                    statusFilter === s
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold capitalize transition ${statusFilter === s
                       ? 'bg-[#2855C5] text-white'
                       : 'border border-slate-800 bg-[#121d2f] text-slate-400 hover:text-white'
-                  }`}
+                    }`}
                 >
                   {s}
                 </button>
@@ -841,18 +830,17 @@ export function CategoriesManager() {
                             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-bold text-slate-300 hover:text-white hover:border-[#2855C5] transition"
                           >
                             <Layers size={13} className="text-[#2855C5]" />
-                            <span>{cat.subcategoriesCount || 0} subcategories</span>
+                            <span>{cat.activeSubcategoriesCount ?? cat.subcategoriesCount ?? 0} active</span>
                             <ChevronRight size={13} className="text-slate-400" />
                           </button>
                         </td>
                         <td className="py-4 px-4">
                           <button
                             onClick={() => handleToggleCategoryStatus(cat)}
-                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition ${
-                              cat.isActive
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition ${cat.isActive
                                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-400 hover:border-rose-500/30'
                                 : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-emerald-500/20 hover:text-emerald-400'
-                            }`}
+                              }`}
                             title="Click to toggle category status"
                           >
                             {cat.isActive ? (
@@ -910,7 +898,7 @@ export function CategoriesManager() {
                   {editingCategory ? 'Edit Category' : 'Create New Category'}
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Configure English and Arabic names and URL slug.
+                  Configure English and Arabic names and URL slug (MVP taxonomy enforced).
                 </p>
               </div>
               <button
@@ -1088,7 +1076,7 @@ export function CategoriesManager() {
                         setSubSlug(slugify(e.target.value))
                       }
                     }}
-                    placeholder="e.g. Digital Marketing"
+                    placeholder="e.g. Marketing Strategy"
                     className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
                   />
                 </label>
@@ -1100,7 +1088,7 @@ export function CategoriesManager() {
                     dir="rtl"
                     value={subNameAr}
                     onChange={(e) => setSubNameAr(e.target.value)}
-                    placeholder="مثال: التسويق الرقمي"
+                    placeholder="مثال: استراتيجية التسويق"
                     className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
                   />
                 </label>
@@ -1116,7 +1104,7 @@ export function CategoriesManager() {
                       setSubSlug(slugify(e.target.value))
                       setSubSlugManuallyEdited(true)
                     }}
-                    placeholder="e.g. digital-marketing"
+                    placeholder="e.g. marketing-strategy"
                     className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-amber-300 font-mono outline-none focus:border-[#2855C5]"
                   />
                 </label>
@@ -1169,4 +1157,3 @@ export function CategoriesManager() {
     </div>
   )
 }
-

@@ -2,9 +2,9 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { BrandLogo } from '@/components/brand/logo'
 import React, { useState, useEffect, use } from 'react'
 import { getExpertBySlug } from '@/lib/data/experts'
+import { getCategoryLabel, getSubcategoryLabel } from '@/lib/data/categories'
 import type { DayAvailability, TimeSlot } from '@/lib/data/availability'
 import { formatDateLabel, formatSlotLabel } from '@/lib/data/availability'
 
@@ -17,6 +17,9 @@ interface ServiceItem {
   slug?: string
   title: { en: string; ar: string }
   description: { en: string; ar: string }
+  intendedAudience?: { en: string; ar: string }
+  categorySlug?: string
+  subcategorySlug?: string
   durationMinutes: number
   breakAfterMinutes: number
   bookingType?: string
@@ -57,6 +60,7 @@ export default function ExpertProfile({ params }: PageProps) {
   const [clientName, setClientName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [clientPhone, setClientPhone] = useState('')
+  const [adultsOnlyConfirmed, setAdultsOnlyConfirmed] = useState(false)
   const [receiptUrl, setReceiptUrl] = useState('')
   const [uploadingReceipt, setUploadingReceipt] = useState(false)
 
@@ -108,7 +112,7 @@ export default function ExpertProfile({ params }: PageProps) {
 
   const profileId = profile?._id || profile?.id
 
-  // 1. Fetch expert's services
+  // 1. Fetch expert's approved MVP services
   useEffect(() => {
     if (!profileId) return
     setLoadingServices(true)
@@ -121,39 +125,16 @@ export default function ExpertProfile({ params }: PageProps) {
           const mostBooked = data.data.find((s: ServiceItem) => s.isMostBooked) || data.data[0]
           setSelectedService(mostBooked)
         } else {
-          // Fallback service matching default expert pricing
-          const defaultService: ServiceItem = {
-            _id: 'default',
-            title: { en: '1-on-1 Consultation', ar: 'جلسة استشارية فردية' },
-            description: { en: profile?.about || '', ar: profile?.about || '' },
-            durationMinutes: profile?.durationMinutes || 45,
-            breakAfterMinutes: 10,
-            pricing: {
-              baseCurrency: 'EGP',
-              prices: { EGP: profile?.priceNumber || 500, USD: 20, SAR: 75 },
-            },
-          }
-          setServices([defaultService])
-          setSelectedService(defaultService)
+          setServices([])
+          setSelectedService(null)
         }
       })
       .catch(() => {
-        const defaultService: ServiceItem = {
-          _id: 'default',
-          title: { en: '1-on-1 Consultation', ar: 'جلسة استشارية فردية' },
-          description: { en: profile?.about || '', ar: profile?.about || '' },
-          durationMinutes: profile?.durationMinutes || 45,
-          breakAfterMinutes: 10,
-          pricing: {
-            baseCurrency: 'EGP',
-            prices: { EGP: profile?.priceNumber || 500 },
-          },
-        }
-        setServices([defaultService])
-        setSelectedService(defaultService)
+        setServices([])
+        setSelectedService(null)
       })
       .finally(() => setLoadingServices(false))
-  }, [profileId, profile?.durationMinutes, profile?.priceNumber, profile?.about])
+  }, [profileId])
 
   // 2. Fetch upcoming days for this expert
   const duration = selectedService?.durationMinutes || profile?.durationMinutes || 45
@@ -251,6 +232,10 @@ export default function ExpertProfile({ params }: PageProps) {
       alert('Please enter your full name and email address')
       return
     }
+    if (!adultsOnlyConfirmed) {
+      alert('Please confirm that you are 18 years of age or older.')
+      return
+    }
 
     setBookingLoading(true)
 
@@ -270,6 +255,7 @@ export default function ExpertProfile({ params }: PageProps) {
           clientName: clientName.trim(),
           clientEmail: clientEmail.trim(),
           clientPhone: clientPhone.trim(),
+          adultsOnlyConfirmed: true,
           durationMinutes: duration,
           amount: priceEGP,
           currency: 'EGP',
@@ -330,7 +316,6 @@ export default function ExpertProfile({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-[#fbfaf7] text-[#14243b] overflow-x-hidden">
       <div className="mx-auto max-w-[1140px] px-4 sm:px-8 pb-20 w-full">
-
         <div className="py-8 w-full min-w-0">
           <Link
             href="/experts"
@@ -356,11 +341,9 @@ export default function ExpertProfile({ params }: PageProps) {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-[#fff2ed] px-2.5 py-0.5 text-[10px] font-bold text-[#ef5b4c]">
-                      Vetted expert
+                      Vetted expert • 18+ Marketplace
                     </span>
-                    <span className="text-xs font-semibold text-[#8b94a1]">
-                      {profile.location}
-                    </span>
+                    <span className="text-xs font-semibold text-[#8b94a1]">{profile.location}</span>
                   </div>
                   <h1 className="mt-2 text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-[-.04em] text-[#14243b] break-words">
                     {profile.name}
@@ -375,7 +358,7 @@ export default function ExpertProfile({ params }: PageProps) {
                     </span>
                   </p>
 
-                  {/* About Description directly under Expert Title */}
+                  {/* About Description */}
                   {(profile.about || profile.bio) && (
                     <p className="mt-4 text-sm sm:text-base leading-relaxed text-[#637084] break-words max-w-2xl">
                       {profile.about || profile.bio}
@@ -398,98 +381,116 @@ export default function ExpertProfile({ params }: PageProps) {
                 </div>
               </div>
 
-              {/* Consultation Services Offered */}
+              {/* Approved MVP Consultations, Workshops & Webinars Offered */}
               <div className="border-t border-[#e7e2da] pt-8 min-w-0 w-full">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold tracking-tight text-[#14243b]">Available Services & Offerings</h2>
-                  <span className="text-xs text-[#8b94a1]">Select an offering</span>
+                  <h2 className="text-xl font-bold tracking-tight text-[#14243b]">
+                    Approved Consultations, Workshops & Webinars
+                  </h2>
+                  <span className="text-xs text-[#8b94a1]">Adults 18+ Only</span>
                 </div>
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 min-w-0 w-full">
-                  {services.map((s) => {
-                    const isSelected = selectedService?._id === s._id
-                    const bType = s.bookingType || 'APPOINTMENT'
-                    const sKind = s.serviceKind || 'CONSULTATION'
-                    const typeLabel =
-                      bType === 'WORKSHOP'
-                        ? 'Workshop'
-                        : bType === 'WEBINAR'
-                          ? 'Webinar'
-                          : sKind === 'GENERAL_SERVICE'
-                            ? 'Service'
+                {loadingServices ? (
+                  <p className="mt-4 text-xs text-[#8b94a1]">Loading offerings...</p>
+                ) : services.length === 0 ? (
+                  <div className="mt-4 rounded-2xl border border-dashed border-[#dedbd5] bg-white p-6 text-xs text-[#637084]">
+                    No active approved offerings are currently published for this expert.
+                  </div>
+                ) : (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2 min-w-0 w-full">
+                    {services.map((s) => {
+                      const isSelected = selectedService?._id === s._id
+                      const bType = s.bookingType || 'APPOINTMENT'
+                      const typeLabel =
+                        bType === 'WORKSHOP'
+                          ? 'Workshop'
+                          : bType === 'WEBINAR'
+                            ? 'Webinar'
                             : 'Consultation'
+                      const subLabelEn = getSubcategoryLabel(s.categorySlug, s.subcategorySlug, 'en')
 
-                    return (
-                      <div
-                        key={s._id}
-                        onClick={() => setSelectedService(s)}
-                        className={`cursor-pointer rounded-2xl border p-4 transition min-w-0 w-full flex flex-col justify-between ${isSelected
-                            ? 'border-[#14243b] bg-[#14243b] text-white shadow-md'
-                            : 'border-[#dedbd5] bg-white text-[#14243b] hover:border-[#14243b]'
-                          }`}
-                      >
-                        <div>
-                          <div className="flex items-start justify-between gap-2 min-w-0">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span
-                                  className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${isSelected
-                                      ? 'bg-white/20 text-white'
-                                      : 'bg-slate-100 text-slate-700'
-                                    }`}
-                                >
-                                  {typeLabel}
-                                </span>
-                                {s.isMostBooked && (
-                                  <span
-                                    className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${isSelected
-                                        ? 'bg-[#ef5b4c] text-white'
-                                        : 'bg-[#ef5b4c]/10 text-[#ef5b4c]'
-                                      }`}
-                                  >
-                                    Most Booked
-                                  </span>
-                                )}
-                              </div>
-                              <h3 className="mt-1 text-sm font-bold leading-snug break-words">{s.title.en}</h3>
-                              <p
-                                className={`text-[11px] mt-0.5 break-words ${isSelected ? 'text-white/70' : 'text-[#8b94a1]'
-                                  }`}
-                                dir="rtl"
-                              >
-                                {s.title.ar}
-                              </p>
-                            </div>
-                            <span className="text-sm font-black whitespace-nowrap shrink-0 ml-2">
-                              {s.pricing?.prices?.EGP ?? profile.priceNumber} EGP
-                            </span>
-                          </div>
-                          {s.description?.en && (
-                            <p
-                              className={`mt-2 text-xs line-clamp-2 leading-relaxed break-words ${isSelected ? 'text-white/80' : 'text-[#637084]'
-                                }`}
-                            >
-                              {s.description.en}
-                            </p>
-                          )}
-                        </div>
+                      return (
                         <div
-                          className={`mt-3 pt-2.5 border-t text-[10px] font-semibold flex items-center justify-between ${isSelected ? 'border-white/15 text-white/60' : 'border-[#f4f2ee] text-[#8b94a1]'
-                            }`}
+                          key={s._id}
+                          onClick={() => setSelectedService(s)}
+                          className={`cursor-pointer rounded-2xl border p-4 transition min-w-0 w-full flex flex-col justify-between ${
+                            isSelected
+                              ? 'border-[#14243b] bg-[#14243b] text-white shadow-md'
+                              : 'border-[#dedbd5] bg-white text-[#14243b] hover:border-[#14243b]'
+                          }`}
                         >
-                          <span>Duration: {s.durationMinutes} min</span>
-                          <Link
-                            href={`/services/${s.slug || s._id}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className={`hover:underline font-bold ${isSelected ? 'text-[#f5c3a8]' : 'text-[#ef5b4c]'}`}
+                          <div>
+                            <div className="flex items-start justify-between gap-2 min-w-0">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span
+                                    className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
+                                      isSelected
+                                        ? 'bg-white/20 text-white'
+                                        : 'bg-slate-100 text-slate-700'
+                                    }`}
+                                  >
+                                    {typeLabel}
+                                  </span>
+                                  {subLabelEn && (
+                                    <span
+                                      className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                                        isSelected
+                                          ? 'bg-[#ef5b4c] text-white'
+                                          : 'bg-[#fff2ed] text-[#ef5b4c]'
+                                      }`}
+                                    >
+                                      {subLabelEn}
+                                    </span>
+                                  )}
+                                </div>
+                                <h3 className="mt-1.5 text-sm font-bold leading-snug break-words">
+                                  {s.title.en}
+                                </h3>
+                                <p
+                                  className={`text-[11px] mt-0.5 break-words ${
+                                    isSelected ? 'text-white/70' : 'text-[#8b94a1]'
+                                  }`}
+                                  dir="rtl"
+                                >
+                                  {s.title.ar}
+                                </p>
+                              </div>
+                              <span className="text-sm font-black whitespace-nowrap shrink-0 ml-2">
+                                {s.pricing?.prices?.EGP ?? profile.priceNumber} EGP
+                              </span>
+                            </div>
+                            {s.description?.en && (
+                              <p
+                                className={`mt-2 text-xs line-clamp-2 leading-relaxed break-words ${
+                                  isSelected ? 'text-white/80' : 'text-[#637084]'
+                                }`}
+                              >
+                                {s.description.en}
+                              </p>
+                            )}
+                          </div>
+                          <div
+                            className={`mt-3 pt-2.5 border-t text-[10px] font-semibold flex items-center justify-between ${
+                              isSelected ? 'border-white/15 text-white/60' : 'border-[#f4f2ee] text-[#8b94a1]'
+                            }`}
                           >
-                            Details ↗
-                          </Link>
+                            <span>Duration: {s.durationMinutes} min • 18+</span>
+                            <Link
+                              href={`/services/${s.slug || s._id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className={`hover:underline font-bold ${
+                                isSelected ? 'text-[#f5c3a8]' : 'text-[#ef5b4c]'
+                              }`}
+                            >
+                              Details ↗
+                            </Link>
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })}
-                </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -500,12 +501,10 @@ export default function ExpertProfile({ params }: PageProps) {
                   <span className="text-3xl font-semibold tracking-tight">
                     {currentPriceEGP} EGP
                   </span>
-                  <span className="ml-2 text-xs text-[#b9c2ce]">
-                    / {duration} min session
-                  </span>
+                  <span className="ml-2 text-xs text-[#b9c2ce]">/ {duration} min session</span>
                 </div>
                 <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-[#f5c3a8]">
-                  InstaPay Payment
+                  InstaPay • 18+
                 </span>
               </div>
 
@@ -520,6 +519,10 @@ export default function ExpertProfile({ params }: PageProps) {
                   <p className="text-[11px] text-white/70">
                     Your InstaPay receipt has been submitted. Our team will verify the transfer and confirm your calendar appointment.
                   </p>
+                </div>
+              ) : services.length === 0 ? (
+                <div className="mt-6 rounded-2xl bg-white/5 border border-white/10 p-5 text-center text-xs text-white/75">
+                  This expert&apos;s offerings are currently being updated for the approved MVP taxonomy and will be available once admin review is complete.
                 </div>
               ) : (
                 <>
@@ -541,12 +544,13 @@ export default function ExpertProfile({ params }: PageProps) {
                               key={d.date}
                               disabled={isClosed}
                               onClick={() => setSelectedDate(d.date)}
-                              className={`shrink-0 rounded-2xl border px-3 py-2 text-center transition ${isSelected
+                              className={`shrink-0 rounded-2xl border px-3 py-2 text-center transition ${
+                                isSelected
                                   ? 'border-[#ef5b4c] bg-[#ef5b4c] text-white shadow-sm'
                                   : isClosed
                                     ? 'border-white/10 bg-white/5 text-white/30 cursor-not-allowed'
                                     : 'border-white/15 bg-white/10 text-white hover:border-white/40'
-                                }`}
+                              }`}
                             >
                               <span className="block text-[10px] font-bold uppercase">
                                 {new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(
@@ -596,12 +600,13 @@ export default function ExpertProfile({ params }: PageProps) {
                               key={s.time}
                               disabled={!s.available}
                               onClick={() => setSelectedTime(s.time)}
-                              className={`rounded-xl border py-2 px-1 text-center font-mono text-[11px] sm:text-xs font-semibold transition truncate ${isSelected
+                              className={`rounded-xl border py-2 px-1 text-center font-mono text-[11px] sm:text-xs font-semibold transition truncate ${
+                                isSelected
                                   ? 'border-[#ef5b4c] bg-[#ef5b4c] text-white shadow-sm'
                                   : !s.available
                                     ? 'border-white/10 bg-white/5 text-white/25 cursor-not-allowed line-through'
                                     : 'border-white/15 bg-white/10 text-white hover:border-white/40'
-                                }`}
+                              }`}
                             >
                               {formatSlotLabel(s.time)}
                             </button>
@@ -639,6 +644,18 @@ export default function ExpertProfile({ params }: PageProps) {
                       onChange={(e) => setClientPhone(e.target.value)}
                       className="w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs text-white placeholder-white/40 outline-none focus:border-[#ef5b4c]"
                     />
+
+                    <label className="flex items-start gap-2.5 rounded-xl bg-white/5 border border-white/15 p-3 text-[11px] text-white/90 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={adultsOnlyConfirmed}
+                        onChange={(e) => setAdultsOnlyConfirmed(e.target.checked)}
+                        className="mt-0.5 size-4 rounded accent-[#ef5b4c]"
+                      />
+                      <span>
+                        I confirm that I am <strong>18 years of age or older</strong> (أؤكد أن عمري 18 عاماً أو أكثر). *
+                      </span>
+                    </label>
                   </div>
 
                   {/* Step 4: InstaPay Payment Instructions & Receipt Upload */}
@@ -678,21 +695,21 @@ export default function ExpertProfile({ params }: PageProps) {
                   {/* Submit Button */}
                   <button
                     type="button"
-                    disabled={!selectedTime || bookingLoading || uploadingReceipt}
+                    disabled={!selectedTime || !adultsOnlyConfirmed || bookingLoading || uploadingReceipt}
                     onClick={handleBooking}
                     className="mt-5 flex w-full items-center justify-center rounded-full bg-[#ef5b4c] px-5 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-white hover:text-[#14243b] disabled:opacity-40"
                   >
                     {bookingLoading
                       ? 'Submitting appointment...'
                       : selectedTime
-                        ? `Book & Submit Receipt`
+                        ? 'Book & Submit Receipt (18+)'
                         : 'Choose a date & time'}
                   </button>
                 </>
               )}
 
               <p className="mt-4 text-center text-[11px] text-white/50">
-                Reschedule or cancel up to 12 hours before session
+                Reschedule or cancel up to 12 hours before session • Adults 18+ only
               </p>
             </aside>
           </section>

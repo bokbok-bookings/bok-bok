@@ -1,4 +1,9 @@
-import { confirmBookingAndCreateCalendar, deleteCalendarEvent } from '@/lib/google-calendar'
+import {
+  confirmBookingAndCreateCalendar,
+  deleteCalendarEvent,
+  getGoogleCalendarConnectionStatus,
+  syncMissingMeetLinksForConfirmedBookings,
+} from '@/lib/google-calendar'
 import { NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import { getBookingsCollection, toObjectId } from '@/lib/db'
@@ -24,7 +29,12 @@ async function resolveAuth(request: Request) {
 
   if (session.role === 'expert') {
     if (!session.expertId) {
-      return { error: 'No expert profile associated with this account', status: 403, expertId: null, session: null }
+      return {
+        error: 'No expert profile associated with this account',
+        status: 403,
+        expertId: null,
+        session: null,
+      }
     }
     return { error: null, status: 200, expertId: toObjectId(session.expertId), session }
   }
@@ -32,23 +42,28 @@ async function resolveAuth(request: Request) {
   return { error: 'Access denied', status: 403, expertId: null, session: null }
 }
 
-// GET: List bookings with optional status filter
+// GET: List bookings with optional status filter (and optional Google Calendar connection status for admins)
 export async function GET(request: Request) {
   try {
     const auth = await resolveAuth(request)
     if (auth.error || !auth.session) {
-      return NextResponse.json({ success: false, error: auth.error || 'Unauthorized' }, { status: auth.status })
+      return NextResponse.json(
+        { success: false, error: auth.error || 'Unauthorized' },
+        { status: auth.status },
+      )
     }
 
     const { searchParams } = new URL(request.url)
     const statusParam = searchParams.get('status')
-    const limit = Number(searchParams.get('limit')) || 50
+    const includeCalendarStatus = searchParams.get('includeCalendarStatus') === 'true'
+    const refreshCalendarStatus = searchParams.get('refreshCalendarStatus') === 'true'
+    const limit = Math.min(Math.max(Number(searchParams.get('limit')) || 50, 1), 200)
 
     const bookingsCol = await getBookingsCollection()
     const filter: any = {}
 
     if (auth.expertId) {
-      filter.expertId = auth.expertId // Native BSON ObjectId!
+      filter.expertId = auth.expertId
     }
 
     if (statusParam === 'awaiting_verification' || statusParam === 'pending') {
@@ -57,43 +72,93 @@ export async function GET(request: Request) {
       filter.status = statusParam
     }
 
-    const docs = await bookingsCol
-      .find(filter)
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .toArray()
+    const docs = await bookingsCol.find(filter).sort({ createdAt: -1 }).limit(limit).toArray()
 
     const formatted = docs.map((b) => ({
       ...b,
       _id: b._id.toString(),
       expertId: b.expertId.toString(),
       serviceId: b.serviceId?.toString(),
+      googleMeetLink: b.googleMeetLink || '',
+      googleCalendarEventLink: b.googleCalendarEventLink || '',
+      googleCalendarEventId: b.googleCalendarEventId || '',
+      googleMeetError: b.googleMeetError || '',
     }))
 
-    return NextResponse.json({ success: true, data: formatted })
+    let calendarStatus = undefined
+    if (includeCalendarStatus && auth.session.role === 'admin') {
+      calendarStatus = await getGoogleCalendarConnectionStatus(refreshCalendarStatus)
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: formatted,
+        ...(calendarStatus ? { calendarStatus } : {}),
+      },
+      { headers: { 'Cache-Control': 'no-store' } },
+    )
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to fetch bookings' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
 
-// PATCH: Approve / Decline booking (verify receipt)
+// PATCH: Approve / Decline / Cancel booking, or Generate / Sync Google Meet link(s)
 export async function PATCH(request: Request) {
   try {
     const auth = await resolveAuth(request)
     if (auth.error || !auth.session) {
-      return NextResponse.json({ success: false, error: auth.error || 'Unauthorized' }, { status: auth.status })
+      return NextResponse.json(
+        { success: false, error: auth.error || 'Unauthorized' },
+        { status: auth.status },
+      )
     }
 
     const body = await request.json()
-    const { id, action, adminNotes } = body
+    const { id, action, adminNotes, forceRecreate } = body
+
+    // Bulk action for admins: generate missing Google Meet links for all confirmed upcoming/today bookings
+    if (action === 'sync_all_missing_meet') {
+      if (auth.session.role !== 'admin') {
+        return NextResponse.json(
+          { success: false, error: 'Only administrators can run bulk Google Meet sync.' },
+          { status: 403 },
+        )
+      }
+      const syncResult = await syncMissingMeetLinksForConfirmedBookings()
+      if (syncResult.syncedCount === 0 && syncResult.failedCount > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              syncResult.errors[0] ||
+              'Failed to generate Google Meet links. Please check Google Calendar connection.',
+            syncResult,
+          },
+          { status: 502 },
+        )
+      }
+      return NextResponse.json({
+        success: true,
+        message:
+          syncResult.syncedCount > 0
+            ? `Generated Google Meet links for ${syncResult.syncedCount} confirmed booking(s): ${syncResult.syncedReferences.join(', ')}`
+            : 'All upcoming confirmed bookings already have Google Meet links.',
+        syncResult,
+      })
+    }
 
     if (!id || !action) {
       return NextResponse.json(
-        { success: false, error: 'Booking ID and action (approve | reject | cancel) are required' },
-        { status: 400 }
+        {
+          success: false,
+          error:
+            'Booking ID and action (approve | reject | cancel | generate_meet) are required',
+        },
+        { status: 400 },
       )
     }
 
@@ -109,8 +174,45 @@ export async function PATCH(request: Request) {
     if (!existing) {
       return NextResponse.json(
         { success: false, error: 'Booking not found or unauthorized' },
-        { status: 404 }
+        { status: 404 },
       )
+    }
+
+    // Generate / Retry Google Meet link for an already-confirmed booking
+    if (action === 'generate_meet') {
+      if (existing.status !== 'confirmed') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Booking must be confirmed before generating a Google Meet link.',
+          },
+          { status: 400 },
+        )
+      }
+
+      try {
+        const updated = await confirmBookingAndCreateCalendar(bookingObjId.toString(), {
+          forceRecreate: Boolean(forceRecreate),
+        })
+        return NextResponse.json({
+          success: true,
+          googleMeetCreated: Boolean(updated.googleMeetLink),
+          googleMeetLink: updated.googleMeetLink || '',
+          googleCalendarEventLink: updated.googleCalendarEventLink || '',
+          message: updated.googleMeetLink
+            ? 'Google Meet link created and calendar invitations sent.'
+            : 'Calendar event created (in-person session without video link).',
+        })
+      } catch (calErr: any) {
+        return NextResponse.json(
+          {
+            success: false,
+            googleMeetCreated: false,
+            error: calErr?.message || 'Failed to generate Google Meet link.',
+          },
+          { status: 502 },
+        )
+      }
     }
 
     const updateDoc: any = {
@@ -126,11 +228,29 @@ export async function PATCH(request: Request) {
 
       await bookingsCol.updateOne({ _id: bookingObjId }, { $set: updateDoc })
 
-      // Auto-create Google Calendar event with Google Meet link (invites Client, Expert, and bokbok.bookings@gmail.com)
+      // Auto-create Google Calendar event with Google Meet link (invites Client, Expert, and central BokBok email)
       try {
-        await confirmBookingAndCreateCalendar(bookingObjId.toString())
+        const updatedBooking = await confirmBookingAndCreateCalendar(bookingObjId.toString())
+        return NextResponse.json({
+          success: true,
+          googleMeetCreated: Boolean(updatedBooking.googleMeetLink),
+          googleMeetLink: updatedBooking.googleMeetLink || '',
+          googleCalendarEventLink: updatedBooking.googleCalendarEventLink || '',
+          message: updatedBooking.googleMeetLink
+            ? 'Booking confirmed and Google Meet link created & emailed to attendees.'
+            : 'Booking confirmed.',
+        })
       } catch (calErr: any) {
         console.error('[Google Calendar] Failed to create event on approve:', calErr?.message)
+        return NextResponse.json({
+          success: true,
+          googleMeetCreated: false,
+          calendarWarning:
+            calErr?.message ||
+            'Booking was marked confirmed, but Google Meet link generation failed.',
+          message:
+            'Booking marked confirmed, but Google Meet link could not be generated automatically.',
+        })
       }
     } else if (action === 'reject') {
       updateDoc.status = 'rejected'
@@ -139,9 +259,9 @@ export async function PATCH(request: Request) {
 
       await bookingsCol.updateOne({ _id: bookingObjId }, { $set: updateDoc })
 
-      if ((existing as any).googleCalendarEventId) {
+      if (existing.googleCalendarEventId) {
         try {
-          await deleteCalendarEvent((existing as any).googleCalendarEventId)
+          await deleteCalendarEvent(existing.googleCalendarEventId)
         } catch (calErr: any) {
           console.error('[Google Calendar] Failed to delete event on reject:', calErr?.message)
         }
@@ -152,13 +272,18 @@ export async function PATCH(request: Request) {
 
       await bookingsCol.updateOne({ _id: bookingObjId }, { $set: updateDoc })
 
-      if ((existing as any).googleCalendarEventId) {
+      if (existing.googleCalendarEventId) {
         try {
-          await deleteCalendarEvent((existing as any).googleCalendarEventId)
+          await deleteCalendarEvent(existing.googleCalendarEventId)
         } catch (calErr: any) {
           console.error('[Google Calendar] Failed to delete event on cancel:', calErr?.message)
         }
       }
+    } else {
+      return NextResponse.json(
+        { success: false, error: `Unsupported booking action: ${String(action)}` },
+        { status: 400 },
+      )
     }
 
     return NextResponse.json({
@@ -168,7 +293,7 @@ export async function PATCH(request: Request) {
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to update booking' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

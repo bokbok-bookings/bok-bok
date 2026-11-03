@@ -3,7 +3,11 @@
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { BokBok } from '@/components/brand/bok-bok'
-import { CATEGORIES } from '@/lib/data/categories'
+import {
+  CATEGORIES,
+  isAllowedMvpCategory,
+  isAllowedMvpSubcategory,
+} from '@/lib/data/categories'
 
 export default function ExpertProfilePage() {
   const [loading, setLoading] = useState(true)
@@ -15,8 +19,8 @@ export default function ExpertProfilePage() {
   const [name, setName] = useState('')
   const [role, setRole] = useState('')
   const [location, setLocation] = useState('')
-  const [categorySlug, setCategorySlug] = useState('marketing-growth')
-  const [subcategorySlug, setSubcategorySlug] = useState('')
+  const [categorySlug, setCategorySlug] = useState('marketing')
+  const [subcategorySlug, setSubcategorySlug] = useState('marketing-strategy')
   const [bio, setBio] = useState('')
   const [about, setAbout] = useState('')
   const [tagsStr, setTagsStr] = useState('')
@@ -54,8 +58,13 @@ export default function ExpertProfilePage() {
           setName(d.name || '')
           setRole(d.role || '')
           setLocation(d.location || '')
-          setCategorySlug(d.categorySlug || 'marketing')
-          setSubcategorySlug(d.subcategorySlug || '')
+          const validCat = isAllowedMvpCategory(d.categorySlug) ? d.categorySlug : 'marketing'
+          const fallbackCatObj = CATEGORIES.find((c) => c.slug === validCat) || CATEGORIES[0]
+          const validSub = isAllowedMvpSubcategory(validCat, d.subcategorySlug)
+            ? d.subcategorySlug
+            : fallbackCatObj.subcategories[0]?.slug || ''
+          setCategorySlug(validCat)
+          setSubcategorySlug(validSub)
           setBio(d.bio || '')
           setAbout(d.about || '')
           setTagsStr(d.tags?.join(', ') || '')
@@ -206,7 +215,7 @@ export default function ExpertProfilePage() {
               required
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              placeholder="e.g. Product Strategy Consultant"
+              placeholder="e.g. Marketing Strategy Consultant"
               className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
             />
           </label>
@@ -233,10 +242,10 @@ export default function ExpertProfilePage() {
           </label>
         </div>
 
-        {/* Category & Subcategory */}
+        {/* Category & Subcategory (Approved MVP Taxonomy) */}
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="text-xs font-bold text-[#14243b]">
-            Primary Category
+            Approved MVP Primary Category
             <select
               value={categorySlug}
               onChange={(e) => {
@@ -254,7 +263,7 @@ export default function ExpertProfilePage() {
             </select>
           </label>
           <label className="text-xs font-bold text-[#14243b]">
-            Subcategory
+            Approved MVP Subcategory
             <select
               value={subcategorySlug}
               onChange={(e) => setSubcategorySlug(e.target.value)}

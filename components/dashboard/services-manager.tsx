@@ -1,7 +1,13 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { CATEGORIES } from '@/lib/data/categories'
+import {
+  CATEGORIES,
+  getCategoryLabel,
+  getSubcategoryLabel,
+  isAllowedMvpCategory,
+  isAllowedMvpSubcategory,
+} from '@/lib/data/categories'
 import {
   type BookingType,
   type ServiceKind,
@@ -10,13 +16,16 @@ import {
   offeringTypeToModel,
   getOfferingType,
 } from '@/lib/services/service-types'
-import { Share2, Check } from 'lucide-react'
+import { Share2, Check, ShieldAlert, Users } from 'lucide-react'
 
 export interface ServiceItem {
   _id: string
   expertId: string
   title: { en: string; ar: string }
   description: { en: string; ar: string }
+  intendedAudience?: { en: string; ar: string }
+  adultsOnly?: boolean
+  minimumAge?: number
   slug?: string
   categorySlug?: string
   subcategorySlug?: string
@@ -46,6 +55,15 @@ export interface ServiceItem {
   sortOrder: number
   approvalStatus?: 'pending' | 'approved' | 'rejected'
   rejectionReason?: string
+  isStructuredVocationalProgramme?: boolean
+  requiresLicensingReview?: boolean
+  licensingReviewStatus?:
+    | 'not_required'
+    | 'pending_licensing_review'
+    | 'licensing_approved'
+    | 'licensing_rejected'
+  licensingReviewReason?: string
+  adminReviewNote?: string
 }
 
 interface ServicesManagerProps {
@@ -71,7 +89,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
     setTimeout(() => setCopiedId(null), 2500)
   }
 
-  // Offering Type
+  // Offering Type (MVP: CONSULTATION, WORKSHOP, WEBINAR only)
   const [offeringType, setOfferingType] = useState<OfferingType>('CONSULTATION')
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('ONLINE')
 
@@ -80,8 +98,12 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
   const [titleAr, setTitleAr] = useState('')
   const [descEn, setDescEn] = useState('')
   const [descAr, setDescAr] = useState('')
+  const [audienceEn, setAudienceEn] = useState('Adult professionals and founders (18+)')
+  const [audienceAr, setAudienceAr] = useState('المهنيون ورواد الأعمال البالغون (+18)')
+  const [adultsOnly, setAdultsOnly] = useState(true)
+  const [isStructuredVocationalProgramme, setIsStructuredVocationalProgramme] = useState(false)
   const [categorySlug, setCategorySlug] = useState('marketing')
-  const [subcategorySlug, setSubcategorySlug] = useState('')
+  const [subcategorySlug, setSubcategorySlug] = useState('marketing-strategy')
   const [tagsStr, setTagsStr] = useState('')
 
   // Appointment fields
@@ -163,6 +185,10 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
     setTitleAr('')
     setDescEn('')
     setDescAr('')
+    setAudienceEn('Adult professionals and founders (18+)')
+    setAudienceAr('المهنيون ورواد الأعمال البالغون (+18)')
+    setAdultsOnly(true)
+    setIsStructuredVocationalProgramme(false)
     setCategorySlug(firstCat.slug)
     setSubcategorySlug(firstCat.subcategories?.[0]?.slug || '')
     setTagsStr('')
@@ -188,15 +214,28 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
 
   const openEditModal = (s: ServiceItem) => {
     const firstCat = categoriesList[0] || CATEGORIES[0]
+    const rawType = getOfferingType(s)
+    // Professional Services (GENERAL_SERVICE) are outside the MVP; map to CONSULTATION when editing
+    const safeType: OfferingType = rawType === 'GENERAL_SERVICE' ? 'CONSULTATION' : rawType
+    const validCatSlug = isAllowedMvpCategory(s.categorySlug) ? s.categorySlug! : firstCat.slug
+    const catObj = categoriesList.find((c) => c.slug === validCatSlug) || firstCat
+    const validSubSlug = isAllowedMvpSubcategory(validCatSlug, s.subcategorySlug)
+      ? s.subcategorySlug!
+      : catObj.subcategories?.[0]?.slug || ''
+
     setEditingService(s)
-    setOfferingType(getOfferingType(s))
+    setOfferingType(safeType)
     setDeliveryMode(s.deliveryMode || 'ONLINE')
     setTitleEn(s.title.en)
     setTitleAr(s.title.ar)
     setDescEn(s.description.en)
     setDescAr(s.description.ar)
-    setCategorySlug(s.categorySlug || firstCat.slug)
-    setSubcategorySlug(s.subcategorySlug || '')
+    setAudienceEn(s.intendedAudience?.en || 'Adult professionals and founders (18+)')
+    setAudienceAr(s.intendedAudience?.ar || 'المهنيون ورواد الأعمال البالغون (+18)')
+    setAdultsOnly(s.adultsOnly !== false)
+    setIsStructuredVocationalProgramme(Boolean(s.isStructuredVocationalProgramme || s.requiresLicensingReview))
+    setCategorySlug(validCatSlug)
+    setSubcategorySlug(validSubSlug)
     setTagsStr(s.tags?.join(', ') || '')
     setDuration(s.durationMinutes || 45)
     setBreakAfter(s.breakAfterMinutes || 10)
@@ -222,6 +261,18 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
       alert('Please provide titles in both English and Arabic.')
       return
     }
+    if (!descEn.trim() || !descAr.trim()) {
+      alert('Please provide a clear description of the actual activity in both English and Arabic.')
+      return
+    }
+    if (!audienceEn.trim() || !audienceAr.trim()) {
+      alert('Please specify the intended adult audience (18+) in both English and Arabic.')
+      return
+    }
+    if (!adultsOnly) {
+      alert('MVP offers on Bok Bok are restricted to adults aged 18 and over.')
+      return
+    }
 
     setSaving(true)
     try {
@@ -234,6 +285,10 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
         deliveryMode: offeringType === 'WEBINAR' ? 'ONLINE' : deliveryMode,
         title: { en: titleEn, ar: titleAr },
         description: { en: descEn, ar: descAr },
+        intendedAudience: { en: audienceEn, ar: audienceAr },
+        adultsOnly: true,
+        minimumAge: 18,
+        isStructuredVocationalProgramme,
         categorySlug,
         subcategorySlug,
         tags: tagsStr
@@ -294,7 +349,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this service offering?')) return
+    if (!confirm('Are you sure you want to delete this offering?')) return
     try {
       const res = await fetch(`/api/dashboard/services?expertId=${expertId}&id=${id}`, {
         method: 'DELETE',
@@ -315,11 +370,11 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
       {/* Top Bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#E8E2D8] pb-5">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-[#101F49]">Services & Offerings</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-[#101F49]">Consultations, Workshops & Webinars</h2>
           <p className="text-xs text-[#637084] mt-1">
             {expertName
-              ? `Manage consultations, services, workshops, and webinars for ${expertName}`
-              : 'Create and configure consultations, appointment services, workshops, or webinars.'}
+              ? `Manage MVP consultations, workshops, and webinars for ${expertName}`
+              : 'Create and configure 1-on-1 consultations, interactive workshops, or live webinars (Adults 18+ only; admin review required before publishing).'}
           </p>
         </div>
         <button
@@ -337,12 +392,12 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
       )}
 
       {loading ? (
-        <div className="p-12 text-center text-xs font-semibold text-[#8b94a1]">Loading services...</div>
+        <div className="p-12 text-center text-xs font-semibold text-[#8b94a1]">Loading offerings...</div>
       ) : services.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-[#E8E2D8] bg-white p-12 text-center">
           <p className="text-base font-bold text-[#101F49]">No offerings created yet</p>
           <p className="mt-1 text-xs text-[#637084]">
-            Create your first offering (consultation, appointment service, workshop, or webinar).
+            Create your first consultation, workshop, or webinar within the approved MVP taxonomy.
           </p>
           <button
             onClick={openAddModal}
@@ -355,11 +410,18 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
         <div className="grid gap-4 sm:grid-cols-2">
           {services.map((s) => {
             const kind = getOfferingType(s)
+            const catLabel = getCategoryLabel(s.categorySlug, 'en')
+            const subLabel = getSubcategoryLabel(s.categorySlug, s.subcategorySlug, 'en')
+            const isValidTaxonomy =
+              isAllowedMvpCategory(s.categorySlug) &&
+              isAllowedMvpSubcategory(s.categorySlug, s.subcategorySlug)
             return (
               <div
                 key={s._id}
                 className={`flex flex-col justify-between rounded-3xl border bg-white p-6 shadow-sm transition ${
-                  s.isActive ? 'border-[#E8E2D8]' : 'border-[#E8E2D8] opacity-60'
+                  s.isActive && s.approvalStatus === 'approved'
+                    ? 'border-[#E8E2D8]'
+                    : 'border-amber-300/70 bg-[#FFFDF9]'
                 }`}
               >
                 <div>
@@ -371,17 +433,31 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
 
                       {s.approvalStatus === 'pending' && (
                         <span className="rounded-full bg-amber-50 border border-amber-300 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                          In Review
+                          Pending Admin Review
                         </span>
                       )}
-                      {(s.approvalStatus === 'approved' || !s.approvalStatus) && (
+                      {s.approvalStatus === 'approved' && (
                         <span className="rounded-full bg-emerald-50 border border-emerald-300 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                          Approved
+                          Published
                         </span>
                       )}
-                      {s.isMostBooked && (
-                        <span className="rounded-full bg-[#2855C5]/10 border border-[#2855C5]/30 px-2 py-0.5 text-[10px] font-black text-[#2855C5] uppercase">
-                          Popular
+                      {s.approvalStatus === 'rejected' && (
+                        <span className="rounded-full bg-rose-50 border border-rose-300 px-2 py-0.5 text-[10px] font-bold text-rose-800">
+                          Rejected
+                        </span>
+                      )}
+                      {s.requiresLicensingReview && (
+                        <span className="rounded-full bg-purple-50 border border-purple-300 px-2 py-0.5 text-[10px] font-bold text-purple-800">
+                          {s.licensingReviewStatus === 'licensing_approved'
+                            ? 'Licensing Cleared'
+                            : s.licensingReviewStatus === 'licensing_rejected'
+                              ? 'Licensing Rejected'
+                              : 'Separate Licensing Review Required'}
+                        </span>
+                      )}
+                      {!isValidTaxonomy && (
+                        <span className="rounded-full bg-red-50 border border-red-300 px-2 py-0.5 text-[10px] font-bold text-red-700">
+                          Needs MVP Category Mapping
                         </span>
                       )}
                       <span className="rounded-full bg-[#f4f2ee] px-2 py-0.5 text-[10px] font-bold text-[#637084]">
@@ -397,23 +473,44 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                     </div>
                   </div>
 
-                  <h3 className="mt-4 text-base font-bold text-[#101F49] leading-snug">{s.title.en}</h3>
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold text-[#637084]">
+                    <span className="rounded-md bg-[#f4f2ee] px-2 py-0.5">{catLabel}</span>
+                    {subLabel && (
+                      <span className="rounded-md bg-[#FFF9EE] border border-[#E8E2D8] px-2 py-0.5 text-[#101F49]">
+                        {subLabel}
+                      </span>
+                    )}
+                    <span className="rounded-md bg-[#E8EFFF]/60 px-2 py-0.5 text-[#2855C5]">18+ Only</span>
+                  </div>
+
+                  <h3 className="mt-3 text-base font-bold text-[#101F49] leading-snug">{s.title.en}</h3>
                   <p className="text-xs font-medium text-[#8b94a1] mt-0.5" dir="rtl">
                     {s.title.ar}
                   </p>
 
                   {s.description?.en && (
-                    <p className="mt-3 text-xs leading-5 text-[#637084] line-clamp-2">{s.description.en}</p>
+                    <p className="mt-2.5 text-xs leading-5 text-[#637084] line-clamp-2">{s.description.en}</p>
                   )}
 
-                  {s.tags && s.tags.length > 0 && (
-                    <div className="mt-4 flex flex-wrap gap-1">
-                      {s.tags.map((t) => (
-                        <span key={t} className="rounded-md bg-[#FFF9EE] border border-[#E8E2D8] px-2 py-0.5 text-[10px] text-[#637084]">
-                          #{t}
-                        </span>
-                      ))}
-                    </div>
+                  {s.intendedAudience?.en && (
+                    <p className="mt-2 flex items-center gap-1 text-[11px] text-[#637084]">
+                      <Users size={12} className="text-[#2855C5]" />
+                      <span>
+                        Audience: <strong>{s.intendedAudience.en}</strong>
+                      </span>
+                    </p>
+                  )}
+
+                  {s.adminReviewNote && (
+                    <p className="mt-2 rounded-xl bg-amber-50 border border-amber-200 p-2 text-[11px] text-amber-900">
+                      <strong>Admin Review Note:</strong> {s.adminReviewNote}
+                    </p>
+                  )}
+
+                  {s.rejectionReason && (
+                    <p className="mt-2 rounded-xl bg-rose-50 border border-rose-200 p-2 text-[11px] text-rose-800">
+                      <strong>Rejection Reason:</strong> {s.rejectionReason}
+                    </p>
                   )}
                 </div>
 
@@ -426,14 +523,16 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                       {copiedId === s._id ? <Check size={12} className="text-emerald-500" /> : <Share2 size={12} />}
                       {copiedId === s._id ? 'Copied Link!' : 'Share Link'}
                     </button>
-                    <a
-                      href={`/services/${s.slug || s._id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[11px] font-bold text-sky-600 hover:text-sky-700 hover:underline"
-                    >
-                      View Page ↗
-                    </a>
+                    {s.isActive && s.approvalStatus === 'approved' && (
+                      <a
+                        href={`/services/${s.slug || s._id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] font-bold text-sky-600 hover:text-sky-700 hover:underline"
+                      >
+                        View Page ↗
+                      </a>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -462,9 +561,14 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-xs">
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#E8E2D8] pb-4">
-              <h3 className="text-lg font-bold text-[#101F49]">
-                {editingService ? 'Edit Offering' : 'Create New Offering'}
-              </h3>
+              <div>
+                <h3 className="text-lg font-bold text-[#101F49]">
+                  {editingService ? 'Edit MVP Offering' : 'Create New MVP Offering'}
+                </h3>
+                <p className="text-[11px] text-[#637084]">
+                  All offers require admin review before publication and are restricted to adults aged 18+.
+                </p>
+              </div>
               <button
                 onClick={() => setModalOpen(false)}
                 className="size-8 rounded-full bg-[#f4f2ee] text-xs font-bold text-[#637084] hover:bg-[#E8E2D8]"
@@ -473,18 +577,34 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="mt-6 space-y-4">
-              {/* Offering Type Selector */}
+            {/* MVP Scope & Exclusions Notice */}
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-3.5 text-[11px] text-amber-950 space-y-1">
+              <p className="font-bold flex items-center gap-1.5 text-amber-900">
+                <ShieldAlert size={14} className="shrink-0" />
+                Reduced-Risk MVP Offer Controls (Adults 18+ Only):
+              </p>
+              <p>
+                • <strong>Allowed Formats:</strong> Consultations, Workshops, and Webinars only. Professional Services are outside the MVP.
+              </p>
+              <p>
+                • <strong>Excluded Across All Categories:</strong> Medical/nutrition/fitness plans, mental health/therapy, legal/tax/auditing/investment advice, engineering/architectural approvals, recruitment/visa/job or income guarantees, travel booking/guiding, penetration testing/live client data access, school tutoring/exam prep/ghostwriting/children&apos;s services, unverified accreditation claims, and hazardous activities.
+              </p>
+              <p>
+                • Calling an offer a &ldquo;consultation,&rdquo; &ldquo;workshop,&rdquo; or &ldquo;webinar&rdquo; does not exempt it from licensing requirements.
+              </p>
+            </div>
+
+            <form onSubmit={handleSave} className="mt-5 space-y-4">
+              {/* Offering Type Selector (3 MVP types only) */}
               <div>
                 <label className="block text-xs font-bold text-[#101F49] mb-1.5">
-                  Offering Type
+                  MVP Offering Format *
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: 'CONSULTATION', label: 'Consultation', hint: '1-on-1 advice' },
-                    { id: 'GENERAL_SERVICE', label: 'Service', hint: 'Direct appointment' },
-                    { id: 'WORKSHOP', label: 'Workshop', hint: 'Group learning' },
-                    { id: 'WEBINAR', label: 'Webinar', hint: 'Live online event' },
+                    { id: 'CONSULTATION', label: 'Consultation / استشارة', hint: '1-on-1 advisory or review' },
+                    { id: 'WORKSHOP', label: 'Workshop / ورشة عمل', hint: 'Interactive group cohort' },
+                    { id: 'WEBINAR', label: 'Webinar / ندوة مباشرة', hint: 'Live online masterclass' },
                   ].map((t) => (
                     <button
                       key={t.id}
@@ -503,16 +623,16 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                 </div>
               </div>
 
-              {/* Delivery Mode (for all except Webinars which are strictly ONLINE) */}
+              {/* Delivery Mode */}
               {offeringType !== 'WEBINAR' && (
                 <div>
                   <label className="block text-xs font-bold text-[#101F49] mb-1.5">
                     Delivery Mode
                   </label>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {[
                       { id: 'ONLINE', label: '🌐 Online (Video call / remote)' },
-                      { id: 'IN_PERSON', label: '📍 In-Person (Studio / client location)' },
+                      { id: 'IN_PERSON', label: '📍 In-Person' },
                       { id: 'HYBRID', label: '⚡ Hybrid' },
                     ].map((m) => (
                       <button
@@ -545,7 +665,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                     />
                   </label>
                   <label className="text-xs font-bold text-[#101F49]">
-                    Studio / Street Address
+                    Venue / Street Address
                     <input
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
@@ -556,60 +676,10 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                 </div>
               )}
 
-              {/* Bilingual Titles */}
+              {/* Taxonomy: Approved Category & Subcategory (No Free-Text) */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="text-xs font-bold text-[#101F49]">
-                  Title (English) *
-                  <input
-                    required
-                    value={titleEn}
-                    onChange={(e) => setTitleEn(e.target.value)}
-                    placeholder="e.g. 1-on-1 Growth Strategy"
-                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
-                  />
-                </label>
-                <label className="text-xs font-bold text-[#101F49]">
-                  Title (Arabic) *
-                  <input
-                    required
-                    dir="rtl"
-                    value={titleAr}
-                    onChange={(e) => setTitleAr(e.target.value)}
-                    placeholder="مثال: جلسة استراتيجية النمو الفردية"
-                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
-                  />
-                </label>
-              </div>
-
-              {/* Descriptions */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="text-xs font-bold text-[#101F49]">
-                  Description (English)
-                  <textarea
-                    rows={3}
-                    value={descEn}
-                    onChange={(e) => setDescEn(e.target.value)}
-                    placeholder="What will client gain or experience?"
-                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2 text-xs outline-none focus:border-[#2855C5]"
-                  />
-                </label>
-                <label className="text-xs font-bold text-[#101F49]">
-                  Description (Arabic)
-                  <textarea
-                    rows={3}
-                    dir="rtl"
-                    value={descAr}
-                    onChange={(e) => setDescAr(e.target.value)}
-                    placeholder="ما الذي سيستفيده العميل من هذا العرض؟"
-                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2 text-xs outline-none focus:border-[#2855C5]"
-                  />
-                </label>
-              </div>
-
-              {/* Taxonomy: Category & Subcategory */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="text-xs font-bold text-[#101F49]">
-                  Primary Category
+                  Approved MVP Category *
                   <select
                     value={categorySlug}
                     onChange={(e) => {
@@ -627,7 +697,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                   </select>
                 </label>
                 <label className="text-xs font-bold text-[#101F49]">
-                  Subcategory
+                  Approved MVP Subcategory *
                   <select
                     value={subcategorySlug}
                     onChange={(e) => setSubcategorySlug(e.target.value)}
@@ -642,11 +712,88 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                 </label>
               </div>
 
+              {/* Bilingual Titles */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="text-xs font-bold text-[#101F49]">
+                  Title (English) *
+                  <input
+                    required
+                    value={titleEn}
+                    onChange={(e) => setTitleEn(e.target.value)}
+                    placeholder="e.g. 1-on-1 Marketing Strategy Review"
+                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
+                  />
+                </label>
+                <label className="text-xs font-bold text-[#101F49]">
+                  Title (Arabic) *
+                  <input
+                    required
+                    dir="rtl"
+                    value={titleAr}
+                    onChange={(e) => setTitleAr(e.target.value)}
+                    placeholder="مثال: مراجعة فردية لاستراتيجية التسويق"
+                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
+                  />
+                </label>
+              </div>
+
+              {/* Clear Activity Descriptions (Required in EN & AR) */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="text-xs font-bold text-[#101F49]">
+                  Clear Description of Actual Activity (English) *
+                  <textarea
+                    required
+                    rows={3}
+                    value={descEn}
+                    onChange={(e) => setDescEn(e.target.value)}
+                    placeholder="Describe the exact scope, format, and activity of this session (min 20 characters)..."
+                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2 text-xs outline-none focus:border-[#2855C5]"
+                  />
+                </label>
+                <label className="text-xs font-bold text-[#101F49]">
+                  Clear Description of Actual Activity (Arabic) *
+                  <textarea
+                    required
+                    rows={3}
+                    dir="rtl"
+                    value={descAr}
+                    onChange={(e) => setDescAr(e.target.value)}
+                    placeholder="اشرح بوضوح النشاط الفعلي ونطاق الجلسة وما سيتم تقديمه..."
+                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2 text-xs outline-none focus:border-[#2855C5]"
+                  />
+                </label>
+              </div>
+
+              {/* Intended Audience (Required in EN & AR, 18+ Adults Only) */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="text-xs font-bold text-[#101F49]">
+                  Intended Adult Audience (English, 18+) *
+                  <input
+                    required
+                    value={audienceEn}
+                    onChange={(e) => setAudienceEn(e.target.value)}
+                    placeholder="e.g. Startup founders and marketing managers aged 18+"
+                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
+                  />
+                </label>
+                <label className="text-xs font-bold text-[#101F49]">
+                  Intended Adult Audience (Arabic, 18+) *
+                  <input
+                    required
+                    dir="rtl"
+                    value={audienceAr}
+                    onChange={(e) => setAudienceAr(e.target.value)}
+                    placeholder="مثال: رواد الأعمال ومديرو التسويق البالغون (+18)"
+                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
+                  />
+                </label>
+              </div>
+
               {/* CONDITIONAL: Appointment vs Workshop/Webinar Fields */}
-              {(offeringType === 'CONSULTATION' || offeringType === 'GENERAL_SERVICE') ? (
+              {offeringType === 'CONSULTATION' ? (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="text-xs font-bold text-[#101F49]">
-                    Appointment Duration (Minutes)
+                    Consultation Duration (Minutes)
                     <input
                       type="number"
                       min={15}
@@ -777,48 +924,74 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                 <input
                   value={tagsStr}
                   onChange={(e) => setTagsStr(e.target.value)}
-                  placeholder="e.g. photography, portrait, bridal, strategy"
+                  placeholder="e.g. strategy, seo, branding, portfolio"
                   className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                 />
               </label>
 
-              {/* Toggles */}
-              <div className="flex flex-wrap items-center gap-6 pt-2">
-                <label className="flex items-center gap-2 text-xs font-bold text-[#101F49] cursor-pointer">
+              {/* Compliance Controls & Toggles */}
+              <div className="rounded-2xl border border-[#E8E2D8] bg-[#FFF9EE] p-4 space-y-3">
+                <label className="flex items-start gap-2.5 text-xs font-bold text-[#101F49] cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={isActive}
-                    onChange={(e) => setIsActive(e.target.checked)}
-                    className="size-4 rounded accent-[#2855C5]"
+                    required
+                    checked={adultsOnly}
+                    onChange={(e) => setAdultsOnly(e.target.checked)}
+                    className="mt-0.5 size-4 rounded accent-[#2855C5]"
                   />
-                  Active (Visible for public booking)
+                  <span>
+                    I confirm this offer is strictly for <strong>adults aged 18 and over</strong>, does not include any excluded services, and does not make unverified &ldquo;accredited&rdquo; or &ldquo;officially recognized&rdquo; claims. *
+                  </span>
                 </label>
-                <label className="flex items-center gap-2 text-xs font-bold text-[#101F49] cursor-pointer">
+
+                <label className="flex items-start gap-2.5 text-xs font-bold text-[#101F49] cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={isMostBooked}
-                    onChange={(e) => setIsMostBooked(e.target.checked)}
-                    className="size-4 rounded accent-[#2855C5]"
+                    checked={isStructuredVocationalProgramme}
+                    onChange={(e) => setIsStructuredVocationalProgramme(e.target.checked)}
+                    className="mt-0.5 size-4 rounded accent-[#2855C5]"
                   />
-                  Highlight as &quot;Popular&quot;
+                  <span>
+                    This offer is a <strong>structured vocational training programme</strong> (multi-module curriculum / vocational syllabus) — flag for a separate licensing review before publication.
+                  </span>
                 </label>
+
+                <div className="flex flex-wrap items-center gap-6 pt-1 border-t border-[#E8E2D8]">
+                  <label className="flex items-center gap-2 text-xs font-bold text-[#101F49] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isActive}
+                      onChange={(e) => setIsActive(e.target.checked)}
+                      className="size-4 rounded accent-[#2855C5]"
+                    />
+                    Active (Publish once approved by Admin)
+                  </label>
+                  <label className="flex items-center gap-2 text-xs font-bold text-[#101F49] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isMostBooked}
+                      onChange={(e) => setIsMostBooked(e.target.checked)}
+                      className="size-4 rounded accent-[#2855C5]"
+                    />
+                    Mark as &ldquo;Most Booked&rdquo; badge
+                  </label>
+                </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex items-center justify-end gap-3 border-t border-[#E8E2D8] pt-5">
+              <div className="flex items-center justify-end gap-3 border-t border-[#E8E2D8] pt-4">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="rounded-full border border-[#E8E2D8] px-5 py-2.5 text-xs font-bold text-[#637084] hover:border-[#101F49] hover:text-[#101F49]"
+                  className="rounded-full border border-[#E8E2D8] px-5 py-2 text-xs font-bold text-[#637084] hover:border-[#101F49]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-full bg-[#2855C5] px-6 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#101F49] disabled:opacity-50"
+                  className="rounded-full bg-[#2855C5] px-6 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#101F49] disabled:opacity-50"
                 >
-                  {saving ? 'Saving...' : editingService ? 'Update Offering' : 'Create Offering'}
+                  {saving ? 'Submitting...' : editingService ? 'Save & Submit for Review' : 'Submit Offer for Review'}
                 </button>
               </div>
             </form>
@@ -828,4 +1001,3 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
     </div>
   )
 }
-

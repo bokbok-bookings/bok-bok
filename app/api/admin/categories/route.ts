@@ -8,6 +8,7 @@ import {
   toObjectId,
 } from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
+import { isAllowedMvpCategory, isRemovedCategory } from '@/lib/data/categories'
 
 export const dynamic = 'force-dynamic'
 
@@ -145,6 +146,16 @@ export async function POST(request: Request) {
       )
     }
 
+    if (isRemovedCategory(slug) || !isAllowedMvpCategory(slug)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Category "${slug}" is outside the approved MVP taxonomy. Free-text or removed categories (including Education & Learning and Fitness & Wellness) are not permitted in the MVP.`,
+        },
+        { status: 400 }
+      )
+    }
+
     const categoriesCol = await getCategoriesCollection()
     const existing = await categoriesCol.findOne({ slug })
     if (existing) {
@@ -248,6 +259,15 @@ export async function PATCH(request: Request) {
 
     if (customSlug) {
       const normalized = slugify(customSlug)
+      if (isRemovedCategory(normalized) || !isAllowedMvpCategory(normalized)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Category slug "${normalized}" is outside the approved MVP taxonomy.`,
+          },
+          { status: 400 }
+        )
+      }
       if (normalized !== existing.slug) {
         const slugConflict = await categoriesCol.findOne({
           slug: normalized,
@@ -269,6 +289,16 @@ export async function PATCH(request: Request) {
     }
 
     if (isActive !== undefined) {
+      const targetSlug = updateFields.slug || existing.slug
+      if (Boolean(isActive) && (isRemovedCategory(targetSlug) || !isAllowedMvpCategory(targetSlug))) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Cannot activate "${existing.name.en}" (${targetSlug}) because it is removed or outside the approved MVP taxonomy.`,
+          },
+          { status: 400 }
+        )
+      }
       updateFields.isActive = Boolean(isActive)
     }
 

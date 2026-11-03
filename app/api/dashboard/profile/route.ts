@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server'
-import { ObjectId } from 'mongodb'
 import { getExpertsCollection, toObjectId } from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
+import {
+  isAllowedMvpCategory,
+  isAllowedMvpSubcategory,
+  isRemovedCategory,
+} from '@/lib/data/categories'
+import { detectExcludedService, detectUnverifiedAccreditationClaim } from '@/lib/services/service-validation'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,9 +18,10 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const targetExpertId = session.role === 'admin' && searchParams.get('expertId')
-      ? searchParams.get('expertId')
-      : session.expertId
+    const targetExpertId =
+      session.role === 'admin' && searchParams.get('expertId')
+        ? searchParams.get('expertId')
+        : session.expertId
 
     if (!targetExpertId) {
       return NextResponse.json({ success: false, error: 'No expert profile found' }, { status: 404 })
@@ -69,12 +75,95 @@ export async function PUT(request: Request) {
       instapayUsername,
     } = body
 
-    const targetExpertId = session.role === 'admin' && expertId
-      ? expertId
-      : session.expertId
+    const targetExpertId = session.role === 'admin' && expertId ? expertId : session.expertId
 
     if (!targetExpertId) {
       return NextResponse.json({ success: false, error: 'No expert ID provided' }, { status: 400 })
+    }
+
+    // Validate categorySlug and subcategorySlug if provided
+    if (categorySlug) {
+      if (isRemovedCategory(categorySlug) || !isAllowedMvpCategory(categorySlug)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Category "${categorySlug}" is removed or outside the approved MVP taxonomy.`,
+          },
+          { status: 400 }
+        )
+      }
+      if (subcategorySlug && !isAllowedMvpSubcategory(categorySlug, subcategorySlug)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Subcategory "${subcategorySlug}" is not an approved MVP subcategory under "${categorySlug}".`,
+          },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Validate multi-category array if provided
+    let sanitizedCats: { categorySlug: string; subcategories: string[] }[] | undefined
+    if (Array.isArray(categories)) {
+      sanitizedCats = []
+      for (const c of categories.slice(0, 3)) {
+        const cSlug = String(c.categorySlug || '').trim()
+        if (!cSlug) continue
+        if (isRemovedCategory(cSlug) || !isAllowedMvpCategory(cSlug)) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `Category "${cSlug}" is removed or outside the approved MVP taxonomy.`,
+            },
+            { status: 400 }
+          )
+        }
+        const rawSubs = Array.isArray(c.subcategories) ? c.subcategories.map((s: any) => String(s).trim()).filter(Boolean) : []
+        for (const sSlug of rawSubs) {
+          if (!isAllowedMvpSubcategory(cSlug, sSlug)) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: `Subcategory "${sSlug}" is not an approved MVP subcategory under "${cSlug}".`,
+              },
+              { status: 400 }
+            )
+          }
+        }
+        sanitizedCats.push({
+          categorySlug: cSlug,
+          subcategories: rawSubs,
+        })
+      }
+    }
+
+    // Screen profile text against excluded services & unverified accreditation claims
+    const combinedProfileText = [
+      role || '',
+      bio || '',
+      about || '',
+      ...(Array.isArray(tags) ? tags : []),
+    ].join(' ')
+    const excludedCheck = detectExcludedService(combinedProfileText)
+    if (excludedCheck.excluded) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: excludedCheck.reason,
+        },
+        { status: 400 }
+      )
+    }
+    if (session.role !== 'admin' && detectUnverifiedAccreditationClaim(combinedProfileText)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Do not display "accredited," "officially recognized," or equivalent claims without verified supporting authorization.',
+        },
+        { status: 400 }
+      )
     }
 
     const expertObjId = toObjectId(targetExpertId)
@@ -92,15 +181,10 @@ export async function PUT(request: Request) {
     if (categorySlug) updateDoc.categorySlug = categorySlug
     if (subcategorySlug !== undefined) updateDoc.subcategorySlug = subcategorySlug
 
-    // Support maximum 3 categories and their subcategories
-    if (Array.isArray(categories)) {
-      const sanitizedCats = categories.slice(0, 3).map((c: any) => ({
-        categorySlug: String(c.categorySlug || ''),
-        subcategories: Array.isArray(c.subcategories) ? c.subcategories.map(String) : [],
-      }))
+    if (sanitizedCats) {
       updateDoc.categories = sanitizedCats
-      updateDoc.categorySlugs = sanitizedCats.map((c: any) => c.categorySlug)
-      updateDoc.subcategorySlugs = sanitizedCats.flatMap((c: any) => c.subcategories)
+      updateDoc.categorySlugs = sanitizedCats.map((c) => c.categorySlug)
+      updateDoc.subcategorySlugs = sanitizedCats.flatMap((c) => c.subcategories)
       if (sanitizedCats[0]?.categorySlug) {
         updateDoc.categorySlug = sanitizedCats[0].categorySlug
       }

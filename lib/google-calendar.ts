@@ -4,10 +4,95 @@ import {
   getExpertsCollection,
   getUsersCollection,
   getBookingsCollection,
+  getServicesCollection,
   toObjectId,
 } from './db'
 
 let cachedCalendar: calendar_v3.Calendar | null = null
+let cachedStatus: {
+  checkedAt: number
+  result: GoogleCalendarConnectionStatus
+} | null = null
+
+export interface GoogleCalendarConnectionStatus {
+  state: 'connected' | 'expired' | 'not_connected' | 'not_configured'
+  calendarEmail?: string
+  updatedAt?: string
+  message: string
+}
+
+function isTokenAuthError(err: any): boolean {
+  const msg = String(err?.message || '').toLowerCase()
+  const apiErr = String(err?.response?.data?.error || '').toLowerCase()
+  const status = err?.code || err?.response?.status
+  return (
+    msg.includes('invalid_grant') ||
+    apiErr === 'invalid_grant' ||
+    apiErr === 'unauthorized_client' ||
+    msg.includes('token has been expired or revoked') ||
+    msg.includes('invalid credentials') ||
+    status === 401
+  )
+}
+
+export function formatCalendarError(err: any): string {
+  if (isTokenAuthError(err)) {
+    return 'Google Calendar OAuth token has expired or been revoked (Google Cloud OAuth apps in "Testing" mode expire refresh tokens after 7 days). Please click "Reconnect Google Calendar & Meet" in the Admin Bookings panel.'
+  }
+  const apiMessage =
+    err?.response?.data?.error?.message ||
+    err?.response?.data?.error_description ||
+    err?.message ||
+    'Unknown Google Calendar error'
+  return String(apiMessage)
+}
+
+/**
+ * Pure calendar arithmetic for YYYY-MM-DD + HH:mm + durationMinutes.
+ * Safely advances date across midnight without server-local-timezone or DST bugs.
+ */
+export function computeStartAndEndDateTime(
+  dateStr: string,
+  timeStr: string,
+  durationMinutes: number,
+): { startDateTime: string; endDateTime: string } {
+  const [yStr, mStr, dStr] = dateStr.split('-')
+  const [hStr, minStr] = timeStr.split(':')
+  const year = Number(yStr)
+  const month = Number(mStr)
+  const day = Number(dStr)
+  const hour = Number(hStr)
+  const minute = Number(minStr)
+
+  const pad2 = (n: number) => String(n).padStart(2, '0')
+  const startDateTime = `${year}-${pad2(month)}-${pad2(day)}T${pad2(hour)}:${pad2(minute)}:00`
+
+  const endUtc = new Date(Date.UTC(year, month - 1, day, hour, minute + (durationMinutes || 45), 0))
+  const endYear = endUtc.getUTCFullYear()
+  const endMonth = pad2(endUtc.getUTCMonth() + 1)
+  const endDay = pad2(endUtc.getUTCDate())
+  const endHours = pad2(endUtc.getUTCHours())
+  const endMinutes = pad2(endUtc.getUTCMinutes())
+  const endDateTime = `${endYear}-${endMonth}-${endDay}T${endHours}:${endMinutes}:00`
+
+  return { startDateTime, endDateTime }
+}
+
+/**
+ * Get current date string (YYYY-MM-DD) in Africa/Cairo timezone.
+ */
+export function getCairoTodayDateString(): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Africa/Cairo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date())
+  } catch {
+    return new Date().toISOString().slice(0, 10)
+  }
+}
 
 /**
  * Get an authenticated Google Calendar client using OAuth 2.0.
@@ -18,7 +103,8 @@ async function getOAuthCalendarClient() {
 
   const clientId = process.env.GOOGLE_CLIENT_ID
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/auth/google/callback'
+  const redirectUri =
+    process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/auth/google/callback'
 
   if (!clientId || !clientSecret) {
     throw new Error('Missing Google OAuth credentials (GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET)')
@@ -33,31 +119,36 @@ async function getOAuthCalendarClient() {
 
   if (!refreshToken) {
     throw new Error(
-      'Google Calendar is not linked yet. Please visit /api/auth/google/connect in your browser to link BokBok Google Account.',
+      'Google Calendar is not linked yet. Please reconnect BokBok Google Calendar from the Admin Bookings panel.',
     )
   }
 
   oauth2Client.setCredentials({
     refresh_token: refreshToken,
     access_token: tokenDoc?.value?.access_token,
+    expiry_date: tokenDoc?.value?.expiry_date,
   })
 
   // Listen for refreshed tokens and save back to MongoDB settings
   oauth2Client.on('tokens', async (newTokens) => {
-    if (newTokens.refresh_token || newTokens.access_token) {
-      const col = await getSettingsCollection()
-      await col.updateOne(
-        { key: 'google_calendar_token' } as any,
-        {
-          $set: {
-            'value.access_token': newTokens.access_token,
-            ...(newTokens.refresh_token ? { 'value.refresh_token': newTokens.refresh_token } : {}),
-            'value.expiry_date': newTokens.expiry_date,
-            updatedAt: new Date(),
+    try {
+      if (newTokens.refresh_token || newTokens.access_token) {
+        const col = await getSettingsCollection()
+        await col.updateOne(
+          { key: 'google_calendar_token' } as any,
+          {
+            $set: {
+              'value.access_token': newTokens.access_token,
+              ...(newTokens.refresh_token ? { 'value.refresh_token': newTokens.refresh_token } : {}),
+              'value.expiry_date': newTokens.expiry_date,
+              updatedAt: new Date(),
+            },
           },
-        },
-        { upsert: true },
-      )
+          { upsert: true },
+        )
+      }
+    } catch (err: any) {
+      console.error('[Google Calendar] Failed to persist refreshed token:', err?.message)
     }
   })
 
@@ -67,6 +158,69 @@ async function getOAuthCalendarClient() {
 
 export function resetCalendarCache() {
   cachedCalendar = null
+  cachedStatus = null
+}
+
+/**
+ * Checks live health of the central Google Calendar & Meet OAuth connection.
+ */
+export async function getGoogleCalendarConnectionStatus(
+  forceRefresh = false,
+): Promise<GoogleCalendarConnectionStatus> {
+  if (!forceRefresh && cachedStatus && Date.now() - cachedStatus.checkedAt < 60_000) {
+    return cachedStatus.result
+  }
+
+  const clientId = process.env.GOOGLE_CLIENT_ID
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+  if (!clientId || !clientSecret) {
+    return {
+      state: 'not_configured',
+      message: 'GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET is missing in server environment.',
+    }
+  }
+
+  const settingsCol = await getSettingsCollection()
+  const tokenDoc = (await settingsCol.findOne({ key: 'google_calendar_token' } as any)) as any
+  const refreshToken = tokenDoc?.value?.refresh_token || process.env.GOOGLE_REFRESH_TOKEN
+  const updatedAtStr = tokenDoc?.updatedAt
+    ? new Date(tokenDoc.updatedAt).toISOString()
+    : undefined
+
+  if (!refreshToken) {
+    const result: GoogleCalendarConnectionStatus = {
+      state: 'not_connected',
+      updatedAt: updatedAtStr,
+      message:
+        'Google Calendar is not connected. Connect the BokBok Google account to automatically generate Google Meet links on booking confirmation.',
+    }
+    cachedStatus = { checkedAt: Date.now(), result }
+    return result
+  }
+
+  try {
+    const calendar = await getOAuthCalendarClient()
+    const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary'
+    const calRes = await calendar.calendars.get({ calendarId })
+    const result: GoogleCalendarConnectionStatus = {
+      state: 'connected',
+      calendarEmail: calRes.data.id || calendarId,
+      updatedAt: updatedAtStr,
+      message: `Connected to Google Calendar (${calRes.data.id || calendarId}). Google Meet links are generated automatically on confirmation.`,
+    }
+    cachedStatus = { checkedAt: Date.now(), result }
+    return result
+  } catch (err: any) {
+    resetCalendarCache()
+    const expired = isTokenAuthError(err)
+    const result: GoogleCalendarConnectionStatus = {
+      state: expired ? 'expired' : 'not_connected',
+      updatedAt: updatedAtStr,
+      message: formatCalendarError(err),
+    }
+    cachedStatus = { checkedAt: Date.now(), result }
+    return result
+  }
 }
 
 export interface CalendarEventInput {
@@ -79,6 +233,7 @@ export interface CalendarEventInput {
   clientName: string
   expertEmail?: string
   expertName?: string
+  includeGoogleMeet?: boolean
 }
 
 export interface CalendarEventResult {
@@ -97,16 +252,13 @@ export interface CalendarEventResult {
 export async function createCalendarEvent(
   input: CalendarEventInput,
 ): Promise<CalendarEventResult> {
-  const calendar = await getOAuthCalendarClient()
+  const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary'
+  const { startDateTime, endDateTime } = computeStartAndEndDateTime(
+    input.date,
+    input.time,
+    input.durationMinutes,
+  )
 
-  const startDateTime = `${input.date}T${input.time}:00`
-  const startDate = new Date(`${input.date}T${input.time}:00`)
-  startDate.setMinutes(startDate.getMinutes() + input.durationMinutes)
-  const endHours = String(startDate.getHours()).padStart(2, '0')
-  const endMinutes = String(startDate.getMinutes()).padStart(2, '0')
-  const endDateTime = `${input.date}T${endHours}:${endMinutes}:00`
-
-  // Build Attendees list: Client + Expert + bokbok.bookings@gmail.com
   const attendees: { email: string; displayName?: string }[] = []
 
   // 1. Client
@@ -119,16 +271,21 @@ export async function createCalendarEvent(
 
   // 2. Expert
   if (input.expertEmail) {
-    attendees.push({
-      email: input.expertEmail.trim(),
-      displayName: input.expertName || 'Expert',
-    })
+    const normalizedExpert = input.expertEmail.trim()
+    if (!attendees.some((a) => a.email.toLowerCase() === normalizedExpert.toLowerCase())) {
+      attendees.push({
+        email: normalizedExpert,
+        displayName: input.expertName || 'Expert',
+      })
+    }
   }
 
   // 3. Central BokBok booking notifications email
   const bokBokCentralEmail = (
     process.env.ADMIN_NOTIFICATION_EMAIL || 'bokbok.bookings@gmail.com'
-  ).toLowerCase().trim()
+  )
+    .toLowerCase()
+    .trim()
 
   if (!attendees.some((a) => a.email.toLowerCase() === bokBokCentralEmail)) {
     attendees.push({
@@ -137,51 +294,71 @@ export async function createCalendarEvent(
     })
   }
 
-  const event = await calendar.events.insert({
-    calendarId: 'primary',
-    conferenceDataVersion: 1, // Creates Google Meet link
-    sendUpdates: 'all', // Sends calendar invitations via email to all attendees
-    requestBody: {
-      summary: input.summary,
-      description: input.description,
-      start: {
-        dateTime: startDateTime,
-        timeZone: 'Africa/Cairo',
-      },
-      end: {
-        dateTime: endDateTime,
-        timeZone: 'Africa/Cairo',
-      },
-      attendees,
-      conferenceData: {
-        createRequest: {
-          requestId: `bokbok-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          conferenceSolutionKey: {
-            type: 'hangoutsMeet',
-          },
+  const shouldCreateMeet = input.includeGoogleMeet !== false
+
+  try {
+    const calendar = await getOAuthCalendarClient()
+    const event = await calendar.events.insert({
+      calendarId,
+      conferenceDataVersion: shouldCreateMeet ? 1 : 0,
+      sendUpdates: 'all',
+      requestBody: {
+        summary: input.summary,
+        description: input.description,
+        start: {
+          dateTime: startDateTime,
+          timeZone: 'Africa/Cairo',
+        },
+        end: {
+          dateTime: endDateTime,
+          timeZone: 'Africa/Cairo',
+        },
+        attendees,
+        ...(shouldCreateMeet
+          ? {
+              conferenceData: {
+                createRequest: {
+                  requestId: `bokbok-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                  conferenceSolutionKey: {
+                    type: 'hangoutsMeet',
+                  },
+                },
+              },
+            }
+          : {}),
+        reminders: {
+          useDefault: false,
+          overrides: [
+            { method: 'email', minutes: 60 },
+            { method: 'popup', minutes: 30 },
+          ],
         },
       },
-      reminders: {
-        useDefault: false,
-        overrides: [
-          { method: 'email', minutes: 60 },
-          { method: 'popup', minutes: 30 },
-        ],
-      },
-    },
-  })
+    })
 
-  const eventData = event.data
-  const meetLink =
-    eventData.conferenceData?.entryPoints?.find((ep) => ep.entryPointType === 'video')?.uri ||
-    eventData.conferenceData?.entryPoints?.[0]?.uri ||
-    eventData.hangoutLink ||
-    ''
+    const eventData = event.data
+    const meetLink =
+      eventData.conferenceData?.entryPoints?.find((ep) => ep.entryPointType === 'video')?.uri ||
+      eventData.hangoutLink ||
+      eventData.conferenceData?.entryPoints?.[0]?.uri ||
+      ''
 
-  return {
-    eventId: eventData.id || '',
-    eventLink: eventData.htmlLink || '',
-    meetLink,
+    if (shouldCreateMeet && !meetLink) {
+      throw new Error(
+        'Google Calendar created the event without a Google Meet conference link. Ensure Google Meet video conferencing is enabled on the connected Google account.',
+      )
+    }
+
+    return {
+      eventId: eventData.id || '',
+      eventLink: eventData.htmlLink || '',
+      meetLink,
+    }
+  } catch (err: any) {
+    if (isTokenAuthError(err)) {
+      resetCalendarCache()
+    }
+    throw new Error(formatCalendarError(err))
   }
 }
 
@@ -192,23 +369,31 @@ export async function deleteCalendarEvent(eventId: string): Promise<void> {
   if (!eventId) return
   try {
     const calendar = await getOAuthCalendarClient()
+    const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary'
     await calendar.events.delete({
-      calendarId: 'primary',
+      calendarId,
       eventId,
       sendUpdates: 'all',
     })
   } catch (error: any) {
-    console.error('[Google Calendar] Failed to delete event:', error.message)
+    if (isTokenAuthError(error)) {
+      resetCalendarCache()
+    }
+    console.error('[Google Calendar] Failed to delete event:', error?.message)
   }
 }
 
 /**
  * Confirms a booking, resolves expert email, and creates calendar event + Meet link.
  */
-export async function confirmBookingAndCreateCalendar(bookingIdOrReference: string) {
+export async function confirmBookingAndCreateCalendar(
+  bookingIdOrReference: string,
+  options?: { forceRecreate?: boolean },
+) {
   const bookingsCol = await getBookingsCollection()
   const expertsCol = await getExpertsCollection()
   const usersCol = await getUsersCollection()
+  const servicesCol = await getServicesCollection()
 
   let booking = null
   try {
@@ -221,9 +406,22 @@ export async function confirmBookingAndCreateCalendar(bookingIdOrReference: stri
     throw new Error(`Booking not found: ${bookingIdOrReference}`)
   }
 
-  // Already has calendar event
-  if ((booking as any).googleCalendarEventId) {
+  // Only skip if BOTH calendar event ID and Google Meet link exist (unless forceRecreate is requested)
+  if (booking.googleCalendarEventId && booking.googleMeetLink && !options?.forceRecreate) {
     return booking
+  }
+
+  // Check if service is strictly IN_PERSON
+  let includeGoogleMeet = true
+  if (booking.serviceId) {
+    try {
+      const srv = await servicesCol.findOne({ _id: booking.serviceId })
+      if (srv?.deliveryMode === 'IN_PERSON') {
+        includeGoogleMeet = false
+      }
+    } catch {
+      includeGoogleMeet = true
+    }
   }
 
   // Resolve expert details
@@ -234,7 +432,6 @@ export async function confirmBookingAndCreateCalendar(bookingIdOrReference: stri
     const expertDoc = await expertsCol.findOne({ _id: booking.expertId })
     if (expertDoc) {
       expertName = expertDoc.name
-      // Look for expert's user doc to get their email
       if (expertDoc.userId) {
         const userDoc = await usersCol.findOne({ _id: expertDoc.userId })
         if (userDoc?.email) expertEmail = userDoc.email
@@ -246,38 +443,114 @@ export async function confirmBookingAndCreateCalendar(bookingIdOrReference: stri
     }
   }
 
-  const serviceTitle = booking.serviceTitle?.en || booking.serviceTitle?.ar || 'Consultation Session'
+  const serviceTitle =
+    booking.serviceTitle?.en || booking.serviceTitle?.ar || 'Consultation Session'
 
-  const calendarResult = await createCalendarEvent({
-    summary: `BokBok: ${serviceTitle} - ${booking.clientName} with ${expertName}`,
-    description: [
-      `Client: ${booking.clientName}`,
-      `Client Email: ${booking.clientEmail}`,
-      booking.clientPhone ? `Client Phone: ${booking.clientPhone}` : '',
-      `Expert: ${expertName}`,
-      expertEmail ? `Expert Email: ${expertEmail}` : '',
-      `Service: ${serviceTitle}`,
-      `Reference: ${booking.reference || ''}`,
-    ]
-      .filter(Boolean)
-      .join('\n'),
-    date: booking.date,
-    time: booking.time,
-    durationMinutes: booking.durationMinutes || 45,
-    clientEmail: booking.clientEmail,
-    clientName: booking.clientName,
-    expertEmail,
-    expertName,
-  })
+  try {
+    // If an earlier event existed without a Meet link, remove it before creating the replacement
+    if (booking.googleCalendarEventId && (!booking.googleMeetLink || options?.forceRecreate)) {
+      await deleteCalendarEvent(booking.googleCalendarEventId)
+    }
 
-  const updateData = {
-    googleCalendarEventId: calendarResult.eventId,
-    googleCalendarEventLink: calendarResult.eventLink,
-    googleMeetLink: calendarResult.meetLink,
-    updatedAt: new Date(),
+    const calendarResult = await createCalendarEvent({
+      summary: `BokBok: ${serviceTitle} - ${booking.clientName} with ${expertName}`,
+      description: [
+        `Client: ${booking.clientName}`,
+        `Client Email: ${booking.clientEmail}`,
+        booking.clientPhone ? `Client Phone: ${booking.clientPhone}` : '',
+        `Expert: ${expertName}`,
+        expertEmail ? `Expert Email: ${expertEmail}` : '',
+        `Service: ${serviceTitle}`,
+        `Reference: ${booking.reference || ''}`,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      date: booking.date,
+      time: booking.time,
+      durationMinutes: booking.durationMinutes || 45,
+      clientEmail: booking.clientEmail,
+      clientName: booking.clientName,
+      expertEmail,
+      expertName,
+      includeGoogleMeet,
+    })
+
+    const updateData = {
+      googleCalendarEventId: calendarResult.eventId,
+      googleCalendarEventLink: calendarResult.eventLink,
+      googleMeetLink: calendarResult.meetLink,
+      googleMeetSyncedAt: new Date(),
+      updatedAt: new Date(),
+    }
+
+    await bookingsCol.updateOne(
+      { _id: booking._id },
+      {
+        $set: updateData,
+        $unset: { googleMeetError: '' },
+      },
+    )
+
+    return { ...booking, ...updateData, googleMeetError: undefined }
+  } catch (err: any) {
+    const formattedErr = formatCalendarError(err)
+    await bookingsCol.updateOne(
+      { _id: booking._id },
+      {
+        $set: {
+          googleMeetError: formattedErr,
+          updatedAt: new Date(),
+        },
+      },
+    )
+    throw new Error(formattedErr)
+  }
+}
+
+/**
+ * Finds confirmed bookings (on or after today in Cairo time) that are missing a Google Meet link
+ * and generates Calendar + Google Meet invitations for them.
+ */
+export async function syncMissingMeetLinksForConfirmedBookings(): Promise<{
+  syncedCount: number
+  failedCount: number
+  syncedReferences: string[]
+  errors: string[]
+}> {
+  const bookingsCol = await getBookingsCollection()
+  const todayCairo = getCairoTodayDateString()
+
+  const candidates = await bookingsCol
+    .find({
+      status: 'confirmed',
+      date: { $gte: todayCairo },
+      $or: [
+        { googleMeetLink: { $exists: false } },
+        { googleMeetLink: '' },
+        { googleMeetLink: null as any },
+      ],
+    })
+    .sort({ date: 1, time: 1 })
+    .limit(25)
+    .toArray()
+
+  let syncedCount = 0
+  let failedCount = 0
+  const syncedReferences: string[] = []
+  const errors: string[] = []
+
+  for (const b of candidates) {
+    try {
+      const updated = await confirmBookingAndCreateCalendar(b._id!.toString())
+      if (updated.googleMeetLink) {
+        syncedCount++
+        syncedReferences.push(b.reference || b._id!.toString())
+      }
+    } catch (err: any) {
+      failedCount++
+      errors.push(`${b.reference || b._id!.toString()}: ${err?.message || 'Failed'}`)
+    }
   }
 
-  await bookingsCol.updateOne({ _id: booking._id }, { $set: updateData })
-
-  return { ...booking, ...updateData }
+  return { syncedCount, failedCount, syncedReferences, errors }
 }
