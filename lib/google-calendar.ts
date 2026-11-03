@@ -363,6 +363,46 @@ export async function createCalendarEvent(
 }
 
 /**
+ * Update Google Calendar event time when a booking is rescheduled
+ */
+export async function updateCalendarEvent(
+  eventId: string,
+  input: { date: string; time: string; durationMinutes: number },
+): Promise<void> {
+  if (!eventId) return
+  try {
+    const calendar = await getOAuthCalendarClient()
+    const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary'
+    const { startDateTime, endDateTime } = computeStartAndEndDateTime(
+      input.date,
+      input.time,
+      input.durationMinutes,
+    )
+
+    await calendar.events.patch({
+      calendarId,
+      eventId,
+      sendUpdates: 'all',
+      requestBody: {
+        start: {
+          dateTime: startDateTime,
+          timeZone: 'Africa/Cairo',
+        },
+        end: {
+          dateTime: endDateTime,
+          timeZone: 'Africa/Cairo',
+        },
+      },
+    })
+  } catch (error: any) {
+    if (isTokenAuthError(error)) {
+      resetCalendarCache()
+    }
+    console.error('[Google Calendar] Failed to update event:', error?.message)
+  }
+}
+
+/**
  * Delete event when booking is cancelled or rejected
  */
 export async function deleteCalendarEvent(eventId: string): Promise<void> {
@@ -411,16 +451,16 @@ export async function confirmBookingAndCreateCalendar(
     return booking
   }
 
-  // Check if service is strictly IN_PERSON
-  let includeGoogleMeet = true
-  if (booking.serviceId) {
+  // Check if booking or service is strictly IN_PERSON
+  let includeGoogleMeet = booking.deliveryMode !== 'IN_PERSON'
+  if (includeGoogleMeet && booking.serviceId) {
     try {
       const srv = await servicesCol.findOne({ _id: booking.serviceId })
       if (srv?.deliveryMode === 'IN_PERSON') {
         includeGoogleMeet = false
       }
     } catch {
-      includeGoogleMeet = true
+      // keep existing includeGoogleMeet value
     }
   }
 
@@ -475,12 +515,14 @@ export async function confirmBookingAndCreateCalendar(
       includeGoogleMeet,
     })
 
+    const now = new Date()
     const updateData = {
       googleCalendarEventId: calendarResult.eventId,
       googleCalendarEventLink: calendarResult.eventLink,
       googleMeetLink: calendarResult.meetLink,
-      googleMeetSyncedAt: new Date(),
-      updatedAt: new Date(),
+      googleMeetSyncedAt: now,
+      googleMeetUpdatedAt: now,
+      updatedAt: now,
     }
 
     await bookingsCol.updateOne(
@@ -508,7 +550,7 @@ export async function confirmBookingAndCreateCalendar(
 }
 
 /**
- * Finds confirmed bookings (on or after today in Cairo time) that are missing a Google Meet link
+ * Finds confirmed online bookings (on or after today in Cairo time) that are missing a Google Meet link
  * and generates Calendar + Google Meet invitations for them.
  */
 export async function syncMissingMeetLinksForConfirmedBookings(): Promise<{
@@ -523,6 +565,7 @@ export async function syncMissingMeetLinksForConfirmedBookings(): Promise<{
   const candidates = await bookingsCol
     .find({
       status: 'confirmed',
+      deliveryMode: { $ne: 'IN_PERSON' },
       date: { $gte: todayCairo },
       $or: [
         { googleMeetLink: { $exists: false } },

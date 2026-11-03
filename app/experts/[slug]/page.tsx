@@ -7,6 +7,7 @@ import { getExpertBySlug } from '@/lib/data/experts'
 import { getCategoryLabel, getSubcategoryLabel } from '@/lib/data/categories'
 import type { DayAvailability, TimeSlot } from '@/lib/data/availability'
 import { formatDateLabel, formatSlotLabel } from '@/lib/data/availability'
+import { CloudinaryUploadWidget } from '@/components/ui/cloudinary-upload-widget'
 
 interface PageProps {
   params: Promise<{ slug: string }> | { slug: string }
@@ -673,21 +674,52 @@ export default function ExpertProfile({ params }: PageProps) {
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-semibold text-[#b9c2ce] mb-1.5">
+                      <label className="block text-[11px] font-semibold text-[#b9c2ce] mb-2">
                         Upload Transfer Receipt:
                       </label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleReceiptUpload}
-                        disabled={uploadingReceipt}
-                        className="w-full max-w-full min-w-0 text-xs text-white/70 file:mr-2.5 file:rounded-full file:border-0 file:bg-white/20 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-white hover:file:bg-[#ef5b4c] truncate"
-                      />
-                      {uploadingReceipt && (
-                        <p className="mt-1 text-[10px] text-amber-300">Uploading receipt...</p>
-                      )}
-                      {receiptUrl && (
-                        <p className="mt-1 text-[10px] text-emerald-300">✓ Receipt attached</p>
+                      {receiptUrl ? (
+                        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={receiptUrl}
+                              alt="Receipt"
+                              className="size-10 rounded-lg object-cover border border-emerald-400/40 shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-bold text-emerald-300 truncate">✓ Receipt attached</p>
+                              <p className="text-[9px] text-emerald-400/70 truncate">Compressed & verified</p>
+                            </div>
+                          </div>
+                          <CloudinaryUploadWidget
+                            folder="bokbok/receipts"
+                            fallbackType="receipt"
+                            onSuccess={(result) => setReceiptUrl(result.url)}
+                          >
+                            <button
+                              type="button"
+                              className="text-[10px] font-bold text-emerald-300 hover:text-white underline shrink-0 px-1.5 py-0.5"
+                            >
+                              Replace
+                            </button>
+                          </CloudinaryUploadWidget>
+                        </div>
+                      ) : (
+                        <CloudinaryUploadWidget
+                          folder="bokbok/receipts"
+                          fallbackType="receipt"
+                          onSuccess={(result) => setReceiptUrl(result.url)}
+                          className="w-full"
+                        >
+                          <div className="group cursor-pointer rounded-xl border border-dashed border-white/25 bg-white/5 p-3 text-center transition hover:border-[#ef5b4c] hover:bg-white/10">
+                            <p className="text-xs font-bold text-white group-hover:text-[#ef5b4c]">
+                              + Upload Receipt
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-white/50">
+                              Instant Cloudinary upload with compression
+                            </p>
+                          </div>
+                        </CloudinaryUploadWidget>
                       )}
                     </div>
                   </div>

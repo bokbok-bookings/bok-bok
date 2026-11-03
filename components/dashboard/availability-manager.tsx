@@ -69,6 +69,8 @@ export function AvailabilityManager({
   const [slotInterval, setSlotInterval] = useState<number>(
     initialSlotInterval || DEFAULT_SLOT_INTERVAL,
   )
+  const [rescheduleDeadlineHours, setRescheduleDeadlineHours] = useState<number>(24)
+  const [defaultGoogleMeetLink, setDefaultGoogleMeetLink] = useState<string>('')
   const [overrides, setOverrides] = useState<DateOverrideItem[]>(initialOverrides || [])
 
   const [loadingExpertData, setLoadingExpertData] = useState(false)
@@ -137,6 +139,8 @@ export function AvailabilityManager({
         if (!ignore && json.success && json.data) {
           setWeeklySchedule(json.data.weeklySchedule || DEFAULT_WEEKLY_SCHEDULE)
           setSlotInterval(json.data.slotIntervalMinutes || DEFAULT_SLOT_INTERVAL)
+          setRescheduleDeadlineHours(json.data.rescheduleDeadlineHours || 24)
+          setDefaultGoogleMeetLink(json.data.defaultGoogleMeetLink || '')
           setOverrides(json.data.overrides || [])
         }
       } catch (err: any) {
@@ -254,6 +258,8 @@ export function AvailabilityManager({
           expertSlug: expertSlug,
           weeklySchedule,
           slotIntervalMinutes: slotInterval,
+          rescheduleDeadlineHours,
+          defaultGoogleMeetLink,
         }),
       })
 
@@ -420,6 +426,36 @@ export function AvailabilityManager({
           {scheduleError}
         </div>
       )}
+
+      {/* Rescheduling Request Deadline Policy */}
+      <div className="rounded-3xl border border-[#E8E2D8] bg-white p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="max-w-xl">
+            <span className="text-[10px] font-black uppercase tracking-wider text-[#ef5b4c]">
+              Rescheduling Policy
+            </span>
+            <h3 className="text-base font-bold text-[#101F49] mt-0.5">
+              Rescheduling Request Deadline (Hours)
+            </h3>
+            <p className="mt-1 text-xs leading-5 text-[#637084]">
+              Defines how many hours before a scheduled session a client is allowed to submit a rescheduling request. After this deadline (<code className="font-mono text-[#101F49]">Session Start - {rescheduleDeadlineHours}h</code>), the reschedule link is locked.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <select
+              value={rescheduleDeadlineHours}
+              onChange={(e) => setRescheduleDeadlineHours(Number(e.target.value))}
+              className="rounded-xl border border-[#E8E2D8] bg-[#FFF9EE] px-4 py-2.5 text-xs font-bold text-[#101F49] outline-none focus:border-[#2855C5]"
+            >
+              <option value={6}>6 hours before session</option>
+              <option value={12}>12 hours before session</option>
+              <option value={24}>24 hours before session (Recommended)</option>
+              <option value={48}>48 hours before session</option>
+            </select>
+          </div>
+        </div>
+      </div>
 
       {/* Slot Interval Settings */}
       <div className="rounded-3xl border border-[#E8E2D8] bg-white p-6">

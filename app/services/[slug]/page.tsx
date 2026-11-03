@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import type { DayAvailability, TimeSlot } from '@/lib/data/availability'
 import { formatDateLabel, formatSlotLabel } from '@/lib/data/availability'
+import { CloudinaryUploadWidget } from '@/components/ui/cloudinary-upload-widget'
 
 interface ServiceDetailPageProps {
   params: Promise<{ slug: string }> | { slug: string }
@@ -595,18 +596,53 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-[#b9c2ce] mb-1">
+                    <label className="block text-xs font-bold text-[#b9c2ce] mb-2">
                       Upload InstaPay Transfer Receipt
                     </label>
-                    <input
-                      type="file"
-                      accept="image/*,.pdf"
-                      onChange={handleReceiptUpload}
-                      disabled={uploadingReceipt}
-                      className="block w-full text-xs text-white/80 file:mr-3 file:rounded-xl file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-white hover:file:bg-white/20"
-                    />
-                    {uploadingReceipt && <p className="text-[11px] text-[#f5c3a8] mt-1">Uploading receipt...</p>}
-                    {receiptUrl && <p className="text-[11px] text-emerald-400 mt-1 font-bold">✓ Receipt attached</p>}
+                    {receiptUrl ? (
+                      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={receiptUrl}
+                            alt="Receipt Preview"
+                            className="size-12 rounded-lg object-cover border border-emerald-400/40 shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-emerald-300 truncate">✓ Receipt attached</p>
+                            <p className="text-[10px] text-emerald-400/70 truncate">Auto-compressed & verified</p>
+                          </div>
+                        </div>
+                        <CloudinaryUploadWidget
+                          folder="bokbok/receipts"
+                          fallbackType="receipt"
+                          onSuccess={(result) => setReceiptUrl(result.url)}
+                        >
+                          <button
+                            type="button"
+                            className="text-[11px] font-bold text-emerald-300 hover:text-white underline shrink-0 px-2 py-1"
+                          >
+                            Replace
+                          </button>
+                        </CloudinaryUploadWidget>
+                      </div>
+                    ) : (
+                      <CloudinaryUploadWidget
+                        folder="bokbok/receipts"
+                        fallbackType="receipt"
+                        onSuccess={(result) => setReceiptUrl(result.url)}
+                        className="w-full"
+                      >
+                        <div className="group cursor-pointer rounded-xl border border-dashed border-white/25 bg-white/5 p-4 text-center transition hover:border-[#ef5b4c] hover:bg-white/10">
+                          <p className="text-xs font-bold text-white group-hover:text-[#ef5b4c]">
+                            + Upload Transfer Receipt
+                          </p>
+                          <p className="mt-0.5 text-[10px] text-white/50">
+                            Click to open Cloudinary uploader (Automatic high compression)
+                          </p>
+                        </div>
+                      </CloudinaryUploadWidget>
+                    )}
                   </div>
                 </div>
 

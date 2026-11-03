@@ -8,12 +8,13 @@ import {
   isAllowedMvpCategory,
   isAllowedMvpSubcategory,
 } from '@/lib/data/categories'
+import { CloudinaryUploadWidget } from '@/components/ui/cloudinary-upload-widget'
 
 export default function ExpertProfilePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [uploadingImage, setUploadingImage] = useState(false)
   const [message, setMessage] = useState('')
+  const [errorMessage, setErrorMessage] = useState('')
 
   const [profile, setProfile] = useState<any>(null)
   const [name, setName] = useState('')
@@ -75,38 +76,11 @@ export default function ExpertProfilePage() {
       .finally(() => setLoading(false))
   }, [])
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    setUploadingImage(true)
-    setMessage('')
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-
-      const res = await fetch('/api/upload?type=avatar', {
-        method: 'POST',
-        body: formData,
-      })
-      const json = await res.json()
-      if (json.success && json.url) {
-        setImage(json.url)
-        setMessage('Photo uploaded. Save profile to apply changes.')
-      } else {
-        alert(json.error || 'Failed to upload photo')
-      }
-    } catch (err: any) {
-      alert(err.message || 'Error uploading photo')
-    } finally {
-      setUploadingImage(false)
-    }
-  }
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
     setMessage('')
+    setErrorMessage('')
     try {
       const res = await fetch('/api/dashboard/profile', {
         method: 'PUT',
@@ -131,10 +105,10 @@ export default function ExpertProfilePage() {
       if (json.success) {
         setMessage('Profile updated successfully!')
       } else {
-        alert(json.error || 'Failed to update profile')
+        setErrorMessage(json.error || 'Failed to update profile')
       }
     } catch (err: any) {
-      alert(err.message || 'Error updating profile')
+      setErrorMessage(err?.message || 'Error updating profile')
     } finally {
       setSaving(false)
     }
@@ -170,7 +144,16 @@ export default function ExpertProfilePage() {
         </div>
       )}
 
-      <form onSubmit={handleSave} className="rounded-3xl border border-[#e7e2da] bg-white p-6 sm:p-8 shadow-sm space-y-5">
+      {errorMessage && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-800">
+          {errorMessage}
+        </div>
+      )}
+
+      <form
+        onSubmit={handleSave}
+        className="rounded-3xl border border-[#e7e2da] bg-white p-6 sm:p-8 shadow-sm space-y-5"
+      >
         {/* Photo Upload */}
         <div className="flex items-center gap-5 border-b border-[#f4f2ee] pb-6">
           <div className="relative size-20 overflow-hidden rounded-full border border-[#eeeae4] bg-[#faf8f5]">
@@ -184,17 +167,27 @@ export default function ExpertProfilePage() {
             )}
           </div>
           <div>
-            <label className="inline-block cursor-pointer rounded-full border border-[#dedbd5] bg-white px-4 py-2 text-xs font-bold text-[#14243b] hover:border-[#14243b]">
-              {uploadingImage ? 'Uploading...' : 'Change Profile Photo'}
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                disabled={uploadingImage}
-                className="hidden"
-              />
-            </label>
-            <p className="mt-1 text-[11px] text-[#8b94a1]">JPG, PNG or WebP under 5MB</p>
+            <CloudinaryUploadWidget
+              folder="bokbok/avatars"
+              cropping={true}
+              croppingAspectRatio={1}
+              fallbackType="avatar"
+              onSuccess={(result) => {
+                setImage(result.url)
+                setErrorMessage('')
+                setMessage('Photo uploaded & compressed. Click "Save Profile Changes" below to apply.')
+              }}
+            >
+              <button
+                type="button"
+                className="inline-block cursor-pointer rounded-full border border-[#dedbd5] bg-white px-4 py-2 text-xs font-bold text-[#14243b] hover:border-[#14243b] hover:shadow-sm transition"
+              >
+                Change Profile Photo
+              </button>
+            </CloudinaryUploadWidget>
+            <p className="mt-1 text-[11px] text-[#8b94a1]">
+              Cloudinary Widget (1:1 Crop, Auto-compressed WebP)
+            </p>
           </div>
         </div>
 

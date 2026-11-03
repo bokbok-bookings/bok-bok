@@ -110,6 +110,8 @@ export interface ExpertDoc {
   googleMeetLink?: string
   googleMeetError?: string
   googleMeetSyncedAt?: Date
+  defaultGoogleMeetLink?: string
+  rescheduleDeadlineHours?: number
 }
 
 export type ExpertItem = Omit<ExpertDoc, '_id'> & { _id: string; id: string }
@@ -239,6 +241,49 @@ export type BookingStatus =
 
 export type PaymentStatus = 'pending' | 'receipt_uploaded' | 'verified' | 'rejected'
 
+export type AttendanceStatus =
+  | 'pending'
+  | 'completed'
+  | 'client_absent'
+  | 'expert_absent'
+  | 'both_absent'
+  | 'disputed'
+  | 'cancelled'
+
+export interface AttendanceReport {
+  response: 'attended' | 'absent'
+  notes?: string
+  submittedAt: Date
+  userId?: ObjectId
+  userRole: 'client' | 'expert'
+}
+
+export interface AttendanceDisputeResolution {
+  resolvedBy: ObjectId
+  finalStatus: AttendanceStatus
+  reason: string
+  resolvedAt: Date
+}
+
+export interface RescheduleHistoryEntry {
+  previousDate: string
+  previousTime: string
+  newDate: string
+  newTime: string
+  changedByRole: 'client' | 'expert' | 'admin'
+  reason?: string
+  changedAt: Date
+}
+
+export interface BookingReminders {
+  confirmationSentAt?: Date
+  dayOfReminderSentAt?: Date
+  beforeSessionReminderSentAt?: Date
+  missingMeetLinkAlertSentAt?: Date
+  attendancePromptSentAt?: Date
+  activeReminderLock?: Date
+}
+
 export interface BookingDoc {
   _id?: ObjectId
   id?: string
@@ -257,6 +302,10 @@ export interface BookingDoc {
   amount?: number
   currency?: string
   status: BookingStatus
+  deliveryMode?: DeliveryMode
+  timezone?: string
+  sessionStartAt?: Date
+  sessionEndAt?: Date
   paymentMethod?: 'instapay'
   paymentStatus?: PaymentStatus
   paymentReceiptUrl?: string
@@ -271,6 +320,54 @@ export interface BookingDoc {
   googleMeetLink?: string
   googleMeetError?: string
   googleMeetSyncedAt?: Date
+  googleMeetUpdatedAt?: Date
+  rescheduleToken?: string
+  rescheduleDeadlineHours?: number
+  rescheduleCount?: number
+  rescheduleHistory?: RescheduleHistoryEntry[]
+  attendanceStatus?: AttendanceStatus
+  expertAttendanceReport?: AttendanceReport
+  clientAttendanceReport?: AttendanceReport
+  attendanceDisputeResolution?: AttendanceDisputeResolution
+  reminders?: BookingReminders
+}
+
+export interface EmailLogDoc {
+  _id?: ObjectId
+  bookingId?: ObjectId
+  emailType:
+    | 'booking_confirmed'
+    | 'meet_link_updated'
+    | 'missing_meet_link_alert'
+    | 'reminder_day_of'
+    | 'reminder_before_session'
+    | 'reschedule_confirmed'
+    | 'attendance_prompt'
+    | 'attendance_dispute_admin'
+  recipientEmail: string
+  recipientRole: 'client' | 'expert' | 'admin'
+  subject: string
+  status: 'pending' | 'sent' | 'failed'
+  attempts: number
+  maxAttempts: number
+  nextRetryAt?: Date
+  lastError?: string
+  messageId?: string
+  sentAt?: Date
+  createdAt: Date
+  updatedAt?: Date
+}
+
+export interface AttendanceLogDoc {
+  _id?: ObjectId
+  bookingId: ObjectId
+  userId?: ObjectId
+  userRole: 'client' | 'expert' | 'admin'
+  attendanceResponse: 'attended' | 'absent' | 'admin_override'
+  previousStatus: AttendanceStatus
+  updatedStatus: AttendanceStatus
+  notes?: string
+  submittedAt: Date
 }
 
 export type BookingItem = Omit<BookingDoc, '_id'> & { _id: string }
@@ -355,6 +452,16 @@ export async function getTagsCollection(): Promise<Collection<TagDoc>> {
   return db.collection<TagDoc>('tags')
 }
 
+export async function getEmailLogsCollection(): Promise<Collection<EmailLogDoc>> {
+  const db = await getDb()
+  return db.collection<EmailLogDoc>('email_logs')
+}
+
+export async function getAttendanceLogsCollection(): Promise<Collection<AttendanceLogDoc>> {
+  const db = await getDb()
+  return db.collection<AttendanceLogDoc>('attendance_logs')
+}
+
 const globalForDbIndexes = globalThis as unknown as {
   _ensureDbIndexesPromise?: Promise<void>
 }
@@ -362,17 +469,22 @@ const globalForDbIndexes = globalThis as unknown as {
 async function safeCreateIndex(
   collection: Collection<any>,
   indexSpec: Record<string, any>,
-  options?: Record<string, any>
+  options?: Record<string, any>,
 ): Promise<void> {
   try {
     await collection.createIndex(indexSpec, options)
   } catch (err: any) {
     // Code 85 = IndexOptionsConflict (index with same key pattern already exists under a different name/options)
     // Code 86 = IndexKeySpecsConflict (index with same name already exists)
-    if (err?.code === 85 || err?.code === 86 || err?.codeName === 'IndexOptionsConflict' || err?.codeName === 'IndexKeySpecsConflict') {
+    if (
+      err?.code === 85 ||
+      err?.code === 86 ||
+      err?.codeName === 'IndexOptionsConflict' ||
+      err?.codeName === 'IndexKeySpecsConflict'
+    ) {
       return
     }
-    throw err
+    console.warn('[DB Index Warning]:', err?.message || err)
   }
 }
 
@@ -399,7 +511,7 @@ export async function ensureDbIndexes(): Promise<void> {
         safeCreateIndex(
           db.collection('experts'),
           { name: 'text', role: 'text', tags: 'text', about: 'text' },
-          { weights: { name: 10, role: 5, tags: 4, about: 1 }, name: 'expert_text_search' }
+          { weights: { name: 10, role: 5, tags: 4, about: 1 }, name: 'expert_text_search' },
         ),
         safeCreateIndex(db.collection('services'), { expertId: 1, isActive: 1, sortOrder: 1 }),
         safeCreateIndex(db.collection('services'), { slug: 1 }, { unique: true, sparse: true }),
@@ -411,6 +523,12 @@ export async function ensureDbIndexes(): Promise<void> {
         safeCreateIndex(db.collection('bookings'), { expertId: 1, date: 1, status: 1 }, { name: 'expertId_1_date_1_status_1' }),
         safeCreateIndex(db.collection('bookings'), { serviceId: 1 }),
         safeCreateIndex(db.collection('bookings'), { reference: 1 }),
+        safeCreateIndex(db.collection('bookings'), { rescheduleToken: 1 }, { sparse: true }),
+        safeCreateIndex(db.collection('bookings'), { attendanceStatus: 1 }),
+        safeCreateIndex(db.collection('bookings'), { sessionStartAt: 1, status: 1 }),
+        safeCreateIndex(db.collection('email_logs'), { bookingId: 1 }),
+        safeCreateIndex(db.collection('email_logs'), { status: 1, nextRetryAt: 1 }),
+        safeCreateIndex(db.collection('attendance_logs'), { bookingId: 1, submittedAt: -1 }),
         // Category & Subcategory indexes
         safeCreateIndex(db.collection('categories'), { slug: 1 }, { unique: true }),
         safeCreateIndex(db.collection('categories'), { isActive: 1, sortOrder: 1 }),

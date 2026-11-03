@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { NextResponse } from 'next/server'
 import {
   getExpertUpcomingDays,
@@ -8,6 +9,7 @@ import {
 } from '@/lib/availability-server'
 import { toObjectId, getServicesCollection, getExpertsCollection } from '@/lib/db'
 import { isAllowedMvpCategory, isAllowedMvpSubcategory } from '@/lib/data/categories'
+import { computeSessionBounds } from '@/lib/email/scheduler'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,7 +36,7 @@ export async function GET(request: Request) {
       if (!date) {
         return NextResponse.json(
           { success: false, error: 'Date parameter is required' },
-          { status: 400 }
+          { status: 400 },
         )
       }
       const slots = await getExpertSlotsForDate(expertId, date, duration, breakAfter)
@@ -46,7 +48,7 @@ export async function GET(request: Request) {
     console.error('Availability API error:', error)
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to fetch availability' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
@@ -71,7 +73,7 @@ export async function POST(request: Request) {
     if (!rawExpertId || !clientName?.trim()) {
       return NextResponse.json(
         { success: false, error: 'expertId and clientName are required' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -82,7 +84,7 @@ export async function POST(request: Request) {
           success: false,
           error: 'Bok Bok MVP offers are restricted to adults aged 18 and over.',
         },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -92,6 +94,7 @@ export async function POST(request: Request) {
     // Backend verification of Service & Price/Duration
     const servicesCol = await getServicesCollection()
     const expertsCol = await getExpertsCollection()
+    const expertDoc = await expertsCol.findOne({ _id: expertObjId })
 
     let verifiedDuration = 45
     let verifiedBreak = 0
@@ -113,7 +116,7 @@ export async function POST(request: Request) {
       if (!serviceDoc) {
         return NextResponse.json(
           { success: false, error: 'Requested offer was not found.' },
-          { status: 404 }
+          { status: 404 },
         )
       }
 
@@ -136,7 +139,7 @@ export async function POST(request: Request) {
             error:
               'This offer is inactive, outside the approved MVP taxonomy, or pending admin/licensing review and cannot accept new bookings.',
           },
-          { status: 400 }
+          { status: 400 },
         )
       }
 
@@ -159,31 +162,54 @@ export async function POST(request: Request) {
         if (registered >= capacity) {
           return NextResponse.json(
             { success: false, error: 'This event has reached full capacity.' },
-            { status: 400 }
+            { status: 400 },
           )
         }
 
         // Atomically increment registeredCount
         await servicesCol.updateOne(
-          { _id: serviceDoc._id, 'event.registeredCount': { $lt: capacity } },
-          { $inc: { 'event.registeredCount': 1 } }
+          {
+            _id: serviceDoc._id,
+            $or: [
+              { 'event.registeredCount': { $lt: capacity } },
+              { 'event.registeredCount': { $exists: false } },
+            ],
+          },
+          { $inc: { 'event.registeredCount': 1 } },
         )
 
         const reference = `EV-${Math.floor(1000 + Math.random() * 9000)}`
+        const finalDate = eventDate || date
+        const finalTime = eventTime
+        const finalDuration = serviceDoc.durationMinutes || 60
+        const bounds = computeSessionBounds(finalDate, finalTime, finalDuration, 'Africa/Cairo')
+        const rescheduleToken = crypto.randomBytes(24).toString('hex')
+
         const booking = await createExpertBooking({
           reference,
           expertId,
           expertSlug,
           serviceId: serviceDoc._id,
           serviceTitle: verifiedServiceTitle,
-          date: eventDate || date,
-          time: eventTime,
+          date: finalDate,
+          time: finalTime,
           clientName: clientName.trim(),
           clientEmail: (clientEmail || '').trim(),
           clientPhone: (clientPhone || '').trim(),
-          durationMinutes: serviceDoc.durationMinutes || 60,
+          durationMinutes: finalDuration,
           amount: verifiedAmount,
           currency: verifiedCurrency,
+          deliveryMode: serviceDoc.deliveryMode || 'ONLINE',
+          timezone: 'Africa/Cairo',
+          sessionStartAt: bounds.sessionStartAt,
+          sessionEndAt: bounds.sessionEndAt,
+          rescheduleToken,
+          rescheduleDeadlineHours: expertDoc?.rescheduleDeadlineHours || 24,
+          attendanceStatus: 'pending',
+          googleMeetLink:
+            serviceDoc.deliveryMode !== 'IN_PERSON'
+              ? serviceDoc.event?.joinUrl || expertDoc?.defaultGoogleMeetLink || undefined
+              : undefined,
           paymentMethod: 'instapay',
           paymentStatus: paymentReceiptUrl ? 'receipt_uploaded' : 'pending',
           paymentReceiptUrl: paymentReceiptUrl || undefined,
@@ -200,13 +226,13 @@ export async function POST(request: Request) {
     if (!date || !time) {
       return NextResponse.json(
         { success: false, error: 'Date and time slot are required for appointment booking.' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
     // Fallback expert pricing if no serviceDoc
     if (!serviceDoc) {
-      const exp = await expertsCol.findOne({ _id: expertObjId })
+      const exp = expertDoc || (await expertsCol.findOne({ _id: expertObjId }))
       if (exp) {
         if (exp.categorySlug && !isAllowedMvpCategory(exp.categorySlug)) {
           return NextResponse.json(
@@ -214,7 +240,7 @@ export async function POST(request: Request) {
               success: false,
               error: 'This expert profile references a category outside the approved MVP scope.',
             },
-            { status: 400 }
+            { status: 400 },
           )
         }
         verifiedAmount = exp.priceNumber || 500
@@ -227,7 +253,7 @@ export async function POST(request: Request) {
       expertId,
       date,
       verifiedDuration,
-      verifiedBreak
+      verifiedBreak,
     )
     const slotObj = availableSlots.find((s) => s.time === time)
 
@@ -238,11 +264,14 @@ export async function POST(request: Request) {
           error:
             'The requested time slot is no longer available. Please select another time.',
         },
-        { status: 409 }
+        { status: 409 },
       )
     }
 
     const reference = `BK-${Math.floor(1000 + Math.random() * 9000)}`
+    const deliveryMode = serviceDoc?.deliveryMode || 'ONLINE'
+    const bounds = computeSessionBounds(date, time, verifiedDuration, 'Africa/Cairo')
+    const rescheduleToken = crypto.randomBytes(24).toString('hex')
 
     const booking = await createExpertBooking({
       reference,
@@ -258,6 +287,17 @@ export async function POST(request: Request) {
       durationMinutes: verifiedDuration,
       amount: verifiedAmount,
       currency: verifiedCurrency,
+      deliveryMode,
+      timezone: 'Africa/Cairo',
+      sessionStartAt: bounds.sessionStartAt,
+      sessionEndAt: bounds.sessionEndAt,
+      rescheduleToken,
+      rescheduleDeadlineHours: expertDoc?.rescheduleDeadlineHours || 24,
+      attendanceStatus: 'pending',
+      googleMeetLink:
+        deliveryMode !== 'IN_PERSON'
+          ? expertDoc?.defaultGoogleMeetLink || undefined
+          : undefined,
       paymentMethod: 'instapay',
       paymentStatus: paymentReceiptUrl ? 'receipt_uploaded' : 'pending',
       paymentReceiptUrl: paymentReceiptUrl || undefined,
@@ -269,7 +309,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to book slot' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

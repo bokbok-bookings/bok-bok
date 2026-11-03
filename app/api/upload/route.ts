@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { uploadBuffer } from '@/lib/cloudinary'
 
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const ALLOWED_MIME_TYPES = new Set([
@@ -61,12 +62,20 @@ export async function POST(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') || 'receipt' // 'avatar' | 'receipt' | 'id_document' | 'general'
-    const folder =
-      type === 'avatar'
-        ? 'bokbok/avatars'
-        : type === 'id_document'
-          ? 'bokbok/national_ids'
-          : 'bokbok/receipts'
+
+    let folder = 'bokbok/receipts'
+    let maxWidth = 1600
+    let maxHeight = 2000
+
+    if (type === 'avatar') {
+      folder = 'bokbok/avatars'
+      maxWidth = 800
+      maxHeight = 800
+    } else if (type === 'id_document') {
+      folder = 'bokbok/national_ids'
+      maxWidth = 1800
+      maxHeight = 1800
+    }
 
     const formData = await request.formData()
     const file = formData.get('file') as File | null
@@ -74,21 +83,22 @@ export async function POST(request: Request) {
     if (!file) {
       return NextResponse.json(
         { success: false, error: 'No file provided' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
     if (!ALLOWED_MIME_TYPES.has(file.type)) {
       return NextResponse.json(
         { success: false, error: 'Only image files (JPEG, PNG, WebP, GIF) and PDFs are allowed' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    // 10MB limit
+    if (file.size > 10 * 1024 * 1024) {
       return NextResponse.json(
-        { success: false, error: 'File size must be under 5MB' },
-        { status: 400 }
+        { success: false, error: 'File size must be under 10MB' },
+        { status: 400 },
       )
     }
 
@@ -98,22 +108,31 @@ export async function POST(request: Request) {
     if (!hasValidMagicBytes(buffer, file.type)) {
       return NextResponse.json(
         { success: false, error: 'Invalid or corrupted file content' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
-    const result = await uploadBuffer(buffer, folder, file.type)
+    const result = await uploadBuffer(buffer, folder, {
+      maxWidth,
+      maxHeight,
+      quality: 'auto:good',
+      mimeType: file.type,
+    })
 
     return NextResponse.json({
       success: true,
       url: result.secure_url || result.url,
       publicId: result.public_id,
+      format: result.format,
+      bytes: result.bytes,
+      width: result.width,
+      height: result.height,
     })
   } catch (error: any) {
     console.error('Upload error:', error?.message || 'Unknown upload error')
     return NextResponse.json(
       { success: false, error: 'Failed to upload file' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

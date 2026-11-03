@@ -1,15 +1,37 @@
+import { NextResponse } from 'next/server'
+import { ObjectId } from 'mongodb'
+import { getBookingsCollection, toObjectId } from '@/lib/db'
+import { getSession } from '@/lib/auth/session'
+import {
+  resolveExpertContact,
+  getAppBaseUrl,
+  computeSessionBounds,
+  getCurrentDateInTimezone,
+} from '@/lib/email/scheduler'
+import { sendTransactionalEmail } from '@/lib/email/mailer'
+import {
+  renderBookingConfirmationEmail,
+  renderDayOfReminderEmail,
+  renderMeetLinkUpdatedEmail,
+} from '@/lib/email/templates'
 import {
   confirmBookingAndCreateCalendar,
   deleteCalendarEvent,
   getGoogleCalendarConnectionStatus,
   syncMissingMeetLinksForConfirmedBookings,
 } from '@/lib/google-calendar'
-import { NextResponse } from 'next/server'
-import { ObjectId } from 'mongodb'
-import { getBookingsCollection, toObjectId } from '@/lib/db'
-import { getSession } from '@/lib/auth/session'
 
 export const dynamic = 'force-dynamic'
+
+function isValidHttpsUrl(raw?: string): boolean {
+  if (!raw) return false
+  try {
+    const parsed = new URL(raw)
+    return parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
 
 async function resolveAuth(request: Request) {
   const session = await getSession()
@@ -106,7 +128,7 @@ export async function GET(request: Request) {
   }
 }
 
-// PATCH: Approve / Decline / Cancel booking, or Generate / Sync Google Meet link(s)
+// PATCH: Approve / Decline / Cancel booking, or Generate / Update / Sync Google Meet link(s)
 export async function PATCH(request: Request) {
   try {
     const auth = await resolveAuth(request)
@@ -118,7 +140,7 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json()
-    const { id, action, adminNotes, forceRecreate } = body
+    const { id, action, adminNotes, googleMeetLink, forceRecreate } = body
 
     // Bulk action for admins: generate missing Google Meet links for all confirmed upcoming/today bookings
     if (action === 'sync_all_missing_meet') {
@@ -156,7 +178,7 @@ export async function PATCH(request: Request) {
         {
           success: false,
           error:
-            'Booking ID and action (approve | reject | cancel | generate_meet) are required',
+            'Booking ID and action (approve | reject | cancel | generate_meet | update_meet_link) are required',
         },
         { status: 400 },
       )
@@ -178,7 +200,16 @@ export async function PATCH(request: Request) {
       )
     }
 
-    // Generate / Retry Google Meet link for an already-confirmed booking
+    const now = new Date()
+    const baseUrl = getAppBaseUrl()
+    const { expertName, expertEmail } = await resolveExpertContact(existing.expertId)
+    const serviceTitle =
+      existing.serviceTitle?.en || existing.serviceTitle?.ar || 'Consultation Session'
+    const rescheduleUrl = existing.rescheduleToken
+      ? `${baseUrl}/bookings/${existing._id}?token=${existing.rescheduleToken}`
+      : undefined
+
+    // Generate / Retry Google Meet link via Google Calendar OAuth for an already-confirmed booking
     if (action === 'generate_meet') {
       if (existing.status !== 'confirmed') {
         return NextResponse.json(
@@ -194,13 +225,62 @@ export async function PATCH(request: Request) {
         const updated = await confirmBookingAndCreateCalendar(bookingObjId.toString(), {
           forceRecreate: Boolean(forceRecreate),
         })
+
+        if (updated.googleMeetLink) {
+          try {
+            const clientEmailData = renderMeetLinkUpdatedEmail({
+              booking: updated,
+              expertName,
+              clientName: existing.clientName,
+              serviceTitle,
+              meetLink: updated.googleMeetLink,
+              rescheduleUrl,
+              recipientRole: 'client',
+            })
+            await sendTransactionalEmail({
+              bookingId: existing._id,
+              emailType: 'meet_link_updated',
+              recipientEmail: existing.clientEmail,
+              recipientName: existing.clientName,
+              recipientRole: 'client',
+              subject: clientEmailData.subject,
+              html: clientEmailData.html,
+              text: clientEmailData.text,
+            })
+
+            if (expertEmail) {
+              const expertEmailData = renderMeetLinkUpdatedEmail({
+                booking: updated,
+                expertName,
+                clientName: existing.clientName,
+                serviceTitle,
+                meetLink: updated.googleMeetLink,
+                rescheduleUrl,
+                recipientRole: 'expert',
+              })
+              await sendTransactionalEmail({
+                bookingId: existing._id,
+                emailType: 'meet_link_updated',
+                recipientEmail: expertEmail,
+                recipientName: expertName,
+                recipientRole: 'expert',
+                subject: expertEmailData.subject,
+                html: expertEmailData.html,
+                text: expertEmailData.text,
+              })
+            }
+          } catch (emailErr) {
+            console.error('[Email Notification] Failed to send generated meet link email:', emailErr)
+          }
+        }
+
         return NextResponse.json({
           success: true,
           googleMeetCreated: Boolean(updated.googleMeetLink),
           googleMeetLink: updated.googleMeetLink || '',
           googleCalendarEventLink: updated.googleCalendarEventLink || '',
           message: updated.googleMeetLink
-            ? 'Google Meet link created and calendar invitations sent.'
+            ? 'Google Meet link created and invitations sent to attendees.'
             : 'Calendar event created (in-person session without video link).',
         })
       } catch (calErr: any) {
@@ -216,42 +296,285 @@ export async function PATCH(request: Request) {
     }
 
     const updateDoc: any = {
-      updatedAt: new Date(),
+      updatedAt: now,
     }
 
     if (action === 'approve') {
+      const manualLink = (googleMeetLink || '').trim()
+      if (manualLink && !isValidHttpsUrl(manualLink)) {
+        return NextResponse.json(
+          { success: false, error: 'Manual Google Meet link must be a valid https:// URL.' },
+          { status: 400 },
+        )
+      }
+
       updateDoc.status = 'confirmed'
       updateDoc.paymentStatus = 'verified'
       updateDoc.verifiedBy = new ObjectId(auth.session.userId)
-      updateDoc.verifiedAt = new Date()
+      updateDoc.verifiedAt = now
       if (adminNotes) updateDoc.adminNotes = adminNotes
+
+      // Ensure session timestamps exist
+      if (!existing.sessionStartAt || !existing.sessionEndAt) {
+        const bounds = computeSessionBounds(
+          existing.date,
+          existing.time,
+          existing.durationMinutes || 45,
+          existing.timezone || 'Africa/Cairo',
+        )
+        updateDoc.sessionStartAt = bounds.sessionStartAt
+        updateDoc.sessionEndAt = bounds.sessionEndAt
+      }
 
       await bookingsCol.updateOne({ _id: bookingObjId }, { $set: updateDoc })
 
-      // Auto-create Google Calendar event with Google Meet link (invites Client, Expert, and central BokBok email)
+      // Automatically generate a real Google Meet link via BokBok Google OAuth integration
+      let finalMeetLink = (manualLink || existing.googleMeetLink?.trim() || '').trim()
+      let calendarEventLink = existing.googleCalendarEventLink || ''
+      let calendarWarning: string | undefined = undefined
+
+      if (!finalMeetLink && existing.deliveryMode !== 'IN_PERSON') {
+        try {
+          const calBooking = await confirmBookingAndCreateCalendar(bookingObjId.toString())
+          if (calBooking?.googleMeetLink) {
+            finalMeetLink = calBooking.googleMeetLink
+            updateDoc.googleMeetLink = calBooking.googleMeetLink
+          }
+          if (calBooking?.googleCalendarEventId) {
+            updateDoc.googleCalendarEventId = calBooking.googleCalendarEventId
+          }
+          if (calBooking?.googleCalendarEventLink) {
+            calendarEventLink = calBooking.googleCalendarEventLink
+            updateDoc.googleCalendarEventLink = calBooking.googleCalendarEventLink
+          }
+        } catch (calErr: any) {
+          console.error('[Google Calendar] Failed to create event on approve:', calErr?.message)
+          calendarWarning =
+            calErr?.message ||
+            'Booking was marked confirmed, but Google Meet link generation failed.'
+        }
+      } else if (finalMeetLink && finalMeetLink !== existing.googleMeetLink) {
+        await bookingsCol.updateOne(
+          { _id: bookingObjId },
+          {
+            $set: { googleMeetLink: finalMeetLink, googleMeetUpdatedAt: now },
+            $unset: { googleMeetError: '' },
+          },
+        )
+      }
+
+      // Send Confirmation Email to Client and Expert with Google Meet link
       try {
-        const updatedBooking = await confirmBookingAndCreateCalendar(bookingObjId.toString())
-        return NextResponse.json({
-          success: true,
-          googleMeetCreated: Boolean(updatedBooking.googleMeetLink),
-          googleMeetLink: updatedBooking.googleMeetLink || '',
-          googleCalendarEventLink: updatedBooking.googleCalendarEventLink || '',
-          message: updatedBooking.googleMeetLink
+        const updatedBooking = {
+          ...existing,
+          ...updateDoc,
+          googleMeetLink: finalMeetLink || undefined,
+        }
+
+        // To Client
+        const clientEmailData = renderBookingConfirmationEmail({
+          booking: updatedBooking,
+          expertName,
+          clientName: existing.clientName,
+          serviceTitle,
+          rescheduleUrl,
+          recipientRole: 'client',
+          meetLink: finalMeetLink || undefined,
+        })
+        await sendTransactionalEmail({
+          bookingId: existing._id,
+          emailType: 'booking_confirmed',
+          recipientEmail: existing.clientEmail,
+          recipientName: existing.clientName,
+          recipientRole: 'client',
+          subject: clientEmailData.subject,
+          html: clientEmailData.html,
+          text: clientEmailData.text,
+        })
+
+        // To Expert
+        if (expertEmail) {
+          const expertEmailData = renderBookingConfirmationEmail({
+            booking: updatedBooking,
+            expertName,
+            clientName: existing.clientName,
+            serviceTitle,
+            rescheduleUrl,
+            recipientRole: 'expert',
+            meetLink: finalMeetLink || undefined,
+          })
+          await sendTransactionalEmail({
+            bookingId: existing._id,
+            emailType: 'booking_confirmed',
+            recipientEmail: expertEmail,
+            recipientName: expertName,
+            recipientRole: 'expert',
+            subject: expertEmailData.subject,
+            html: expertEmailData.html,
+            text: expertEmailData.text,
+          })
+        }
+
+        // If the session is on the same day and scheduled time has not passed, send Reminder 1 immediately
+        const timezone = existing.timezone || 'Africa/Cairo'
+        const todayInTz = getCurrentDateInTimezone(timezone)
+        const sessionStart =
+          updatedBooking.sessionStartAt ||
+          computeSessionBounds(
+            existing.date,
+            existing.time,
+            existing.durationMinutes || 45,
+            timezone,
+          ).sessionStartAt
+
+        if (
+          existing.date === todayInTz &&
+          now < sessionStart &&
+          finalMeetLink &&
+          !existing.reminders?.dayOfReminderSentAt
+        ) {
+          await bookingsCol.updateOne(
+            { _id: bookingObjId },
+            { $set: { 'reminders.dayOfReminderSentAt': now } },
+          )
+
+          const clientRem1 = renderDayOfReminderEmail({
+            booking: updatedBooking,
+            expertName,
+            clientName: existing.clientName,
+            serviceTitle,
+            meetLink: finalMeetLink,
+            rescheduleUrl,
+            recipientRole: 'client',
+          })
+          await sendTransactionalEmail({
+            bookingId: existing._id,
+            emailType: 'reminder_day_of',
+            recipientEmail: existing.clientEmail,
+            recipientName: existing.clientName,
+            recipientRole: 'client',
+            subject: clientRem1.subject,
+            html: clientRem1.html,
+            text: clientRem1.text,
+          })
+
+          if (expertEmail) {
+            const expertRem1 = renderDayOfReminderEmail({
+              booking: updatedBooking,
+              expertName,
+              clientName: existing.clientName,
+              serviceTitle,
+              meetLink: finalMeetLink,
+              rescheduleUrl,
+              recipientRole: 'expert',
+            })
+            await sendTransactionalEmail({
+              bookingId: existing._id,
+              emailType: 'reminder_day_of',
+              recipientEmail: expertEmail,
+              recipientName: expertName,
+              recipientRole: 'expert',
+              subject: expertRem1.subject,
+              html: expertRem1.html,
+              text: expertRem1.text,
+            })
+          }
+        }
+      } catch (emailErr) {
+        console.error('[Email Notification] Failed to send confirmation email:', emailErr)
+      }
+
+      return NextResponse.json({
+        success: true,
+        googleMeetCreated: Boolean(finalMeetLink),
+        googleMeetLink: finalMeetLink || '',
+        googleCalendarEventLink: calendarEventLink,
+        ...(calendarWarning ? { calendarWarning } : {}),
+        message: calendarWarning
+          ? 'Booking marked confirmed, but Google Meet link could not be generated automatically.'
+          : finalMeetLink
             ? 'Booking confirmed and Google Meet link created & emailed to attendees.'
             : 'Booking confirmed.',
-        })
-      } catch (calErr: any) {
-        console.error('[Google Calendar] Failed to create event on approve:', calErr?.message)
-        return NextResponse.json({
-          success: true,
-          googleMeetCreated: false,
-          calendarWarning:
-            calErr?.message ||
-            'Booking was marked confirmed, but Google Meet link generation failed.',
-          message:
-            'Booking marked confirmed, but Google Meet link could not be generated automatically.',
-        })
+      })
+    } else if (action === 'update_meet_link') {
+      const trimmedLink = (googleMeetLink || '').trim()
+      if (!trimmedLink || !isValidHttpsUrl(trimmedLink)) {
+        return NextResponse.json(
+          { success: false, error: 'A valid https:// Google Meet link is required' },
+          { status: 400 },
+        )
       }
+
+      updateDoc.googleMeetLink = trimmedLink
+      updateDoc.googleMeetUpdatedAt = now
+
+      await bookingsCol.updateOne(
+        { _id: bookingObjId },
+        {
+          $set: updateDoc,
+          $unset: { googleMeetError: '' },
+        },
+      )
+
+      // If booking is already confirmed, notify both parties of the updated link
+      if (existing.status === 'confirmed') {
+        try {
+          const updatedBooking = { ...existing, ...updateDoc }
+
+          // To Client
+          const clientEmailData = renderMeetLinkUpdatedEmail({
+            booking: updatedBooking,
+            expertName,
+            clientName: existing.clientName,
+            serviceTitle,
+            meetLink: trimmedLink,
+            rescheduleUrl,
+            recipientRole: 'client',
+          })
+          await sendTransactionalEmail({
+            bookingId: existing._id,
+            emailType: 'meet_link_updated',
+            recipientEmail: existing.clientEmail,
+            recipientName: existing.clientName,
+            recipientRole: 'client',
+            subject: clientEmailData.subject,
+            html: clientEmailData.html,
+            text: clientEmailData.text,
+          })
+
+          // To Expert
+          if (expertEmail) {
+            const expertEmailData = renderMeetLinkUpdatedEmail({
+              booking: updatedBooking,
+              expertName,
+              clientName: existing.clientName,
+              serviceTitle,
+              meetLink: trimmedLink,
+              rescheduleUrl,
+              recipientRole: 'expert',
+            })
+            await sendTransactionalEmail({
+              bookingId: existing._id,
+              emailType: 'meet_link_updated',
+              recipientEmail: expertEmail,
+              recipientName: expertName,
+              recipientRole: 'expert',
+              subject: expertEmailData.subject,
+              html: expertEmailData.html,
+              text: expertEmailData.text,
+            })
+          }
+        } catch (emailErr) {
+          console.error('[Email Notification] Failed to send meet link update email:', emailErr)
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        googleMeetCreated: true,
+        googleMeetLink: trimmedLink,
+        message: 'Google Meet link saved and emailed to attendees.',
+      })
     } else if (action === 'reject') {
       updateDoc.status = 'rejected'
       updateDoc.paymentStatus = 'rejected'
@@ -268,6 +591,7 @@ export async function PATCH(request: Request) {
       }
     } else if (action === 'cancel') {
       updateDoc.status = 'cancelled'
+      updateDoc.attendanceStatus = 'cancelled'
       if (adminNotes) updateDoc.adminNotes = adminNotes
 
       await bookingsCol.updateOne({ _id: bookingObjId }, { $set: updateDoc })
@@ -288,7 +612,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Booking ${action}d successfully`,
+      message: `Booking ${action === 'cancel' ? 'cancelled' : `${action}d`} successfully`,
     })
   } catch (error: any) {
     return NextResponse.json(

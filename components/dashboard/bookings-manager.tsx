@@ -1,6 +1,8 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
+import { Video } from 'lucide-react'
 
 export interface BookingDocItem {
   _id: string
@@ -16,6 +18,7 @@ export interface BookingDocItem {
   amount?: number
   currency?: string
   status: string
+  deliveryMode?: string
   paymentMethod?: string
   paymentStatus?: string
   paymentReceiptUrl?: string
@@ -24,6 +27,13 @@ export interface BookingDocItem {
   googleCalendarEventLink?: string
   googleCalendarEventId?: string
   googleMeetError?: string
+  googleMeetUpdatedAt?: string
+  attendanceStatus?: string
+  expertAttendanceReport?: { response: 'attended' | 'absent'; submittedAt: string; notes?: string }
+  clientAttendanceReport?: { response: 'attended' | 'absent'; submittedAt: string; notes?: string }
+  sessionStartAt?: string
+  sessionEndAt?: string
+  rescheduleToken?: string
   createdAt: string
 }
 
@@ -49,6 +59,12 @@ function isSafeHttpsUrl(value?: string): boolean {
   }
 }
 
+function isSafeReceiptImageUrl(value?: string): boolean {
+  if (!value) return false
+  if (value.startsWith('data:image/')) return true
+  return isSafeHttpsUrl(value)
+}
+
 export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerProps) {
   const [bookings, setBookings] = useState<BookingDocItem[]>([])
   const [calendarStatus, setCalendarStatus] = useState<CalendarConnectionStatus | null>(null)
@@ -57,11 +73,31 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
     'awaiting_verification',
   )
   const [selectedReceipt, setSelectedReceipt] = useState<BookingDocItem | null>(null)
+
+  // Decline / Cancel modal
   const [actionModal, setActionModal] = useState<{
     booking: BookingDocItem
-    action: 'approve' | 'reject' | 'cancel'
+    action: 'reject' | 'cancel'
   } | null>(null)
   const [declineNotes, setDeclineNotes] = useState('')
+
+  // Approval modal (supports automatic Google Calendar Meet generation OR optional manual Meet URL)
+  const [approvalBooking, setApprovalBooking] = useState<BookingDocItem | null>(null)
+  const [approvalMeetLink, setApprovalMeetLink] = useState('')
+
+  // Manual Add/Edit Meet link modal
+  const [meetModalBooking, setMeetModalBooking] = useState<BookingDocItem | null>(null)
+  const [newMeetLink, setNewMeetLink] = useState('')
+  const [savingMeetLink, setSavingMeetLink] = useState(false)
+
+  // Attendance modal
+  const [attendanceModal, setAttendanceModal] = useState<{
+    booking: BookingDocItem
+    response: 'attended' | 'absent'
+  } | null>(null)
+  const [attendanceNotes, setAttendanceNotes] = useState('')
+  const [submittingAttendance, setSubmittingAttendance] = useState(false)
+
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
   const [syncingAll, setSyncingAll] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -110,6 +146,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
     id: string,
     action: 'approve' | 'reject' | 'cancel' | 'generate_meet',
     adminNotes = '',
+    googleMeetLink?: string,
   ) => {
     setActionLoadingId(id)
     setFeedback(null)
@@ -117,13 +154,20 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
       const res = await fetch('/api/dashboard/bookings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, action, adminNotes }),
+        body: JSON.stringify({
+          id,
+          action,
+          adminNotes,
+          ...(googleMeetLink ? { googleMeetLink } : {}),
+        }),
       })
       const json = await res.json()
 
       if (json.success) {
         setSelectedReceipt(null)
         setActionModal(null)
+        setApprovalBooking(null)
+        setApprovalMeetLink('')
         setDeclineNotes('')
 
         if (json.calendarWarning) {
@@ -189,6 +233,88 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
     }
   }
 
+  const handleSaveMeetLink = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!meetModalBooking || !newMeetLink.trim()) return
+
+    setSavingMeetLink(true)
+    setFeedback(null)
+    try {
+      const res = await fetch('/api/dashboard/bookings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: meetModalBooking._id,
+          action: 'update_meet_link',
+          googleMeetLink: newMeetLink.trim(),
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setMeetModalBooking(null)
+        setNewMeetLink('')
+        setFeedback({
+          type: 'success',
+          text: json.message || 'Google Meet link saved and emailed to attendees.',
+          meetLink: json.googleMeetLink || undefined,
+        })
+        await loadBookings()
+      } else {
+        setFeedback({
+          type: 'error',
+          text: json.error || 'Failed to update Google Meet link.',
+        })
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        text: err?.message || 'Error updating Google Meet link.',
+      })
+    } finally {
+      setSavingMeetLink(false)
+    }
+  }
+
+  const handleAttendanceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!attendanceModal) return
+
+    setSubmittingAttendance(true)
+    setFeedback(null)
+    try {
+      const res = await fetch(`/api/bookings/${attendanceModal.booking._id}/attendance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          response: attendanceModal.response,
+          notes: attendanceNotes.trim() || undefined,
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setAttendanceModal(null)
+        setAttendanceNotes('')
+        setFeedback({
+          type: 'success',
+          text: json.message || 'Attendance recorded successfully.',
+        })
+        await loadBookings()
+      } else {
+        setFeedback({
+          type: 'error',
+          text: json.error || 'Failed to record attendance.',
+        })
+      }
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        text: err?.message || 'Error submitting attendance.',
+      })
+    } finally {
+      setSubmittingAttendance(false)
+    }
+  }
+
   const handleCopyMeet = async (bookingId: string, link: string) => {
     try {
       await navigator.clipboard.writeText(link)
@@ -200,8 +326,10 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
   }
 
   const missingMeetCount = bookings.filter(
-    (b) => b.status === 'confirmed' && !b.googleMeetLink,
+    (b) => b.status === 'confirmed' && b.deliveryMode !== 'IN_PERSON' && !b.googleMeetLink,
   ).length
+
+  const now = new Date()
 
   return (
     <div className="space-y-5">
@@ -316,10 +444,11 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
               isAdmin ? 'text-white' : 'text-[#14243b]'
             }`}
           >
-            Bookings & Receipts
+            Bookings &amp; Meetings
           </h2>
           <p className={`text-xs mt-1 ${isAdmin ? 'text-slate-300' : 'text-[#637084]'}`}>
-            Review incoming appointments, verify InstaPay receipts, and manage Google Meet links.
+            Manage appointments, Google Meet rooms, InstaPay receipt verification, and session
+            attendance.
           </p>
         </div>
 
@@ -334,7 +463,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                 : 'text-[#637084] hover:text-[#14243b]'
             }`}
           >
-            Awaiting Verification / Pending
+            Awaiting Verification
           </button>
           <button
             type="button"
@@ -356,7 +485,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                 : 'text-[#637084] hover:text-[#14243b]'
             }`}
           >
-            All
+            All Bookings
           </button>
         </div>
       </div>
@@ -384,17 +513,24 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                 <th className="py-3.5 px-4 font-semibold">Service</th>
                 <th className="py-3.5 px-4 font-semibold">Session Date</th>
                 <th className="py-3.5 px-4 font-semibold">Price</th>
-                <th className="py-3.5 px-4 font-semibold">Status</th>
                 <th className="py-3.5 px-4 font-semibold">Google Meet</th>
+                <th className="py-3.5 px-4 font-semibold">Attendance</th>
+                <th className="py-3.5 px-4 font-semibold">Status</th>
                 <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f4f2ee]">
               {bookings.map((b) => {
                 const isRowLoading = actionLoadingId === b._id
+                const isOnline = b.deliveryMode !== 'IN_PERSON'
+                const isConfirmed = b.status === 'confirmed'
                 const hasSafeMeetLink = isSafeHttpsUrl(b.googleMeetLink)
                 const hasSafeCalLink = isSafeHttpsUrl(b.googleCalendarEventLink)
-                const hasSafeReceiptUrl = isSafeHttpsUrl(b.paymentReceiptUrl)
+                const hasSafeReceiptUrl = isSafeReceiptImageUrl(b.paymentReceiptUrl)
+                const sessionEnd = b.sessionEndAt
+                  ? new Date(b.sessionEndAt)
+                  : new Date(`${b.date}T${b.time}`)
+                const sessionEnded = now >= sessionEnd
 
                 return (
                   <tr key={b._id} className="hover:bg-[#faf8f5]/60">
@@ -417,14 +553,172 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                     <td className="py-3.5 px-4 font-bold text-[#14243b]">
                       {b.amount ? `${b.amount} ${b.currency || 'EGP'}` : '—'}
                     </td>
+
+                    {/* Google Meet Column */}
+                    <td className="py-3.5 px-4">
+                      {isOnline ? (
+                        hasSafeMeetLink ? (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <a
+                              href={b.googleMeetLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700"
+                              title={b.googleMeetLink}
+                            >
+                              <Video size={11} />
+                              <span>Join Meet ↗</span>
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyMeet(b._id, b.googleMeetLink!)}
+                              className="rounded-full border border-[#dedbd5] bg-[#faf8f5] px-2 py-0.5 text-[10px] font-bold text-[#14243b] hover:bg-[#eeeae4]"
+                            >
+                              {copiedId === b._id ? 'Copied ✓' : 'Copy'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMeetModalBooking(b)
+                                setNewMeetLink(b.googleMeetLink || '')
+                              }}
+                              className="text-[10px] text-[#8b94a1] hover:text-[#14243b] underline font-bold"
+                            >
+                              Edit
+                            </button>
+                            {hasSafeCalLink && (
+                              <a
+                                href={b.googleCalendarEventLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] font-semibold text-[#2855C5] hover:underline"
+                              >
+                                Calendar ↗
+                              </a>
+                            )}
+                          </div>
+                        ) : isConfirmed ? (
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                                Missing Meet
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => executeBookingAction(b._id, 'generate_meet')}
+                                disabled={isRowLoading}
+                                className="rounded-full bg-[#2855C5] px-2.5 py-1 text-[10px] font-bold text-white hover:bg-[#14243b] disabled:opacity-50"
+                              >
+                                {isRowLoading ? 'Creating...' : '+ Generate Meet'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMeetModalBooking(b)
+                                  setNewMeetLink('')
+                                }}
+                                className="text-[10px] font-bold text-[#637084] underline hover:text-[#14243b]"
+                              >
+                                Set URL
+                              </button>
+                            </div>
+                            {b.googleMeetError && (
+                              <p className="max-w-xs text-[10px] text-rose-600 leading-snug">
+                                {b.googleMeetError}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-[#8b94a1]">Created on approval</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMeetModalBooking(b)
+                                setNewMeetLink(b.googleMeetLink || '')
+                              }}
+                              className="text-[10px] font-bold text-[#637084] underline hover:text-[#14243b]"
+                            >
+                              Set URL
+                            </button>
+                          </div>
+                        )
+                      ) : (
+                        <span className="text-[10px] text-[#8b94a1] font-semibold">In-Person</span>
+                      )}
+                    </td>
+
+                    {/* Attendance Column */}
+                    <td className="py-3.5 px-4">
+                      {isConfirmed ? (
+                        b.attendanceStatus === 'completed' ? (
+                          <span className="inline-block rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-bold">
+                            Completed
+                          </span>
+                        ) : b.attendanceStatus === 'disputed' ? (
+                          <span className="inline-block rounded-full bg-rose-100 text-rose-800 px-2 py-0.5 text-[10px] font-bold">
+                            Disputed
+                          </span>
+                        ) : b.attendanceStatus === 'client_absent' ? (
+                          <span className="inline-block rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold">
+                            Client Absent
+                          </span>
+                        ) : b.attendanceStatus === 'expert_absent' ? (
+                          <span className="inline-block rounded-full bg-rose-100 text-rose-800 px-2 py-0.5 text-[10px] font-bold">
+                            Expert Absent
+                          </span>
+                        ) : sessionEnded ? (
+                          <div className="flex items-center gap-1">
+                            {b.expertAttendanceReport ? (
+                              <span className="text-[10px] text-[#8b94a1] font-semibold">
+                                {b.expertAttendanceReport.response === 'attended'
+                                  ? '✓ You Attended'
+                                  : '✕ You Marked Absent'}
+                              </span>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAttendanceNotes('')
+                                    setAttendanceModal({ booking: b, response: 'attended' })
+                                  }}
+                                  title="Confirm session took place"
+                                  className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold hover:bg-emerald-600 hover:text-white"
+                                >
+                                  ✓ Attended
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAttendanceNotes('')
+                                    setAttendanceModal({ booking: b, response: 'absent' })
+                                  }}
+                                  title="Report client no-show"
+                                  className="rounded-full bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 text-[10px] font-bold hover:bg-rose-600 hover:text-white"
+                                >
+                                  ✕ No-show
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-[#8b94a1]">Pending session</span>
+                        )
+                      ) : (
+                        <span className="text-[10px] text-[#8b94a1]">—</span>
+                      )}
+                    </td>
+
+                    {/* Booking Status Column */}
                     <td className="py-3.5 px-4">
                       <span
                         className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
                           b.status === 'confirmed'
                             ? 'bg-emerald-100 text-emerald-800'
-                            : b.status === 'awaiting_verification' ||
-                                b.status === 'pending' ||
-                                b.status === 'awaiting_payment'
+                            : ['awaiting_verification', 'pending', 'awaiting_payment'].includes(
+                                  b.status,
+                                )
                               ? 'bg-amber-100 text-amber-800'
                               : b.status === 'rejected'
                                 ? 'bg-red-100 text-red-800'
@@ -434,69 +728,26 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                         {b.status}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4">
-                      {hasSafeMeetLink ? (
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <a
-                            href={b.googleMeetLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-emerald-700"
-                          >
-                            Join Meet ↗
-                          </a>
-                          <button
-                            type="button"
-                            onClick={() => handleCopyMeet(b._id, b.googleMeetLink!)}
-                            className="rounded-full border border-[#dedbd5] bg-[#faf8f5] px-2 py-1 text-[10px] font-bold text-[#14243b] hover:bg-[#eeeae4]"
-                          >
-                            {copiedId === b._id ? 'Copied ✓' : 'Copy'}
-                          </button>
-                          {hasSafeCalLink && (
-                            <a
-                              href={b.googleCalendarEventLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[10px] font-semibold text-[#2855C5] hover:underline"
-                            >
-                              Calendar ↗
-                            </a>
-                          )}
-                        </div>
-                      ) : b.status === 'confirmed' ? (
-                        <div className="space-y-1">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                              Missing Meet Link
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => executeBookingAction(b._id, 'generate_meet')}
-                              disabled={isRowLoading}
-                              className="rounded-full bg-[#2855C5] px-2.5 py-1 text-[10px] font-bold text-white hover:bg-[#14243b] disabled:opacity-50"
-                            >
-                              {isRowLoading ? 'Creating...' : '+ Generate Meet'}
-                            </button>
-                          </div>
-                          {b.googleMeetError && (
-                            <p className="max-w-xs text-[10px] text-rose-600 leading-snug">
-                              {b.googleMeetError}
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-[#8b94a1]">Created on approval</span>
-                      )}
-                    </td>
+
+                    {/* Actions Column */}
                     <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {b.rescheduleToken && (
+                          <Link
+                            href={`/bookings/${b._id}?token=${b.rescheduleToken}`}
+                            target="_blank"
+                            className="rounded-full bg-[#f4f2ee] px-2.5 py-1 text-[10px] font-bold text-[#14243b] hover:bg-[#dedbd5]"
+                          >
+                            Hub ↗
+                          </Link>
+                        )}
                         {hasSafeReceiptUrl && (
                           <button
                             type="button"
                             onClick={() => setSelectedReceipt(b)}
-                            className="rounded-full bg-[#f4f2ee] px-3 py-1.5 text-[11px] font-bold text-[#14243b] hover:bg-[#dedbd5]"
+                            className="rounded-full bg-[#f4f2ee] px-2.5 py-1 text-[10px] font-bold text-[#14243b] hover:bg-[#dedbd5]"
                           >
-                            View Receipt
+                            Receipt
                           </button>
                         )}
                         {['awaiting_verification', 'pending', 'awaiting_payment'].includes(
@@ -505,9 +756,12 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                           <>
                             <button
                               type="button"
-                              onClick={() => setActionModal({ booking: b, action: 'approve' })}
+                              onClick={() => {
+                                setApprovalMeetLink(b.googleMeetLink || '')
+                                setApprovalBooking(b)
+                              }}
                               disabled={isRowLoading}
-                              className="rounded-full bg-[#14243b] px-3 py-1.5 text-[11px] font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                              className="rounded-full bg-[#14243b] px-3 py-1 text-[10px] font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
                             >
                               Approve
                             </button>
@@ -518,7 +772,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                                 setActionModal({ booking: b, action: 'reject' })
                               }}
                               disabled={isRowLoading}
-                              className="rounded-full px-2.5 py-1.5 text-[11px] font-bold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                              className="rounded-full px-2 py-1 text-[10px] font-bold text-red-600 hover:bg-red-50 disabled:opacity-50"
                             >
                               Decline
                             </button>
@@ -534,15 +788,171 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
         </div>
       )}
 
-      {/* Confirmation / Decline Modal (replaces native confirm/prompt) */}
+      {/* MODAL 1: Add / Edit Google Meet Link */}
+      {meetModalBooking && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 text-[#14243b] shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[#eeeae4] pb-3">
+              <div>
+                <h3 className="text-base font-bold text-[#14243b]">Google Meet Link</h3>
+                <p className="text-[11px] text-[#8b94a1]">
+                  Reference #
+                  {meetModalBooking.reference || meetModalBooking._id.slice(-6).toUpperCase()} —{' '}
+                  {meetModalBooking.clientName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMeetModalBooking(null)}
+                className="size-7 rounded-full bg-[#f4f2ee] text-xs font-bold text-[#637084] hover:bg-[#dedbd5]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveMeetLink} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-[#14243b] mb-1">
+                  Google Meet Room URL
+                </label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://meet.google.com/xxx-yyyy-zzz"
+                  value={newMeetLink}
+                  onChange={(e) => setNewMeetLink(e.target.value)}
+                  className="w-full rounded-xl border border-[#dedbd5] bg-[#faf8f5] px-3.5 py-2.5 text-xs text-[#14243b] outline-none focus:border-[#2855C5]"
+                />
+                <p className="mt-1 text-[10px] text-[#8b94a1]">
+                  If this booking is confirmed, both client and expert will receive an email update
+                  with this joining link.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#eeeae4]">
+                <button
+                  type="button"
+                  onClick={() => setMeetModalBooking(null)}
+                  className="rounded-full px-4 py-2 text-xs font-bold text-[#637084] hover:bg-[#f4f2ee]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingMeetLink}
+                  className="rounded-full bg-[#14243b] px-5 py-2 text-xs font-bold text-white hover:bg-[#2855C5] disabled:opacity-50"
+                >
+                  {savingMeetLink ? 'Saving...' : 'Save & Notify Parties'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: Approve Booking Confirmation (Auto Google Meet + Optional Override) */}
+      {approvalBooking && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 text-[#14243b] shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[#eeeae4] pb-3">
+              <div>
+                <h3 className="text-base font-bold text-[#14243b]">
+                  Confirm Booking &amp; Create Google Meet
+                </h3>
+                <p className="text-[11px] text-[#8b94a1]">
+                  Reference #
+                  {approvalBooking.reference || approvalBooking._id.slice(-6).toUpperCase()} —{' '}
+                  {approvalBooking.clientName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setApprovalBooking(null)}
+                className="size-7 rounded-full bg-[#f4f2ee] text-xs font-bold text-[#637084] hover:bg-[#dedbd5]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="rounded-2xl bg-[#faf8f5] border border-[#eeeae4] p-4 text-xs space-y-2">
+              <div className="flex justify-between gap-2">
+                <span className="text-[#8b94a1]">Client:</span>
+                <span className="font-bold text-[#14243b] text-right">
+                  {approvalBooking.clientName} ({approvalBooking.clientEmail})
+                </span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-[#8b94a1]">Scheduled Session:</span>
+                <span className="font-bold text-[#14243b]">
+                  {approvalBooking.date} at {approvalBooking.time}
+                </span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-[#8b94a1]">Amount:</span>
+                <span className="font-bold text-[#14243b]">
+                  {approvalBooking.amount} {approvalBooking.currency || 'EGP'}
+                </span>
+              </div>
+            </div>
+
+            {approvalBooking.deliveryMode !== 'IN_PERSON' && (
+              <div>
+                <label className="block text-xs font-bold text-[#14243b] mb-1">
+                  Custom Google Meet URL (Optional — leave blank to auto-generate)
+                </label>
+                <input
+                  type="url"
+                  placeholder="Leave empty to auto-create via Google Calendar OAuth"
+                  value={approvalMeetLink}
+                  onChange={(e) => setApprovalMeetLink(e.target.value)}
+                  className="w-full rounded-xl border border-[#dedbd5] bg-[#faf8f5] px-3.5 py-2.5 text-xs text-[#14243b] outline-none focus:border-[#2855C5]"
+                />
+                <p className="mt-1 text-[10px] text-[#8b94a1]">
+                  Leaving this blank automatically creates a Google Calendar event + Google Meet
+                  link and emails both the client and expert.
+                </p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#eeeae4]">
+              <button
+                type="button"
+                onClick={() => setApprovalBooking(null)}
+                className="rounded-full px-4 py-2 text-xs font-bold text-[#637084] hover:bg-[#f4f2ee]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={actionLoadingId === approvalBooking._id}
+                onClick={() =>
+                  executeBookingAction(
+                    approvalBooking._id,
+                    'approve',
+                    '',
+                    approvalMeetLink.trim() || undefined,
+                  )
+                }
+                className="rounded-full bg-emerald-600 px-6 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {actionLoadingId === approvalBooking._id
+                  ? 'Approving...'
+                  : 'Confirm & Generate Meet'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: Decline / Cancel Booking Modal */}
       {actionModal && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 text-[#14243b] shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-[#eeeae4] pb-3">
               <h3 className="text-base font-bold">
-                {actionModal.action === 'approve'
-                  ? 'Confirm Booking & Create Google Meet'
-                  : 'Decline Booking / Receipt'}
+                {actionModal.action === 'reject'
+                  ? 'Decline Booking / Receipt'
+                  : 'Cancel Booking'}
               </h3>
               <button
                 type="button"
@@ -554,41 +964,22 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
             </div>
 
             <p className="text-xs text-[#637084] leading-relaxed">
-              {actionModal.action === 'approve' ? (
-                <>
-                  Approve booking{' '}
-                  <strong>
-                    {actionModal.booking.reference ||
-                      actionModal.booking._id.slice(-6).toUpperCase()}
-                  </strong>{' '}
-                  for <strong>{actionModal.booking.clientName}</strong> on{' '}
-                  <strong>
-                    {actionModal.booking.date} at {actionModal.booking.time}
-                  </strong>
-                  ? This will verify payment and create a Google Calendar invitation with a Google
-                  Meet link.
-                </>
-              ) : (
-                <>
-                  Provide an optional reason for declining booking{' '}
-                  <strong>
-                    {actionModal.booking.reference ||
-                      actionModal.booking._id.slice(-6).toUpperCase()}
-                  </strong>
-                  :
-                </>
-              )}
+              Provide an optional reason for{' '}
+              {actionModal.action === 'reject' ? 'declining' : 'cancelling'} booking{' '}
+              <strong>
+                {actionModal.booking.reference ||
+                  actionModal.booking._id.slice(-6).toUpperCase()}
+              </strong>
+              :
             </p>
 
-            {actionModal.action === 'reject' && (
-              <textarea
-                rows={3}
-                value={declineNotes}
-                onChange={(e) => setDeclineNotes(e.target.value)}
-                placeholder="Reason for declining receipt or booking..."
-                className="w-full rounded-2xl border border-[#dedbd5] bg-[#faf8f5] p-3 text-xs text-[#14243b] outline-none focus:border-[#2855C5]"
-              />
-            )}
+            <textarea
+              rows={3}
+              value={declineNotes}
+              onChange={(e) => setDeclineNotes(e.target.value)}
+              placeholder="Optional notes or reason..."
+              className="w-full rounded-2xl border border-[#dedbd5] bg-[#faf8f5] p-3 text-xs text-[#14243b] outline-none focus:border-[#2855C5]"
+            />
 
             <div className="flex items-center justify-end gap-2 border-t border-[#eeeae4] pt-4">
               <button
@@ -596,7 +987,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                 onClick={() => setActionModal(null)}
                 className="rounded-full px-4 py-2 text-xs font-bold text-[#637084] hover:bg-[#f4f2ee]"
               >
-                Cancel
+                Back
               </button>
               <button
                 type="button"
@@ -608,24 +999,84 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                     declineNotes.trim(),
                   )
                 }
-                className={`rounded-full px-5 py-2 text-xs font-bold text-white disabled:opacity-50 ${
-                  actionModal.action === 'approve'
-                    ? 'bg-emerald-600 hover:bg-emerald-700'
-                    : 'bg-red-600 hover:bg-red-700'
-                }`}
+                className="rounded-full bg-red-600 px-5 py-2 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50"
               >
                 {actionLoadingId === actionModal.booking._id
                   ? 'Processing...'
-                  : actionModal.action === 'approve'
-                    ? 'Confirm & Generate Meet'
-                    : 'Decline Booking'}
+                  : actionModal.action === 'reject'
+                    ? 'Decline Booking'
+                    : 'Cancel Booking'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Receipt Preview Modal */}
+      {/* MODAL 4: Session Attendance Modal */}
+      {attendanceModal && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-xs">
+          <form
+            onSubmit={handleAttendanceSubmit}
+            className="w-full max-w-md rounded-3xl bg-white p-6 text-[#14243b] shadow-2xl space-y-4"
+          >
+            <div className="flex items-center justify-between border-b border-[#eeeae4] pb-3">
+              <h3 className="text-base font-bold">
+                {attendanceModal.response === 'attended'
+                  ? 'Confirm Session Completion'
+                  : 'Report Client No-Show'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setAttendanceModal(null)}
+                className="size-7 rounded-full bg-[#f4f2ee] text-xs font-bold text-[#637084] hover:bg-[#dedbd5]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-[#637084] leading-relaxed">
+              {attendanceModal.response === 'attended'
+                ? `Confirm that session ${attendanceModal.booking.reference || ''} with ${attendanceModal.booking.clientName} took place.`
+                : `Report that ${attendanceModal.booking.clientName} did not attend session ${attendanceModal.booking.reference || ''}.`}
+            </p>
+
+            <textarea
+              rows={3}
+              value={attendanceNotes}
+              onChange={(e) => setAttendanceNotes(e.target.value)}
+              placeholder={
+                attendanceModal.response === 'attended'
+                  ? 'Optional session completion notes...'
+                  : 'Reason or notes regarding client absence...'
+              }
+              className="w-full rounded-2xl border border-[#dedbd5] bg-[#faf8f5] p-3 text-xs text-[#14243b] outline-none focus:border-[#2855C5]"
+            />
+
+            <div className="flex items-center justify-end gap-2 border-t border-[#eeeae4] pt-4">
+              <button
+                type="button"
+                onClick={() => setAttendanceModal(null)}
+                className="rounded-full px-4 py-2 text-xs font-bold text-[#637084] hover:bg-[#f4f2ee]"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={submittingAttendance}
+                className={`rounded-full px-5 py-2 text-xs font-bold text-white disabled:opacity-50 ${
+                  attendanceModal.response === 'attended'
+                    ? 'bg-emerald-600 hover:bg-emerald-700'
+                    : 'bg-rose-600 hover:bg-rose-700'
+                }`}
+              >
+                {submittingAttendance ? 'Saving...' : 'Submit Attendance'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* MODAL 5: InstaPay Receipt Preview Modal */}
       {selectedReceipt && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="w-full max-w-lg rounded-3xl bg-white p-6 text-[#14243b] shadow-2xl">
@@ -648,7 +1099,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
             </div>
 
             <div className="my-4 max-h-[60vh] overflow-y-auto rounded-2xl bg-[#faf8f5] p-2 border border-[#eeeae4] text-center">
-              {isSafeHttpsUrl(selectedReceipt.paymentReceiptUrl) ? (
+              {isSafeReceiptImageUrl(selectedReceipt.paymentReceiptUrl) ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={selectedReceipt.paymentReceiptUrl}
