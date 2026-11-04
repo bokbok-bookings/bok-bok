@@ -13,19 +13,20 @@ import {
   Compass,
   Globe2,
   GraduationCap,
+  Megaphone,
   Palette,
   Plane,
   Search,
   ShieldCheck,
-  Sparkles,
   Star,
 } from 'lucide-react'
 import { useLanguage } from '@/lib/i18n/language-context'
+import { VisionSection } from '@/components/home/vision-section'
 
 const fallbackCategories = [
   {
     slug: 'marketing',
-    icon: Sparkles,
+    icon: Megaphone,
     name: 'Marketing',
     nameAr: 'التسويق',
     description: 'Strategy, content, SEO, branding & campaign reviews',
@@ -124,7 +125,7 @@ export default function Page() {
       .then((json) => {
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
           const iconLookup: Record<string, any> = {
-            marketing: Sparkles,
+            marketing: Megaphone,
             'business-entrepreneurship': BriefcaseBusiness,
             'technology-it': Compass,
             'career-professional-development': GraduationCap,
@@ -136,7 +137,7 @@ export default function Page() {
           }
           const formatted = json.data.map((c: any) => ({
             slug: c.slug,
-            icon: iconLookup[c.slug] || Sparkles,
+            icon: iconLookup[c.slug] || Compass,
             name: c.name?.en || c.title?.en,
             nameAr: c.name?.ar || c.title?.ar,
             description: c.description?.en || 'Guidance from top experts in this field',
@@ -179,7 +180,7 @@ export default function Page() {
               {t.home.heroSubtitle}
             </p>
 
-            <div className="mt-9 flex flex-wrap gap-3">
+            <div className="mt-9 flex flex-wrap items-center gap-5 sm:gap-7">
               <Link
                 href={localeHref('/explore')}
                 className="group inline-flex items-center gap-3 rounded-full bg-accent hover:bg-accent-hover px-6 py-3.5 text-sm font-bold text-primary shadow-xs transition-all hover:-translate-y-0.5"
@@ -192,21 +193,24 @@ export default function Page() {
               </Link>
               <Link
                 href={localeHref('/consultations')}
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-6 py-3.5 text-sm font-bold text-primary hover:border-primary transition"
+                className="group relative inline-block text-sm font-bold text-primary transition-transform hover:-translate-y-0.5"
               >
-                {t.home.consultations}
+                <span className="relative z-10">{t.home.consultations}</span>
+                <span className="absolute bottom-0.5 left-0 w-full h-1 bg-accent -z-0 rounded-sm transition-all duration-200 group-hover:h-1 group-hover:bg-accent-hover" />
               </Link>
               <Link
                 href={localeHref('/workshops')}
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-6 py-3.5 text-sm font-bold text-primary hover:border-primary transition"
+                className="group relative inline-block text-sm font-bold text-primary transition-transform hover:-translate-y-0.5"
               >
-                {t.home.workshops}
+                <span className="relative z-10">{t.home.workshops}</span>
+                <span className="absolute bottom-0.5 left-0 w-full h-1 bg-accent -z-0 rounded-sm transition-all duration-200 group-hover:h-1 group-hover:bg-accent-hover" />
               </Link>
               <Link
                 href={localeHref('/webinars')}
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-6 py-3.5 text-sm font-bold text-primary hover:border-primary transition"
+                className="group relative inline-block text-sm font-bold text-primary transition-transform hover:-translate-y-0.5"
               >
-                {t.home.webinars}
+                <span className="relative z-10">{t.home.webinars}</span>
+                <span className="absolute bottom-0.5 left-0 w-full h-1 bg-accent -z-0 rounded-sm transition-all duration-200 group-hover:h-1 group-hover:bg-accent-hover" />
               </Link>
             </div>
 
@@ -231,6 +235,9 @@ export default function Page() {
             />
           </div>
         </section>
+
+        {/* Vision Section */}
+        <VisionSection />
 
         {/* Categories Section */}
         <section id="categories" className="border-t border-border py-20">
@@ -282,8 +289,8 @@ export default function Page() {
                       <ArrowRight
                         size={18}
                         className={`text-primary opacity-0 transition-all duration-300 group-hover:opacity-100 shrink-0 ${isAr
-                            ? 'rotate-180 translate-x-2 group-hover:translate-x-0'
-                            : '-translate-x-2 group-hover:translate-x-0'
+                          ? 'rotate-180 translate-x-2 group-hover:translate-x-0'
+                          : '-translate-x-2 group-hover:translate-x-0'
                           }`}
                       />
                     </h3>
@@ -309,6 +316,8 @@ export default function Page() {
             })}
           </div>
         </section>
+
+
 
         {/* How It Works Section */}
         <section id="how-it-works" className="rounded-[36px] bg-[#14243b] px-7 py-14 text-white sm:px-12 sm:py-16">
@@ -392,55 +401,50 @@ export default function Page() {
 
           <div className="mt-8 grid gap-4 lg:grid-cols-3">
             {filteredExperts.map((expert) => (
-              <article
+              <Link
                 key={expert.name}
-                className="rounded-3xl border border-border bg-surface p-5 transition-all hover:-translate-y-1 hover:shadow-lg"
+                href={localeHref(`/experts/${expert.name.toLowerCase().replaceAll(' ', '-')}`)}
+                className="group flex flex-col justify-between rounded-3xl border border-border bg-surface p-5 transition-all duration-300 hover:-translate-y-1.5 hover:border-accent hover:shadow-lg cursor-pointer"
               >
-                <div className="flex items-start justify-between">
-                  <div className={`relative size-14 overflow-hidden rounded-2xl ${expert.color}`}>
-                    <Image
-                      src={expert.image}
-                      alt={`${expert.name} portrait`}
-                      fill
-                      sizes="56px"
-                      className="object-cover"
-                    />
+                <div>
+                  <div className="flex items-start justify-between">
+                    <div className={`relative size-14 overflow-hidden rounded-2xl ${expert.color}`}>
+                      <Image
+                        src={expert.image}
+                        alt={`${expert.name} portrait`}
+                        fill
+                        sizes="56px"
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                    </div>
+                    <span className="flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-bold text-primary">
+                      <Star size={12} className="text-accent fill-accent" /> {expert.rating}
+                    </span>
                   </div>
-                  <span className="flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-bold text-primary">
-                    <Star size={12} className="text-accent fill-accent" /> {expert.rating}
+                  <h3 className="mt-5 font-bold text-primary group-hover:text-primary transition-colors">{expert.name}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{expert.role}</p>
+                  <p className="mt-1 text-xs text-muted-foreground/80">{expert.location}</p>
+                  <div className="mt-4 flex flex-wrap gap-1.5">
+                    {expert.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full bg-secondary/80 border border-accent/20 px-2.5 py-1 text-[10px] font-bold text-primary"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-5 border-t border-border pt-4 flex items-center justify-between">
+                  <span className="text-xs font-bold text-primary group-hover:text-primary transition-colors">
+                    {t.home.viewProfile}
+                  </span>
+                  <span className="grid size-7 place-items-center rounded-full bg-accent text-primary transition-transform duration-300 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 shadow-xs">
+                    <span className="text-xs font-bold leading-none">{isAr ? '←' : '→'}</span>
                   </span>
                 </div>
-                <h3 className="mt-5 font-bold text-primary">{expert.name}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{expert.role}</p>
-                <p className="mt-1 text-xs text-muted-foreground/80">{expert.location}</p>
-                <div className="mt-4 flex flex-wrap gap-1.5">
-                  {expert.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full bg-secondary/80 border border-accent/20 px-2.5 py-1 text-[10px] font-bold text-primary"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-                <div className="mt-5 border-t border-border pt-4">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">{t.home.nextAvailable}</span>
-                    <span className="font-bold text-primary">{expert.next}</span>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="text-sm font-bold text-primary">
-                      {t.home.fromPrice} {expert.price}
-                    </span>
-                    <Link
-                      href={localeHref(`/experts/${expert.name.toLowerCase().replaceAll(' ', '-')}`)}
-                      className="rounded-full bg-accent px-4 py-2 text-xs font-bold text-primary hover:bg-accent-hover transition shadow-xs"
-                    >
-                      {t.home.viewProfile}
-                    </Link>
-                  </div>
-                </div>
-              </article>
+              </Link>
             ))}
           </div>
 

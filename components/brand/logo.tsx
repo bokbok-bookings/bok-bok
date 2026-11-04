@@ -59,6 +59,8 @@ export function BrandLogo({
         <div className="leading-none">
           <BokBok
             text={text}
+            withAccent={true}
+            accentClassName="bottom-0.5 left-0 w-full h-[2px] bg-accent -z-0 rounded-sm"
             className={`${textClasses} font-bold ${defaultTextColor}`}
           />
           {subtitle && (

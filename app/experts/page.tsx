@@ -134,7 +134,7 @@ export default function ExpertsPage() {
                   Find someone who{' '}
                   <span className="relative inline-block text-primary">
                     <span className="relative z-10">gets it.</span>
-                    <span className="absolute bottom-1 left-0 w-full h-2.5 bg-accent -z-0 rounded-sm" />
+                    <span className="absolute bottom-1 left-0 w-full h-1.5 bg-accent -z-0 rounded-sm" />
                   </span>
                 </>
               )}
@@ -237,9 +237,10 @@ export default function ExpertsPage() {
           ) : (
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {results.map((expert) => (
-                <article
+                <Link
                   key={expert.slug}
-                  className="group flex flex-col justify-between rounded-[28px] border border-border bg-surface p-6 transition-all hover:-translate-y-1 hover:border-accent/60 hover:shadow-md"
+                  href={localeHref(`/experts/${expert.slug}`)}
+                  className="group flex flex-col justify-between rounded-[28px] border border-border bg-surface p-6 transition-all duration-300 hover:-translate-y-1.5 hover:border-accent hover:shadow-lg cursor-pointer"
                 >
                   <div>
                     <div className="relative h-52 overflow-hidden rounded-2xl bg-secondary/60">
@@ -257,17 +258,21 @@ export default function ExpertsPage() {
 
                     <div className="mt-5 flex items-start justify-between gap-3">
                       <div>
-                        <h2 className="text-lg font-bold text-primary">{expert.name}</h2>
+                        <h2 className="text-lg font-bold text-primary group-hover:text-primary transition-colors">
+                          {expert.name}
+                        </h2>
                         <p className="mt-0.5 text-sm text-muted-foreground">{expert.role}</p>
                         <p className="mt-1 text-xs text-muted-foreground/80">{expert.location}</p>
                       </div>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-secondary border border-accent/40 px-2.5 py-1 text-[11px] font-bold text-primary">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-secondary border border-accent/40 px-2.5 py-1 text-[11px] font-bold text-primary shrink-0">
                         <span className="text-accent">★</span>
                         <span>{expert.rating || '5.0'}</span>
                       </span>
                     </div>
 
-                    <p className="mt-4 text-sm leading-6 text-muted-foreground line-clamp-3">{expert.bio}</p>
+                    <p className="mt-4 text-sm leading-6 text-muted-foreground line-clamp-3">
+                      {expert.bio}
+                    </p>
 
                     <div className="mt-4 flex flex-wrap gap-1.5">
                       {(expert.tags || []).map((tag: string) => (
@@ -281,24 +286,15 @@ export default function ExpertsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-6 border-t border-border pt-4">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">{isAr ? 'النوع' : 'Format'}</span>
-                      <span className="font-bold text-primary">
-                        {expert.durationMinutes} {isAr ? 'دقيقة جلسة فيديو' : 'min video session'}
-                      </span>
-                    </div>
-                    <div className="mt-4 flex items-center justify-between">
-                      <span className="text-sm font-bold text-primary">{expert.price}</span>
-                      <Link
-                        href={localeHref(`/experts/${expert.slug}`)}
-                        className="rounded-full bg-accent hover:bg-accent-hover text-primary font-bold px-4 py-2 text-xs transition shadow-xs"
-                      >
-                        {isAr ? 'عرض الملف والحجز ←' : 'View profile & book →'}
-                      </Link>
-                    </div>
+                  <div className="mt-6 border-t border-border pt-4 flex items-center justify-between">
+                    <span className="text-xs font-bold text-primary group-hover:text-primary transition-colors inline-flex items-center gap-1.5">
+                      {isAr ? 'عرض الملف والحجز' : 'View profile & book'}
+                    </span>
+                    <span className="grid size-8 place-items-center rounded-full bg-accent text-primary transition-transform duration-300 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 shadow-xs">
+                      <span className="text-sm font-bold leading-none">{isAr ? '←' : '→'}</span>
+                    </span>
                   </div>
-                </article>
+                </Link>
               ))}
             </div>
           )}
