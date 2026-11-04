@@ -20,7 +20,7 @@ function emailLayout({
     .wrapper { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; border: 1px solid #e7e2da; overflow: hidden; margin-top: 24px; margin-bottom: 24px; }
     .header { background-color: #14243b; padding: 32px 32px 28px; text-align: center; }
     .brand { font-size: 26px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px; margin: 0; }
-    .brand-accent { color: #ef5b4c; }
+    .brand-accent { color: #FCAD35; }
     .tagline { color: #8b94a1; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px; }
     .body { padding: 36px 32px; }
     .h1 { font-size: 22px; font-weight: 700; color: #14243b; margin: 0 0 16px; line-height: 1.3; }
@@ -30,11 +30,11 @@ function emailLayout({
     .meta-row:last-child { border-bottom: none; }
     .meta-label { color: #8b94a1; font-weight: 600; }
     .meta-val { color: #14243b; font-weight: 700; text-align: right; }
-    .btn { display: inline-block; background-color: #ef5b4c; color: #ffffff !important; font-size: 14px; font-weight: 700; padding: 14px 28px; text-decoration: none; border-radius: 9999px; text-align: center; margin: 12px 0; }
+    .btn { display: inline-block; background-color: #FCAD35; color: #142D4E !important; font-size: 14px; font-weight: 700; padding: 14px 28px; text-decoration: none; border-radius: 9999px; text-align: center; margin: 12px 0; }
     .btn-secondary { background-color: #14243b; }
     .btn-meet { background-color: #00796b; }
     .footer { background-color: #faf8f5; border-top: 1px solid #eeeae4; padding: 24px 32px; text-align: center; font-size: 12px; color: #8b94a1; }
-    .alert-box { background-color: #fff2ed; border: 1px solid #fcd9ce; border-radius: 12px; padding: 14px 18px; margin: 20px 0; font-size: 13px; color: #b83a2c; line-height: 1.5; }
+    .alert-box { background-color: #FFF6D9; border: 1px solid #FCAD35; border-radius: 12px; padding: 14px 18px; margin: 20px 0; font-size: 13px; color: #142D4E; line-height: 1.5; }
     .success-box { background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; padding: 14px 18px; margin: 20px 0; font-size: 13px; color: #065f46; line-height: 1.5; }
   </style>
 </head>
@@ -92,8 +92,8 @@ export function renderBookingConfirmationEmail(params: CommonEmailParams & {
     <h2 class="h1">${isClient ? 'Your Consultation is Confirmed!' : 'You Have a Confirmed Session!'}</h2>
     <p class="p">
       ${isClient
-        ? `Hello ${clientName}, your appointment with <strong>${expertName}</strong> has been confirmed. Below are your session details and access information.`
-        : `Hello ${expertName}, a new booking with client <strong>${clientName}</strong> has been confirmed.`}
+      ? `Hello ${clientName}, your appointment with <strong>${expertName}</strong> has been confirmed. Below are your session details and access information.`
+      : `Hello ${expertName}, a new booking with client <strong>${clientName}</strong> has been confirmed.`}
     </p>
 
     <div class="highlight-card">

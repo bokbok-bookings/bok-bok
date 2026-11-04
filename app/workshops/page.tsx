@@ -8,7 +8,6 @@ export default function WorkshopsPage() {
       view="workshops"
       title="Hands-on Workshops"
       subtitle="Interactive group sessions and masterclasses designed to build tangible skills alongside expert instructors."
-      badgeText="Group Learning"
     />
   )
 }

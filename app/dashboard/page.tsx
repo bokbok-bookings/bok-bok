@@ -51,7 +51,7 @@ export default async function DashboardPage() {
         </p>
         <Link
           href="/onboarding"
-          className="mt-6 inline-block rounded-full bg-[#ef5b4c] px-6 py-2.5 text-xs font-bold text-white hover:bg-[#14243b]"
+          className="mt-6 inline-block rounded-full bg-accent px-6 py-2.5 text-xs font-bold text-primary hover:bg-accent-hover transition shadow-sm"
         >
           Complete Onboarding
         </Link>
@@ -104,7 +104,7 @@ export default async function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-[#eeeae4] pb-6">
         <div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#ef5b4c]">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
             Welcome Back
           </span>
           <h1 className="mt-1 text-3xl font-semibold tracking-tight text-[#14243b]">
@@ -125,7 +125,7 @@ export default async function DashboardPage() {
           </Link>
           <Link
             href="/dashboard/availability"
-            className="rounded-full bg-[#14243b] px-5 py-2 text-xs font-bold text-white transition hover:bg-[#ef5b4c]"
+            className="rounded-full bg-accent px-5 py-2 text-xs font-bold text-primary transition hover:bg-accent-hover shadow-sm"
           >
             Edit Schedule
           </Link>
@@ -178,7 +178,7 @@ export default async function DashboardPage() {
             </div>
             <Link
               href="/dashboard/bookings"
-              className="text-xs font-bold text-[#ef5b4c] hover:underline"
+              className="text-xs font-bold text-primary hover:underline"
             >
               View all bookings →
             </Link>
@@ -304,7 +304,7 @@ export default async function DashboardPage() {
           </div>
           <Link
             href="/dashboard/bookings"
-            className="text-xs font-bold text-[#ef5b4c] hover:underline"
+            className="text-xs font-bold text-primary hover:underline"
           >
             Manage all ({allTotal}) →
           </Link>

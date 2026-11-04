@@ -98,8 +98,8 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
   const [titleAr, setTitleAr] = useState('')
   const [descEn, setDescEn] = useState('')
   const [descAr, setDescAr] = useState('')
-  const [audienceEn, setAudienceEn] = useState('Adult professionals and founders (18+)')
-  const [audienceAr, setAudienceAr] = useState('المهنيون ورواد الأعمال البالغون (+18)')
+  const [audienceEn, setAudienceEn] = useState('Professionals, founders, and learners')
+  const [audienceAr, setAudienceAr] = useState('المهنيون ورواد الأعمال والمتعلمون')
   const [adultsOnly, setAdultsOnly] = useState(true)
   const [isStructuredVocationalProgramme, setIsStructuredVocationalProgramme] = useState(false)
   const [categorySlug, setCategorySlug] = useState('marketing')
@@ -185,8 +185,8 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
     setTitleAr('')
     setDescEn('')
     setDescAr('')
-    setAudienceEn('Adult professionals and founders (18+)')
-    setAudienceAr('المهنيون ورواد الأعمال البالغون (+18)')
+    setAudienceEn('Professionals, founders, and learners')
+    setAudienceAr('المهنيون ورواد الأعمال والمتعلمون')
     setAdultsOnly(true)
     setIsStructuredVocationalProgramme(false)
     setCategorySlug(firstCat.slug)
@@ -230,8 +230,8 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
     setTitleAr(s.title.ar)
     setDescEn(s.description.en)
     setDescAr(s.description.ar)
-    setAudienceEn(s.intendedAudience?.en || 'Adult professionals and founders (18+)')
-    setAudienceAr(s.intendedAudience?.ar || 'المهنيون ورواد الأعمال البالغون (+18)')
+    setAudienceEn(s.intendedAudience?.en || 'Professionals, founders, and learners')
+    setAudienceAr(s.intendedAudience?.ar || 'المهنيون ورواد الأعمال والمتعلمون')
     setAdultsOnly(s.adultsOnly !== false)
     setIsStructuredVocationalProgramme(Boolean(s.isStructuredVocationalProgramme || s.requiresLicensingReview))
     setCategorySlug(validCatSlug)
@@ -266,11 +266,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
       return
     }
     if (!audienceEn.trim() || !audienceAr.trim()) {
-      alert('Please specify the intended adult audience (18+) in both English and Arabic.')
-      return
-    }
-    if (!adultsOnly) {
-      alert('MVP offers on Bok Bok are restricted to adults aged 18 and over.')
+      alert('Please specify the intended audience in both English and Arabic.')
       return
     }
 
@@ -374,7 +370,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
           <p className="text-xs text-[#637084] mt-1">
             {expertName
               ? `Manage MVP consultations, workshops, and webinars for ${expertName}`
-              : 'Create and configure 1-on-1 consultations, interactive workshops, or live webinars (Adults 18+ only; admin review required before publishing).'}
+              : 'Create and configure 1-on-1 consultations, interactive workshops, or live webinars (Admin review required before publishing).'}
           </p>
         </div>
         <button
@@ -480,7 +476,6 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                         {subLabel}
                       </span>
                     )}
-                    <span className="rounded-md bg-[#E8EFFF]/60 px-2 py-0.5 text-[#2855C5]">18+ Only</span>
                   </div>
 
                   <h3 className="mt-3 text-base font-bold text-[#101F49] leading-snug">{s.title.en}</h3>
@@ -566,7 +561,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                   {editingService ? 'Edit MVP Offering' : 'Create New MVP Offering'}
                 </h3>
                 <p className="text-[11px] text-[#637084]">
-                  All offers require admin review before publication and are restricted to adults aged 18+.
+                  All offers require admin review before publication.
                 </p>
               </div>
               <button
@@ -581,7 +576,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
             <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-3.5 text-[11px] text-amber-950 space-y-1">
               <p className="font-bold flex items-center gap-1.5 text-amber-900">
                 <ShieldAlert size={14} className="shrink-0" />
-                Reduced-Risk MVP Offer Controls (Adults 18+ Only):
+                Reduced-Risk MVP Offer Controls:
               </p>
               <p>
                 • <strong>Allowed Formats:</strong> Consultations, Workshops, and Webinars only. Professional Services are outside the MVP.
@@ -764,26 +759,26 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                 </label>
               </div>
 
-              {/* Intended Audience (Required in EN & AR, 18+ Adults Only) */}
+              {/* Intended Audience (Required in EN & AR) */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="text-xs font-bold text-[#101F49]">
-                  Intended Adult Audience (English, 18+) *
+                  Intended Audience (English) *
                   <input
                     required
                     value={audienceEn}
                     onChange={(e) => setAudienceEn(e.target.value)}
-                    placeholder="e.g. Startup founders and marketing managers aged 18+"
+                    placeholder="e.g. Startup founders and marketing managers"
                     className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                   />
                 </label>
                 <label className="text-xs font-bold text-[#101F49]">
-                  Intended Adult Audience (Arabic, 18+) *
+                  Intended Audience (Arabic) *
                   <input
                     required
                     dir="rtl"
                     value={audienceAr}
                     onChange={(e) => setAudienceAr(e.target.value)}
-                    placeholder="مثال: رواد الأعمال ومديرو التسويق البالغون (+18)"
+                    placeholder="مثال: رواد الأعمال ومديرو التسويق"
                     className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                   />
                 </label>
@@ -940,7 +935,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                     className="mt-0.5 size-4 rounded accent-[#2855C5]"
                   />
                   <span>
-                    I confirm this offer is strictly for <strong>adults aged 18 and over</strong>, does not include any excluded services, and does not make unverified &ldquo;accredited&rdquo; or &ldquo;officially recognized&rdquo; claims. *
+                    I confirm this offer does not include any excluded services and does not make unverified &ldquo;accredited&rdquo; or &ldquo;officially recognized&rdquo; claims. *
                   </span>
                 </label>
 

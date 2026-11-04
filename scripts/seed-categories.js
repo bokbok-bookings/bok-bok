@@ -384,8 +384,8 @@ async function seedCategories() {
         categorySlug: 'marketing',
         subcategorySlug: 'campaign-review',
         intendedAudience: {
-          en: 'Adults (18+): Startup founders, growth leads, and performance marketers seeking a campaign and funnel review.',
-          ar: 'البالغون (18+): مؤسسو الشركات الناشئة ومسؤولو النمو والتسويق الراغبون في مراجعة الحملات التسويقية.',
+          en: 'Startup founders, growth leads, and performance marketers seeking a campaign and funnel review.',
+          ar: 'مؤسسو الشركات الناشئة ومسؤولو النمو والتسويق الراغبون في مراجعة الحملات التسويقية.',
         },
       },
       'brand-positioning-message-testing': {
@@ -393,8 +393,8 @@ async function seedCategories() {
         categorySlug: 'marketing',
         subcategorySlug: 'branding-brand-strategy',
         intendedAudience: {
-          en: 'Adults (18+): Founders, brand managers, and marketing teams refining their brand positioning and messaging.',
-          ar: 'البالغون (18+): المؤسسون ومديرو العلامات التجارية وفرق التسويق الراغبون في تطوير استراتيجية العلامة التجارية.',
+          en: 'Founders, brand managers, and marketing teams refining their brand positioning and messaging.',
+          ar: 'المؤسسون ومديرو العلامات التجارية وفرق التسويق الراغبون في تطوير استراتيجية العلامة التجارية.',
         },
       },
       'leadership-1-on-1-executive-coaching': {
@@ -402,8 +402,8 @@ async function seedCategories() {
         categorySlug: 'career-professional-development',
         subcategorySlug: 'leadership-workplace-skills',
         intendedAudience: {
-          en: 'Adults (18+): Team leads, managers, and executives developing workplace leadership and communication skills.',
-          ar: 'البالغون (18+): قادة الفرق والمديرون والتنفيذيون الراغبون في تطوير مهارات القيادة وبيئة العمل.',
+          en: 'Team leads, managers, and executives developing workplace leadership and communication skills.',
+          ar: 'قادة الفرق والمديرون والتنفيذيون الراغبون في تطوير مهارات القيادة وبيئة العمل.',
         },
       },
       'career-transition-salary-strategy': {
@@ -411,8 +411,8 @@ async function seedCategories() {
         categorySlug: 'career-professional-development',
         subcategorySlug: 'salary-negotiation',
         intendedAudience: {
-          en: 'Adults (18+): Professionals preparing for salary negotiations or evaluating career compensation packages.',
-          ar: 'البالغون (18+): المهنيون المستعدون للتفاوض على الراتب أو تقييم العروض الوظيفية.',
+          en: 'Professionals preparing for salary negotiations or evaluating career compensation packages.',
+          ar: 'المهنيون المستعدون للتفاوض على الراتب أو تقييم العروض الوظيفية.',
         },
       },
       'full-website-performance-seo-audit': {
@@ -420,8 +420,8 @@ async function seedCategories() {
         categorySlug: 'technology-it',
         subcategorySlug: 'web-development',
         intendedAudience: {
-          en: 'Adults (18+): Website owners, developers, and product teams seeking a technical web performance and architecture review.',
-          ar: 'البالغون (18+): أصحاب المواقع والمطورون وفرق المنتجات الراغبون في مراجعة الأداء التقني وتطوير الويب.',
+          en: 'Website owners, developers, and product teams seeking a technical web performance and architecture review.',
+          ar: 'أصحاب المواقع والمطورون وفرق المنتجات الراغبون في مراجعة الأداء التقني وتطوير الويب.',
         },
       },
       'product-strategy-roadmap-deep-dive': {

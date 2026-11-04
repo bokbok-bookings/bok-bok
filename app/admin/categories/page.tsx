@@ -35,7 +35,7 @@ export default function AdminCategoriesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0d1624] text-slate-100 selection:bg-[#ef5b4c]">
+    <main className="min-h-screen bg-[#0d1624] text-slate-100 selection:bg-accent selection:text-primary">
       {/* Top Navigation */}
       <header className="border-b border-slate-800 bg-[#121d2f]/80 backdrop-blur-md sticky top-0 z-40 px-5 sm:px-8">
         <div className="mx-auto max-w-7xl h-16 flex items-center justify-between">

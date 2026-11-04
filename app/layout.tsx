@@ -2,6 +2,8 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import localFont from 'next/font/local'
 import { SiteHeader } from '@/components/layout/site-header'
+import { SiteFooter } from '@/components/layout/site-footer'
+import { LanguageProvider } from '@/lib/i18n/language-context'
 import './globals.css'
 
 const fontHeading = localFont({
@@ -45,11 +47,30 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="light" style={{ colorScheme: 'light' }}>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){
+              try {
+                var p = window.location.pathname;
+                var isAr = p === '/ar' || p.indexOf('/ar/') === 0 || document.cookie.indexOf('bok_lang=ar') !== -1;
+                if (isAr) {
+                  document.documentElement.lang = 'ar';
+                  document.documentElement.dir = 'rtl';
+                }
+              } catch(e) {}
+            })()`,
+          }}
+        />
+      </head>
       <body
-        className={`antialiased bg-[#fbfaf7] text-[#14243b] ${fontHeading.variable} ${fontSubheading.variable} ${fontBody.variable}`}
+        className={`antialiased bg-background text-foreground ${fontHeading.variable} ${fontSubheading.variable} ${fontBody.variable}`}
       >
-        <SiteHeader />
-        {children}
+        <LanguageProvider>
+          <SiteHeader />
+          {children}
+          <SiteFooter />
+        </LanguageProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

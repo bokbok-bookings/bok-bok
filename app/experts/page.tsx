@@ -2,16 +2,19 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { BrandLogo } from '@/components/brand/logo'
 import { BokBok } from '@/components/brand/bok-bok'
 import { useMemo, useState, useEffect } from 'react'
+import { Search } from 'lucide-react'
 import { EXPERTS } from '@/lib/data/experts'
+import { CATEGORIES } from '@/lib/data/categories'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 export default function ExpertsPage() {
+  const { isAr, t, localeHref } = useLanguage()
   const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState('All experts')
+  const [filter, setFilter] = useState('ALL')
   const [dbExperts, setDbExperts] = useState<any[]>([])
-  const [categories, setCategories] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>(CATEGORIES)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -29,7 +32,7 @@ export default function ExpertsPage() {
     fetch('/api/categories')
       .then((res) => res.json())
       .then((json) => {
-        if (json.success && Array.isArray(json.data)) {
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
           setCategories(json.data)
         }
       })
@@ -37,17 +40,21 @@ export default function ExpertsPage() {
   }, [])
 
   const filterOptions = useMemo(() => {
-    const list = ['All experts']
-    if (categories.length > 0) {
-      categories.forEach((cat) => {
-        const name = cat.name?.en || cat.title?.en
-        if (name && !list.includes(name)) list.push(name)
-      })
-    } else {
-      list.push('Marketing', 'Business', 'Technology', 'Career', 'Design')
-    }
+    const list: { id: string; label: string }[] = [
+      { id: 'ALL', label: isAr ? 'جميع الخبراء' : 'All experts' },
+    ]
+    const sourceList = categories && categories.length > 0 ? categories : CATEGORIES
+    sourceList.forEach((cat) => {
+      const label = isAr
+        ? cat.name?.ar || cat.title?.ar || cat.name?.en || cat.title?.en
+        : cat.name?.en || cat.title?.en || cat.name?.ar || cat.title?.ar
+      const slug = cat.slug || cat.id
+      if (label && !list.some((item) => item.id === slug)) {
+        list.push({ id: slug, label })
+      }
+    })
     return list
-  }, [categories])
+  }, [categories, isAr])
 
   const allExperts = useMemo(() => {
     if (dbExperts.length > 0) {
@@ -60,154 +67,242 @@ export default function ExpertsPage() {
     return allExperts.filter((expert) => {
       const tagsList = Array.isArray(expert.tags) ? expert.tags : []
       const catSlugs = Array.isArray(expert.categorySlugs) ? expert.categorySlugs : []
-      const matchesQuery = `${expert.name} ${expert.role} ${expert.location} ${tagsList.join(' ')}`
+      const expertRole = expert.role || ''
+      const expertLocation = expert.location || ''
+      const matchesQuery = `${expert.name} ${expertRole} ${expertLocation} ${tagsList.join(' ')}`
         .toLowerCase()
         .includes(query.toLowerCase())
+
+      if (!matchesQuery) return false
+      if (filter === 'ALL') return true
+
+      const fLower = filter.toLowerCase()
+      const fParts = fLower.split('-').filter(Boolean)
+
       const matchesFilter =
-        filter === 'All experts' ||
-        tagsList.some((t: string) => t.toLowerCase() === filter.toLowerCase()) ||
-        catSlugs.some((c: string) => c.toLowerCase().includes(filter.toLowerCase())) ||
-        (expert.categorySlug && expert.categorySlug.toLowerCase().includes(filter.toLowerCase()))
-      return matchesQuery && matchesFilter
+        tagsList.some((t: string) => {
+          const tLower = t.toLowerCase()
+          return (
+            tLower === fLower ||
+            fLower.includes(tLower) ||
+            tLower.includes(fLower) ||
+            fParts.some((part) => tLower.includes(part))
+          )
+        }) ||
+        catSlugs.some((c: string) => {
+          const cLower = c.toLowerCase()
+          return (
+            cLower === fLower ||
+            fLower.includes(cLower) ||
+            cLower.includes(fLower) ||
+            fParts.some((part) => cLower.includes(part))
+          )
+        }) ||
+        (expert.categorySlug &&
+          (expert.categorySlug.toLowerCase().includes(fLower) ||
+            fLower.includes(expert.categorySlug.toLowerCase()) ||
+            fParts.some((part) => expert.categorySlug.toLowerCase().includes(part)))) ||
+        fParts.some((part) => expertRole.toLowerCase().includes(part))
+
+      return matchesFilter
     })
   }, [allExperts, filter, query])
 
   return (
-    <main className="min-h-screen bg-[#fbfaf7] text-[#14243b] overflow-x-hidden">
+    <main className="min-h-screen bg-background text-foreground overflow-x-hidden py-5 sm:py-7">
       <div className="mx-auto max-w-[1280px] px-5 sm:px-8 lg:px-12 w-full">
-
-        {/* Hero Section */}
-        <section className="py-14 sm:py-16">
-          <Link
-            href="/"
-            className="mb-6 inline-flex items-center text-xs font-bold text-[#ef5b4c] hover:underline"
-          >
-            ← Back home
-          </Link>
-          <div className="max-w-3xl">
-            <p className="text-xs font-bold uppercase tracking-[.17em] text-[#ef5b4c]">
-              The <BokBok /> directory
-            </p>
-            <h1 className="mt-3 text-5xl font-semibold leading-[.98] tracking-[-.06em] sm:text-7xl">
-              Find someone who
-              <br />
-              <span className="text-[#ef5b4c]">gets it.</span>
+        {/* Header: Compact title and subtitle with count */}
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 pb-3">
+          <div>
+            <Link
+              href={localeHref('/')}
+              className="mb-1 inline-flex items-center text-xs font-bold text-primary hover:underline"
+            >
+              {isAr ? '← العودة للرئيسية' : '← Back home'}
+            </Link>
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-primary">
+              {isAr ? (
+                <>
+                  تواصل مع من{' '}
+                  <span className="relative inline-block text-primary">
+                    <span className="relative z-10">يفهم تحدياتك.</span>
+                    <span className="absolute bottom-1 left-0 w-full h-2.5 bg-accent -z-0 rounded-sm" />
+                  </span>
+                </>
+              ) : (
+                <>
+                  Find someone who{' '}
+                  <span className="relative inline-block text-primary">
+                    <span className="relative z-10">gets it.</span>
+                    <span className="absolute bottom-1 left-0 w-full h-2.5 bg-accent -z-0 rounded-sm" />
+                  </span>
+                </>
+              )}
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-7 text-[#637084]">
-              Browse vetted experts across business, marketing, product, and career. Each expert
-              manages their own availability schedule so you can book live slots that fit your week.
+            <p className="mt-1 max-w-2xl text-xs sm:text-sm text-muted-foreground">
+              {isAr
+                ? 'تصفح نخبة من المتخصصين المعتمدين في الأعمال، التسويق، التكنولوجيا، والمسار المهني.'
+                : 'Browse vetted experts across business, marketing, product, and career with direct live bookings.'}
             </p>
           </div>
+          <div className="shrink-0 text-xs text-muted-foreground font-medium">
+            <span className="font-bold text-primary">
+              {results.length} {isAr ? 'خبير معتمد' : 'vetted experts'}
+            </span>{' '}
+            {isAr ? 'جاهزون للمساعدة' : 'ready to help'}
+          </div>
+        </div>
 
-          {/* Search & Filters */}
-          <div className="mt-10 flex flex-col gap-3 rounded-3xl border border-[#e7e2da] bg-white p-3 shadow-sm sm:flex-row sm:items-center">
-            <div className="flex flex-1 items-center px-3">
-              <input
-                aria-label="Search experts"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search by name, skill, or topic..."
-                className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-[#a2a9b2]"
-              />
-            </div>
-            <div className="flex gap-2 overflow-x-auto border-t border-[#eeeae4] pt-3 sm:border-0 sm:pt-0">
-              {filterOptions.map((item) => (
+        {/* Unified Search & Filters Card */}
+        <div className="mt-2 rounded-2xl border border-border bg-surface p-3.5 sm:p-4 shadow-xs flex flex-col gap-3">
+          {/* Top Row: Search Input */}
+          <div className="relative flex items-center rounded-xl border border-border bg-background px-3 py-1.5 transition focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20">
+            <Search size={16} className="text-muted-foreground shrink-0" />
+            <input
+              aria-label={t.experts.searchPlaceholder}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t.experts.searchPlaceholder}
+              className="w-full bg-transparent px-2.5 py-1 text-xs sm:text-sm text-foreground outline-none placeholder:text-muted-foreground"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                className="px-1.5 py-0.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                aria-label={isAr ? 'مسح البحث' : 'Clear search'}
+              >
+                ✕
+              </button>
+            )}
+            <button
+              type="button"
+              className="rounded-lg bg-accent hover:bg-accent-hover text-primary font-bold px-3 py-1 text-xs transition shrink-0 shadow-xs"
+            >
+              {t.experts.searchBtn}
+            </button>
+          </div>
+
+          {/* Categories Pill Bar - Wrapped, clear, all 9 categories visible */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                {isAr ? 'تصفح حسب المجال:' : 'Browse by category:'}
+              </span>
+              {filter !== 'ALL' && (
                 <button
-                  key={item}
-                  onClick={() => setFilter(item)}
-                  className={`whitespace-nowrap rounded-full px-4 py-2.5 text-xs font-bold transition ${filter === item
-                      ? 'bg-[#14243b] text-white'
-                      : 'bg-[#f7f5f1] text-[#637084] hover:bg-[#eeeae4]'
-                    }`}
+                  type="button"
+                  onClick={() => setFilter('ALL')}
+                  className="text-xs font-bold text-accent hover:underline"
                 >
-                  {item}
+                  {isAr ? 'عرض كل المجالات' : 'Reset category filter'}
                 </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              {filterOptions.map((item) => {
+                const isSelected = filter === item.id
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setFilter(item.id)}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${isSelected
+                      ? 'bg-secondary border border-accent text-primary shadow-xs ring-1 ring-accent/30'
+                      : 'bg-surface border border-border text-foreground hover:bg-secondary/40 hover:border-accent/40 font-medium'
+                      }`}
+                  >
+                    {isSelected && (
+                      <span className="size-1.5 rounded-full bg-accent shrink-0" />
+                    )}
+                    <span>{item.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Directory Grid - Directly under filters! */}
+        <div className="mt-5 pb-20">
+          {loading ? (
+            <div className="py-20 text-center text-xs font-bold text-muted-foreground">
+              {isAr ? 'جاري تحميل الخبراء...' : 'Loading experts...'}
+            </div>
+          ) : results.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-border p-12 text-center text-sm text-muted-foreground bg-surface">
+              {t.experts.noExperts}
+            </div>
+          ) : (
+            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {results.map((expert) => (
+                <article
+                  key={expert.slug}
+                  className="group flex flex-col justify-between rounded-[28px] border border-border bg-surface p-6 transition-all hover:-translate-y-1 hover:border-accent/60 hover:shadow-md"
+                >
+                  <div>
+                    <div className="relative h-52 overflow-hidden rounded-2xl bg-secondary/60">
+                      <Image
+                        src={expert.image || expert.avatarUrl || '/experts/layla.png'}
+                        alt={`${expert.name} portrait`}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                      <span className="absolute left-3 top-3 rounded-full bg-surface/95 px-3 py-1 text-[10px] font-bold text-primary shadow-xs border border-border/50">
+                        {isAr ? 'خبير معتمد' : 'Vetted expert'}
+                      </span>
+                    </div>
+
+                    <div className="mt-5 flex items-start justify-between gap-3">
+                      <div>
+                        <h2 className="text-lg font-bold text-primary">{expert.name}</h2>
+                        <p className="mt-0.5 text-sm text-muted-foreground">{expert.role}</p>
+                        <p className="mt-1 text-xs text-muted-foreground/80">{expert.location}</p>
+                      </div>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-secondary border border-accent/40 px-2.5 py-1 text-[11px] font-bold text-primary">
+                        <span className="text-accent">★</span>
+                        <span>{expert.rating || '5.0'}</span>
+                      </span>
+                    </div>
+
+                    <p className="mt-4 text-sm leading-6 text-muted-foreground line-clamp-3">{expert.bio}</p>
+
+                    <div className="mt-4 flex flex-wrap gap-1.5">
+                      {(expert.tags || []).map((tag: string) => (
+                        <span
+                          key={tag}
+                          className="rounded-full bg-secondary text-primary px-2.5 py-1 text-[10px] font-semibold"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 border-t border-border pt-4">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">{isAr ? 'النوع' : 'Format'}</span>
+                      <span className="font-bold text-primary">
+                        {expert.durationMinutes} {isAr ? 'دقيقة جلسة فيديو' : 'min video session'}
+                      </span>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between">
+                      <span className="text-sm font-bold text-primary">{expert.price}</span>
+                      <Link
+                        href={localeHref(`/experts/${expert.slug}`)}
+                        className="rounded-full bg-accent hover:bg-accent-hover text-primary font-bold px-4 py-2 text-xs transition shadow-xs"
+                      >
+                        {isAr ? 'عرض الملف والحجز ←' : 'View profile & book →'}
+                      </Link>
+                    </div>
+                  </div>
+                </article>
               ))}
             </div>
-          </div>
-        </section>
-
-        {/* Directory Grid */}
-        <section className="pb-24">
-          <div className="mb-6 flex items-center justify-between">
-            <p className="text-sm font-medium text-[#637084]">
-              <span className="font-bold text-[#14243b]">{results.length} vetted experts</span> ready
-              to help
-            </p>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {results.map((expert) => (
-              <article
-                key={expert.slug}
-                className="group flex flex-col justify-between rounded-[28px] border border-[#e7e2da] bg-white p-6 transition-all hover:-translate-y-1 hover:border-[#f1b0a7] hover:shadow-xl"
-              >
-                <div>
-                  <div className="relative h-52 overflow-hidden rounded-2xl bg-[#f5c3a8]">
-                    <Image
-                      src={expert.image || expert.avatarUrl || '/experts/layla.png'}
-                      alt={`${expert.name} portrait`}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 33vw"
-                      className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                    <span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-[10px] font-bold text-[#14243b] shadow-xs">
-                      Vetted expert
-                    </span>
-                  </div>
-
-                  <div className="mt-5 flex items-start justify-between gap-3">
-                    <div>
-                      <h2 className="text-lg font-bold text-[#14243b]">{expert.name}</h2>
-                      <p className="mt-0.5 text-sm text-[#637084]">{expert.role}</p>
-                      <p className="mt-1 text-xs text-[#9aa2ad]">{expert.location}</p>
-                    </div>
-                    <span className="rounded-full bg-[#fff9e8] px-2.5 py-1 text-[11px] font-bold text-[#b17b17]">
-                      {expert.rating} ★
-                    </span>
-                  </div>
-
-                  <p className="mt-4 text-sm leading-6 text-[#637084]">{expert.bio}</p>
-
-                  <div className="mt-4 flex flex-wrap gap-1.5">
-                    {(expert.tags || []).map((tag: string) => (
-                      <span
-                        key={tag}
-                        className="rounded-full bg-[#f7f5f1] px-2.5 py-1 text-[10px] font-bold text-[#637084]"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-6 border-t border-[#eeeae4] pt-4">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-[#8b94a1]">Format</span>
-                    <span className="font-bold text-[#14243b]">
-                      {expert.durationMinutes} min video session
-                    </span>
-                  </div>
-                  <div className="mt-4 flex items-center justify-between">
-                    <span className="text-sm font-bold text-[#14243b]">{expert.price}</span>
-                    <Link
-                      href={`/experts/${expert.slug}`}
-                      className="rounded-full bg-[#14243b] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#ef5b4c]"
-                    >
-                      View profile & book →
-                    </Link>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-
-          {results.length === 0 && (
-            <div className="rounded-3xl border border-dashed border-[#d9d6d0] p-16 text-center text-sm text-[#637084]">
-              No experts match that search yet. Try another skill or category.
-            </div>
           )}
-        </section>
+        </div>
       </div>
     </main>
   )

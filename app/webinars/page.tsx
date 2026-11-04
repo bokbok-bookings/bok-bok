@@ -8,7 +8,6 @@ export default function WebinarsPage() {
       view="webinars"
       title="Live Online Webinars"
       subtitle="Engaging live webinars with industry leaders covering key insights, trends, and direct Q&A."
-      badgeText="Online Events"
     />
   )
 }

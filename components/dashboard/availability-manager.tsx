@@ -99,7 +99,7 @@ export function AvailabilityManager({
             setAllExperts(json.data)
           }
         })
-        .catch(() => {})
+        .catch(() => { })
     }
   }, [showExpertPicker])
 
@@ -122,7 +122,7 @@ export function AvailabilityManager({
             setExpertRole(json.data.role || '')
           }
         })
-        .catch(() => {})
+        .catch(() => { })
     }
   }, [selectedExpertId, allExperts])
 
@@ -431,7 +431,7 @@ export function AvailabilityManager({
       <div className="rounded-3xl border border-[#E8E2D8] bg-white p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="max-w-xl">
-            <span className="text-[10px] font-black uppercase tracking-wider text-[#ef5b4c]">
+            <span className="text-[10px] font-black uppercase tracking-wider text-primary">
               Rescheduling Policy
             </span>
             <h3 className="text-base font-bold text-[#101F49] mt-0.5">
@@ -504,9 +504,8 @@ export function AvailabilityManager({
             return (
               <div
                 key={day}
-                className={`p-5 transition-colors sm:p-6 ${
-                  isEnabled ? 'bg-white' : 'bg-[#FFF9EE] opacity-75'
-                }`}
+                className={`p-5 transition-colors sm:p-6 ${isEnabled ? 'bg-white' : 'bg-[#FFF9EE] opacity-75'
+                  }`}
               >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   {/* Day Info & Toggle */}
@@ -517,14 +516,12 @@ export function AvailabilityManager({
                       aria-checked={isEnabled}
                       aria-label={`Toggle ${name}`}
                       onClick={() => handleToggleDay(day)}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                        isEnabled ? 'bg-[#2855C5]' : 'bg-[#d6d0c7]'
-                      }`}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${isEnabled ? 'bg-[#2855C5]' : 'bg-[#d6d0c7]'
+                        }`}
                     >
                       <span
-                        className={`pointer-events-none inline-block size-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
-                          isEnabled ? 'translate-x-5' : 'translate-x-0'
-                        }`}
+                        className={`pointer-events-none inline-block size-5 transform rounded-full bg-white shadow-sm transition duration-200 ${isEnabled ? 'translate-x-5' : 'translate-x-0'
+                          }`}
                       />
                     </button>
 

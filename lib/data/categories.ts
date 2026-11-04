@@ -276,7 +276,7 @@ export function getCategoryLabel(slug: string | undefined, locale: 'en' | 'ar' =
   if (!slug) return ''
   const cat = getCategoryBySlug(slug)
   if (!cat) return slug
-  return locale === 'ar' ? `${cat.title.ar} (${cat.title.en})` : `${cat.title.en} — ${cat.title.ar}`
+  return locale === 'ar' ? cat.title.ar : cat.title.en
 }
 
 export function getSubcategoryLabel(
@@ -287,7 +287,7 @@ export function getSubcategoryLabel(
   if (!subcategorySlug) return ''
   const sub = getSubcategoryBySlug(categorySlug, subcategorySlug)
   if (!sub) return subcategorySlug
-  return locale === 'ar' ? `${sub.title.ar} (${sub.title.en})` : `${sub.title.en} — ${sub.title.ar}`
+  return locale === 'ar' ? sub.title.ar : sub.title.en
 }
 
 export function getAllCategories(): Category[] {

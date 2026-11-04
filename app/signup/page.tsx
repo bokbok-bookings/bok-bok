@@ -5,9 +5,11 @@ import { BrandLogo } from '@/components/brand/logo'
 import { BokBok } from '@/components/brand/bok-bok'
 import { FormEvent, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 export default function SignupPage() {
   const router = useRouter()
+  const { isAr, localeHref } = useLanguage()
   const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -29,7 +31,7 @@ export default function SignupPage() {
       const data = await res.json()
 
       if (!data.success) {
-        setError(data.error || 'Failed to create account')
+        setError(data.error || (isAr ? 'فشل إنشاء الحساب' : 'Failed to create account'))
         setLoading(false)
         return
       }
@@ -37,31 +39,33 @@ export default function SignupPage() {
       router.push(data.redirectTo || '/dashboard')
       router.refresh()
     } catch {
-      setError('An error occurred during account creation. Please try again.')
+      setError(isAr ? 'حدث خطأ أثناء إنشاء الحساب. يرجى المحاولة لاحقاً.' : 'An error occurred during account creation. Please try again.')
       setLoading(false)
     }
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[#fbfaf7] px-5 text-[#14243b]">
+    <main className="grid min-h-screen place-items-center bg-background px-5 text-foreground">
       <div className="w-full max-w-md py-12">
         <div className="mb-8">
-          <BrandLogo href="/" />
+          <BrandLogo href={localeHref('/')} />
         </div>
 
-        <div className="rounded-[28px] bg-white p-7 shadow-xl ring-1 ring-[#e7e2da] sm:p-10">
+        <div className="rounded-[28px] bg-surface p-7 shadow-xl border border-border sm:p-10">
           <Link
-            href="/"
-            className="inline-flex items-center text-xs font-bold text-[#ef5b4c] hover:underline"
+            href={localeHref('/')}
+            className="inline-flex items-center text-xs font-bold text-primary hover:underline"
           >
-            ← Back to directory
+            {isAr ? '← العودة للرئيسية' : '← Back to directory'}
           </Link>
 
-          <h1 className="mt-6 text-3xl font-semibold tracking-[-.05em]">
-            Join <BokBok />.
+          <h1 className="mt-6 text-3xl font-semibold tracking-[-.05em] text-primary">
+            {isAr ? 'انضم إلى بوك بوك.' : <>Join <BokBok />.</>}
           </h1>
-          <p className="mt-2 text-xs leading-5 text-[#637084]">
-            Create your account to start offering sessions or booking top advisors.
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            {isAr
+              ? 'أنشئ حسابك لتقديم استشاراتك أو لحجز جلسات مع نخبة من الخبراء.'
+              : 'Create your account to start offering sessions or booking top advisors.'}
           </p>
 
           {error && (
@@ -73,87 +77,93 @@ export default function SignupPage() {
           <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
             {/* Account Role Selector */}
             <div>
-              <p className="text-xs font-bold text-[#14243b] mb-2">I am joining as:</p>
+              <p className="text-xs font-bold text-primary mb-2">
+                {isAr ? 'أرغب في الانضمام كـ:' : 'I am joining as:'}
+              </p>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setRole('expert')}
-                  className={`rounded-2xl border p-3 text-left transition ${role === 'expert'
-                      ? 'border-[#14243b] bg-[#14243b] text-white'
-                      : 'border-[#dedbd5] bg-[#faf8f5] text-[#637084] hover:border-[#14243b]'
+                  className={`rounded-2xl border p-3 text-start transition ${role === 'expert'
+                    ? 'border-primary bg-primary text-white shadow-xs'
+                    : 'border-border bg-surface text-muted-foreground hover:border-primary'
                     }`}
                 >
-                  <p className="text-xs font-bold">Expert</p>
-                  <p className="mt-0.5 text-[10px] opacity-80">Offer sessions & manage time</p>
+                  <p className="text-xs font-bold">{isAr ? 'خبير ومستشار' : 'Expert'}</p>
+                  <p className="mt-0.5 text-[10px] opacity-80">
+                    {isAr ? 'تقديم الجلسات وإدارة المواعيد' : 'Offer sessions & manage time'}
+                  </p>
                 </button>
                 <button
                   type="button"
                   onClick={() => setRole('client')}
-                  className={`rounded-2xl border p-3 text-left transition ${role === 'client'
-                      ? 'border-[#14243b] bg-[#14243b] text-white'
-                      : 'border-[#dedbd5] bg-[#faf8f5] text-[#637084] hover:border-[#14243b]'
+                  className={`rounded-2xl border p-3 text-start transition ${role === 'client'
+                    ? 'border-primary bg-primary text-white shadow-xs'
+                    : 'border-border bg-surface text-muted-foreground hover:border-primary'
                     }`}
                 >
-                  <p className="text-xs font-bold">Client</p>
-                  <p className="mt-0.5 text-[10px] opacity-80">Book appointments</p>
+                  <p className="text-xs font-bold">{isAr ? 'مستفيد / عميل' : 'Client'}</p>
+                  <p className="mt-0.5 text-[10px] opacity-80">
+                    {isAr ? 'حجز الاستشارات والجلسات' : 'Book appointments'}
+                  </p>
                 </button>
               </div>
             </div>
 
-            <label className="text-xs font-bold text-[#14243b]">
-              Full name
+            <label className="text-xs font-bold text-primary">
+              {isAr ? 'الاسم بالكامل' : 'Full name'}
               <input
                 required
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="e.g. Layla Hassan"
-                className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-4 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+                placeholder={isAr ? 'مثال: ليلى حسن' : 'e.g. Layla Hassan'}
+                className="mt-1.5 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-xs text-foreground outline-none focus:border-accent"
               />
             </label>
 
-            <label className="text-xs font-bold text-[#14243b]">
-              Email address
+            <label className="text-xs font-bold text-primary">
+              {isAr ? 'البريد الإلكتروني' : 'Email address'}
               <input
                 required
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-4 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+                className="mt-1.5 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-xs text-foreground outline-none focus:border-accent"
               />
             </label>
 
-            <label className="text-xs font-bold text-[#14243b]">
-              Password
+            <label className="text-xs font-bold text-primary">
+              {isAr ? 'كلمة المرور' : 'Password'}
               <input
                 required
                 type="password"
                 minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 6 characters"
-                className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-4 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+                placeholder={isAr ? '٦ أحرف على الأقل' : 'At least 6 characters'}
+                className="mt-1.5 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-xs text-foreground outline-none focus:border-accent"
               />
             </label>
 
             <button
               type="submit"
               disabled={loading}
-              className="mt-2 rounded-full bg-[#ef5b4c] px-5 py-3 text-xs font-bold text-white shadow-sm hover:bg-[#14243b] transition disabled:opacity-50"
+              className="mt-2 rounded-full bg-accent hover:bg-accent-hover px-5 py-3 text-xs font-bold text-primary shadow-xs transition disabled:opacity-50"
             >
               {loading
-                ? 'Creating account...'
+                ? (isAr ? 'جاري إنشاء الحساب...' : 'Creating account...')
                 : role === 'expert'
-                  ? 'Create Expert Account →'
-                  : 'Create Client Account'}
+                  ? (isAr ? 'إنشاء حساب خبير ←' : 'Create Expert Account →')
+                  : (isAr ? 'إنشاء حساب مستفيد' : 'Create Client Account')}
             </button>
           </form>
 
-          <div className="mt-6 border-t border-[#f4f2ee] pt-4 text-center">
-            <p className="text-xs text-[#637084]">
-              Already a member?{' '}
-              <Link href="/login" className="font-bold text-[#ef5b4c] hover:underline">
-                Sign in
+          <div className="mt-6 border-t border-border pt-4 text-center">
+            <p className="text-xs text-muted-foreground">
+              {isAr ? 'لديك حساب بالفعل؟ ' : 'Already a member? '}
+              <Link href={localeHref('/login')} className="font-bold text-primary hover:underline">
+                {isAr ? 'تسجيل الدخول' : 'Sign in'}
               </Link>
             </p>
           </div>

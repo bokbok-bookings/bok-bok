@@ -8,6 +8,7 @@ import { getCategoryLabel, getSubcategoryLabel } from '@/lib/data/categories'
 import type { DayAvailability, TimeSlot } from '@/lib/data/availability'
 import { formatDateLabel, formatSlotLabel } from '@/lib/data/availability'
 import { CloudinaryUploadWidget } from '@/components/ui/cloudinary-upload-widget'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 interface PageProps {
   params: Promise<{ slug: string }> | { slug: string }
@@ -33,6 +34,7 @@ interface ServiceItem {
 }
 
 export default function ExpertProfile({ params }: PageProps) {
+  const { isAr, t, localeHref } = useLanguage()
   const unwrappedParams =
     typeof (params as any)?.then === 'function'
       ? use(params as Promise<{ slug: string }>)
@@ -61,7 +63,6 @@ export default function ExpertProfile({ params }: PageProps) {
   const [clientName, setClientName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [clientPhone, setClientPhone] = useState('')
-  const [adultsOnlyConfirmed, setAdultsOnlyConfirmed] = useState(false)
   const [receiptUrl, setReceiptUrl] = useState('')
   const [uploadingReceipt, setUploadingReceipt] = useState(false)
 
@@ -199,42 +200,11 @@ export default function ExpertProfile({ params }: PageProps) {
     }
   }, [selectedDate, profileId, duration])
 
-  // Handle receipt upload to Cloudinary
-  const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    setUploadingReceipt(true)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-
-      const res = await fetch('/api/upload?type=receipt', {
-        method: 'POST',
-        body: formData,
-      })
-      const json = await res.json()
-      if (json.success && json.url) {
-        setReceiptUrl(json.url)
-      } else {
-        alert(json.error || 'Failed to upload receipt')
-      }
-    } catch {
-      alert('Error uploading receipt. Please try again.')
-    } finally {
-      setUploadingReceipt(false)
-    }
-  }
-
   // Handle booking submission
   const handleBooking = async () => {
     if (!selectedDate || !selectedTime || !profile) return
     if (!clientName.trim() || !clientEmail.trim()) {
-      alert('Please enter your full name and email address')
-      return
-    }
-    if (!adultsOnlyConfirmed) {
-      alert('Please confirm that you are 18 years of age or older.')
+      alert(isAr ? 'يرجى إدخال الاسم بالكامل والبريد الإلكتروني' : 'Please enter your full name and email address')
       return
     }
 
@@ -269,13 +239,15 @@ export default function ExpertProfile({ params }: PageProps) {
         setBooked(true)
         setBookingReference(data.reference || data.booking?.reference || 'BK-PROCESSED')
         setBookingSuccessMsg(
-          `Your appointment request has been submitted for ${formatDateLabel(selectedDate)} at ${formatSlotLabel(selectedTime)}.`
+          isAr
+            ? `تم تقديم طلب الحجز بنجاح لتاريخ ${formatDateLabel(selectedDate)} في تمام ${formatSlotLabel(selectedTime)}.`
+            : `Your appointment request has been submitted for ${formatDateLabel(selectedDate)} at ${formatSlotLabel(selectedTime)}.`
         )
       } else {
-        alert(data.error || 'Failed to complete booking')
+        alert(data.error || (isAr ? 'تعذر إتمام الحجز' : 'Failed to complete booking'))
       }
     } catch {
-      alert('An error occurred while booking.')
+      alert(isAr ? 'حدث خطأ أثناء إجراء الحجز' : 'An error occurred while booking.')
     } finally {
       setBookingLoading(false)
     }
@@ -283,9 +255,11 @@ export default function ExpertProfile({ params }: PageProps) {
 
   if (loadingProfile) {
     return (
-      <main className="min-h-screen bg-[#fbfaf7] text-[#14243b]">
+      <main className="min-h-screen bg-background text-foreground">
         <div className="mx-auto max-w-[1140px] px-5 sm:px-8 py-24 text-center">
-          <p className="text-sm font-bold text-[#8b94a1]">Loading expert profile...</p>
+          <p className="text-sm font-bold text-muted-foreground">
+            {isAr ? 'جاري تحميل ملف الخبير...' : 'Loading expert profile...'}
+          </p>
         </div>
       </main>
     )
@@ -293,18 +267,22 @@ export default function ExpertProfile({ params }: PageProps) {
 
   if (notFound || !profile) {
     return (
-      <main className="min-h-screen bg-[#fbfaf7] text-[#14243b]">
+      <main className="min-h-screen bg-background text-foreground">
         <div className="mx-auto max-w-[1140px] px-5 sm:px-8 py-24 text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-[#14243b]">Expert Not Found</h1>
-          <p className="mt-2 text-xs text-[#637084]">
-            The expert profile for &quot;{slug}&quot; does not exist or may still be pending review.
+          <h1 className="text-3xl font-bold tracking-tight text-primary">
+            {isAr ? 'الخبير غير متوفر' : 'Expert Not Found'}
+          </h1>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {isAr
+              ? 'الملف الشخصي المطلوب غير متوفر حالياً أو قيد المراجعة.'
+              : `The expert profile for "${slug}" does not exist or may still be pending review.`}
           </p>
           <div className="mt-6">
             <Link
               href="/experts"
-              className="rounded-full bg-[#14243b] px-6 py-2.5 text-xs font-bold text-white hover:bg-[#ef5b4c]"
+              className="rounded-full bg-accent px-6 py-2.5 text-xs font-bold text-primary hover:bg-accent-hover transition shadow-xs"
             >
-              ← Back to All Experts
+              {isAr ? '← العودة لجميع الخبراء' : '← Back to All Experts'}
             </Link>
           </div>
         </div>
@@ -315,14 +293,14 @@ export default function ExpertProfile({ params }: PageProps) {
   const currentPriceEGP = selectedService?.pricing?.prices?.EGP ?? profile.priceNumber ?? 500
 
   return (
-    <main className="min-h-screen bg-[#fbfaf7] text-[#14243b] overflow-x-hidden">
+    <main className="min-h-screen bg-background text-foreground overflow-x-hidden">
       <div className="mx-auto max-w-[1140px] px-4 sm:px-8 pb-20 w-full">
         <div className="py-8 w-full min-w-0">
           <Link
-            href="/experts"
-            className="inline-flex items-center text-xs font-bold text-[#ef5b4c] hover:underline"
+            href={localeHref('/experts')}
+            className="inline-flex items-center text-xs font-bold text-primary hover:underline"
           >
-            ← Back to directory
+            {isAr ? '← العودة لدليل الخبراء' : '← Back to directory'}
           </Link>
 
           <section className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_400px] w-full min-w-0">
@@ -330,7 +308,7 @@ export default function ExpertProfile({ params }: PageProps) {
             <div className="min-w-0 w-full space-y-8">
               {/* Expert Hero Profile */}
               <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
-                <div className="relative size-28 sm:size-32 shrink-0 overflow-hidden rounded-[24px] bg-[#f5c3a8] border border-[#eeeae4]">
+                <div className="relative size-28 sm:size-32 shrink-0 overflow-hidden rounded-[24px] bg-secondary border border-border">
                   <Image
                     src={profile.image || profile.avatarUrl || '/experts/layla.png'}
                     alt={`${profile.name} portrait`}
@@ -341,27 +319,27 @@ export default function ExpertProfile({ params }: PageProps) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-[#fff2ed] px-2.5 py-0.5 text-[10px] font-bold text-[#ef5b4c]">
-                      Vetted expert • 18+ Marketplace
+                    <span className="rounded-full bg-secondary border border-accent/40 px-2.5 py-0.5 text-[10px] font-bold text-primary">
+                      {isAr ? 'خبير معتمد • منصة موثوقة' : 'Vetted expert • Marketplace'}
                     </span>
-                    <span className="text-xs font-semibold text-[#8b94a1]">{profile.location}</span>
+                    <span className="text-xs font-semibold text-muted-foreground">{profile.location}</span>
                   </div>
-                  <h1 className="mt-2 text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-[-.04em] text-[#14243b] break-words">
+                  <h1 className="mt-2 text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-[-.04em] text-primary break-words">
                     {profile.name}
                   </h1>
-                  <p className="mt-1 text-base sm:text-lg font-medium text-[#637084] break-words">
+                  <p className="mt-1 text-base sm:text-lg font-medium text-muted-foreground break-words">
                     {profile.role}
                   </p>
-                  <p className="mt-2 text-xs font-bold text-[#14243b]">
-                    {profile.rating || '5.0'} ★{' '}
-                    <span className="font-normal text-[#8b94a1]">
-                      ({profile.reviews || 0} verified reviews)
+                  <p className="mt-2 text-xs font-bold text-primary">
+                    <span className="text-accent">★</span> {profile.rating || '5.0'}{' '}
+                    <span className="font-normal text-muted-foreground">
+                      ({profile.reviews || 0} {isAr ? 'تقييم موثق' : 'verified reviews'})
                     </span>
                   </p>
 
                   {/* About Description */}
                   {(profile.about || profile.bio) && (
-                    <p className="mt-4 text-sm sm:text-base leading-relaxed text-[#637084] break-words max-w-2xl">
+                    <p className="mt-4 text-sm sm:text-base leading-relaxed text-muted-foreground break-words max-w-2xl">
                       {profile.about || profile.bio}
                     </p>
                   )}
@@ -372,7 +350,7 @@ export default function ExpertProfile({ params }: PageProps) {
                       {(profile.tags || []).map((tag: string) => (
                         <span
                           key={tag}
-                          className="rounded-full border border-[#e7e2da] bg-white px-2.5 py-1 text-[11px] font-bold text-[#637084]"
+                          className="rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] font-bold text-muted-foreground"
                         >
                           {tag}
                         </span>
@@ -383,108 +361,110 @@ export default function ExpertProfile({ params }: PageProps) {
               </div>
 
               {/* Approved MVP Consultations, Workshops & Webinars Offered */}
-              <div className="border-t border-[#e7e2da] pt-8 min-w-0 w-full">
+              <div className="border-t border-border pt-8 min-w-0 w-full">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold tracking-tight text-[#14243b]">
-                    Approved Consultations, Workshops & Webinars
+                  <h2 className="text-xl font-bold tracking-tight text-primary">
+                    {isAr ? 'الاستشارات وورش العمل والندوات المعتمدة' : 'Approved Consultations, Workshops & Webinars'}
                   </h2>
-                  <span className="text-xs text-[#8b94a1]">Adults 18+ Only</span>
+                  <span className="text-xs text-muted-foreground">
+                    {isAr ? 'جلسات موثقة' : 'Verified Sessions'}
+                  </span>
                 </div>
 
                 {loadingServices ? (
-                  <p className="mt-4 text-xs text-[#8b94a1]">Loading offerings...</p>
+                  <p className="mt-4 text-xs text-muted-foreground">
+                    {isAr ? 'جاري تحميل الجلسات...' : 'Loading offerings...'}
+                  </p>
                 ) : services.length === 0 ? (
-                  <div className="mt-4 rounded-2xl border border-dashed border-[#dedbd5] bg-white p-6 text-xs text-[#637084]">
-                    No active approved offerings are currently published for this expert.
+                  <div className="mt-4 rounded-2xl border border-dashed border-border bg-surface p-6 text-xs text-muted-foreground">
+                    {isAr
+                      ? 'لا توجد جلسات معتمدة منشورة حالياً لهذا الخبير.'
+                      : 'No active approved offerings are currently published for this expert.'}
                   </div>
                 ) : (
                   <div className="mt-4 grid gap-3 sm:grid-cols-2 min-w-0 w-full">
                     {services.map((s) => {
                       const isSelected = selectedService?._id === s._id
                       const bType = s.bookingType || 'APPOINTMENT'
-                      const typeLabel =
-                        bType === 'WORKSHOP'
+                      const typeLabel = isAr
+                        ? bType === 'WORKSHOP'
+                          ? 'ورشة عمل'
+                          : bType === 'WEBINAR'
+                            ? 'ندوة مباشرة'
+                            : 'استشارة فردية'
+                        : bType === 'WORKSHOP'
                           ? 'Workshop'
                           : bType === 'WEBINAR'
                             ? 'Webinar'
                             : 'Consultation'
-                      const subLabelEn = getSubcategoryLabel(s.categorySlug, s.subcategorySlug, 'en')
+
+                      const subLabel = getSubcategoryLabel(s.categorySlug, s.subcategorySlug, isAr ? 'ar' : 'en')
+                      const displayTitle = isAr ? (s.title?.ar || s.title?.en) : (s.title?.en || s.title?.ar)
+                      const displayDesc = isAr ? (s.description?.ar || s.description?.en) : (s.description?.en || s.description?.ar)
 
                       return (
                         <div
                           key={s._id}
                           onClick={() => setSelectedService(s)}
-                          className={`cursor-pointer rounded-2xl border p-4 transition min-w-0 w-full flex flex-col justify-between ${
-                            isSelected
-                              ? 'border-[#14243b] bg-[#14243b] text-white shadow-md'
-                              : 'border-[#dedbd5] bg-white text-[#14243b] hover:border-[#14243b]'
-                          }`}
+                          className={`cursor-pointer rounded-2xl border p-4 transition min-w-0 w-full flex flex-col justify-between ${isSelected
+                              ? 'border-primary bg-primary text-white shadow-md'
+                              : 'border-border bg-surface text-foreground hover:border-primary'
+                            }`}
                         >
                           <div>
                             <div className="flex items-start justify-between gap-2 min-w-0">
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   <span
-                                    className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${
-                                      isSelected
+                                    className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${isSelected
                                         ? 'bg-white/20 text-white'
-                                        : 'bg-slate-100 text-slate-700'
-                                    }`}
+                                        : 'bg-secondary text-primary'
+                                      }`}
                                   >
                                     {typeLabel}
                                   </span>
-                                  {subLabelEn && (
+                                  {subLabel && (
                                     <span
-                                      className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-bold ${
-                                        isSelected
-                                          ? 'bg-[#ef5b4c] text-white'
-                                          : 'bg-[#fff2ed] text-[#ef5b4c]'
-                                      }`}
+                                      className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-bold ${isSelected
+                                          ? 'bg-accent text-primary'
+                                          : 'bg-secondary text-primary'
+                                        }`}
                                     >
-                                      {subLabelEn}
+                                      {subLabel}
                                     </span>
                                   )}
                                 </div>
                                 <h3 className="mt-1.5 text-sm font-bold leading-snug break-words">
-                                  {s.title.en}
+                                  {displayTitle}
                                 </h3>
-                                <p
-                                  className={`text-[11px] mt-0.5 break-words ${
-                                    isSelected ? 'text-white/70' : 'text-[#8b94a1]'
-                                  }`}
-                                  dir="rtl"
-                                >
-                                  {s.title.ar}
-                                </p>
                               </div>
-                              <span className="text-sm font-black whitespace-nowrap shrink-0 ml-2">
-                                {s.pricing?.prices?.EGP ?? profile.priceNumber} EGP
+                              <span className="text-sm font-black whitespace-nowrap shrink-0 ms-2">
+                                {s.pricing?.prices?.EGP ?? profile.priceNumber} {isAr ? 'ج.م' : 'EGP'}
                               </span>
                             </div>
-                            {s.description?.en && (
+                            {displayDesc && (
                               <p
-                                className={`mt-2 text-xs line-clamp-2 leading-relaxed break-words ${
-                                  isSelected ? 'text-white/80' : 'text-[#637084]'
-                                }`}
+                                className={`mt-2 text-xs line-clamp-2 leading-relaxed break-words ${isSelected ? 'text-white/80' : 'text-muted-foreground'
+                                  }`}
                               >
-                                {s.description.en}
+                                {displayDesc}
                               </p>
                             )}
                           </div>
                           <div
-                            className={`mt-3 pt-2.5 border-t text-[10px] font-semibold flex items-center justify-between ${
-                              isSelected ? 'border-white/15 text-white/60' : 'border-[#f4f2ee] text-[#8b94a1]'
-                            }`}
-                          >
-                            <span>Duration: {s.durationMinutes} min • 18+</span>
-                            <Link
-                              href={`/services/${s.slug || s._id}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className={`hover:underline font-bold ${
-                                isSelected ? 'text-[#f5c3a8]' : 'text-[#ef5b4c]'
+                            className={`mt-3 pt-2.5 border-t text-[10px] font-semibold flex items-center justify-between ${isSelected ? 'border-white/15 text-white/60' : 'border-border text-muted-foreground'
                               }`}
+                          >
+                            <span>
+                              {isAr ? `المدة: ${s.durationMinutes} دقيقة` : `Duration: ${s.durationMinutes} min`}
+                            </span>
+                            <Link
+                              href={localeHref(`/services/${s.slug || s._id}`)}
+                              onClick={(e) => e.stopPropagation()}
+                              className={`hover:underline font-bold ${isSelected ? 'text-accent' : 'text-primary'
+                                }`}
                             >
-                              Details ↗
+                              {isAr ? 'التفاصيل ↗' : 'Details ↗'}
                             </Link>
                           </div>
                         </div>
@@ -496,75 +476,87 @@ export default function ExpertProfile({ params }: PageProps) {
             </div>
 
             {/* Right Column: Live Booking & InstaPay Widget */}
-            <aside className="h-fit rounded-[32px] bg-[#14243b] p-5 sm:p-6 text-white shadow-xl min-w-0 w-full overflow-hidden">
+            <aside className="h-fit rounded-[32px] bg-primary p-5 sm:p-6 text-white shadow-xl min-w-0 w-full overflow-hidden">
               <div className="flex items-baseline justify-between border-b border-white/10 pb-4">
                 <div>
                   <span className="text-3xl font-semibold tracking-tight">
-                    {currentPriceEGP} EGP
+                    {currentPriceEGP} {isAr ? 'ج.م' : 'EGP'}
                   </span>
-                  <span className="ml-2 text-xs text-[#b9c2ce]">/ {duration} min session</span>
+                  <span className="ms-2 text-xs text-white/70">
+                    {isAr ? `/ جلسة ${duration} دقيقة` : `/ ${duration} min session`}
+                  </span>
                 </div>
-                <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-[#f5c3a8]">
-                  InstaPay • 18+
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-accent">
+                  {isAr ? 'دفع مؤكد إنستاباي' : 'InstaPay Verified'}
                 </span>
               </div>
 
               {booked ? (
                 <div className="mt-6 rounded-2xl bg-emerald-900/60 border border-emerald-500/40 p-5 text-center space-y-3">
                   <span className="text-2xl">✓</span>
-                  <h3 className="text-base font-bold text-emerald-300">Appointment Requested</h3>
+                  <h3 className="text-base font-bold text-emerald-300">
+                    {isAr ? 'تم استلام طلب الموعد' : 'Appointment Requested'}
+                  </h3>
                   <p className="text-xs text-white/90 leading-5">{bookingSuccessMsg}</p>
                   <div className="rounded-xl bg-black/30 p-2.5 font-mono text-xs font-bold text-emerald-200">
-                    Booking Reference: {bookingReference}
+                    {isAr ? 'رقم الحجز:' : 'Booking Reference:'} {bookingReference}
                   </div>
                   <p className="text-[11px] text-white/70">
-                    Your InstaPay receipt has been submitted. Our team will verify the transfer and confirm your calendar appointment.
+                    {isAr
+                      ? 'تم استلام إيصال إنستاباي بنجاح. سيقوم فريقنا بالتحقق من التحويل وتأكيد الموعد على تقويمك.'
+                      : 'Your InstaPay receipt has been submitted. Our team will verify the transfer and confirm your calendar appointment.'}
                   </p>
                 </div>
               ) : services.length === 0 ? (
                 <div className="mt-6 rounded-2xl bg-white/5 border border-white/10 p-5 text-center text-xs text-white/75">
-                  This expert&apos;s offerings are currently being updated for the approved MVP taxonomy and will be available once admin review is complete.
+                  {isAr
+                    ? 'يتم حالياً تحديث عروض هذا الخبير وستتاح فور اكتمال مراجعتها.'
+                    : "This expert's offerings are currently being updated for the approved MVP taxonomy and will be available once admin review is complete."}
                 </div>
               ) : (
                 <>
                   {/* Step 1: Pick a Date */}
                   <div className="mt-5">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-[#f5c3a8]">
-                      1. Select Date
+                    <label className="block text-xs font-bold uppercase tracking-wider text-accent">
+                      {isAr ? '١. اختر التاريخ' : '1. Select Date'}
                     </label>
                     {loadingDays ? (
-                      <p className="mt-2 text-xs text-[#b9c2ce]">Checking calendar...</p>
+                      <p className="mt-2 text-xs text-white/60">
+                        {isAr ? 'جاري فحص المواعيد...' : 'Checking calendar...'}
+                      </p>
                     ) : (
                       <div className="mt-2 flex gap-2 overflow-x-auto pb-2 scrollbar-none">
                         {days.map((d) => {
                           const isSelected = selectedDate === d.date
                           const isClosed = !d.hasSlots
+                          const localeCode = isAr ? 'ar-EG' : 'en-US'
 
                           return (
                             <button
                               key={d.date}
                               disabled={isClosed}
                               onClick={() => setSelectedDate(d.date)}
-                              className={`shrink-0 rounded-2xl border px-3 py-2 text-center transition ${
-                                isSelected
-                                  ? 'border-[#ef5b4c] bg-[#ef5b4c] text-white shadow-sm'
+                              className={`shrink-0 rounded-2xl border px-3 py-2 text-center transition ${isSelected
+                                  ? 'border-accent bg-accent text-primary shadow-xs font-bold'
                                   : isClosed
                                     ? 'border-white/10 bg-white/5 text-white/30 cursor-not-allowed'
                                     : 'border-white/15 bg-white/10 text-white hover:border-white/40'
-                              }`}
+                                }`}
                             >
                               <span className="block text-[10px] font-bold uppercase">
-                                {new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(
+                                {new Intl.DateTimeFormat(localeCode, { weekday: 'short' }).format(
                                   new Date(d.date + 'T00:00:00')
                                 )}
                               </span>
                               <span className="block text-sm font-semibold">
-                                {new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short' }).format(
+                                {new Intl.DateTimeFormat(localeCode, { day: 'numeric', month: 'short' }).format(
                                   new Date(d.date + 'T00:00:00')
                                 )}
                               </span>
                               {isClosed && (
-                                <span className="mt-0.5 block text-[9px] text-[#ef5b4c]">Closed</span>
+                                <span className="mt-0.5 block text-[9px] text-white/40">
+                                  {isAr ? 'مغلق' : 'Closed'}
+                                </span>
                               )}
                             </button>
                           )
@@ -576,21 +568,23 @@ export default function ExpertProfile({ params }: PageProps) {
                   {/* Step 2: Pick a Slot */}
                   <div className="mt-4">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold uppercase tracking-wider text-[#f5c3a8]">
-                        2. Select Time Slot
+                      <label className="text-xs font-bold uppercase tracking-wider text-accent">
+                        {isAr ? '٢. اختر التوقيت' : '2. Select Time Slot'}
                       </label>
                       {selectedDate && (
-                        <span className="text-[11px] text-[#b9c2ce]">
+                        <span className="text-[11px] text-white/70">
                           {formatDateLabel(selectedDate)}
                         </span>
                       )}
                     </div>
 
                     {loadingSlots ? (
-                      <p className="mt-2 text-xs text-[#b9c2ce]">Loading available times...</p>
+                      <p className="mt-2 text-xs text-white/60">
+                        {isAr ? 'جاري تحميل المواعيد...' : 'Loading available times...'}
+                      </p>
                     ) : slots.length === 0 ? (
                       <div className="mt-2 rounded-2xl border border-white/10 bg-white/5 p-4 text-center text-xs text-white/60">
-                        No open consultation slots on this date.
+                        {isAr ? 'لا توجد فترات متاحة في هذا اليوم.' : 'No open consultation slots on this date.'}
                       </div>
                     ) : (
                       <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2 max-h-48 overflow-y-auto pr-1">
@@ -601,13 +595,12 @@ export default function ExpertProfile({ params }: PageProps) {
                               key={s.time}
                               disabled={!s.available}
                               onClick={() => setSelectedTime(s.time)}
-                              className={`rounded-xl border py-2 px-1 text-center font-mono text-[11px] sm:text-xs font-semibold transition truncate ${
-                                isSelected
-                                  ? 'border-[#ef5b4c] bg-[#ef5b4c] text-white shadow-sm'
+                              className={`rounded-xl border py-2 px-1 text-center font-mono text-[11px] sm:text-xs font-semibold transition truncate ${isSelected
+                                  ? 'border-accent bg-accent text-primary shadow-xs font-bold'
                                   : !s.available
                                     ? 'border-white/10 bg-white/5 text-white/25 cursor-not-allowed line-through'
                                     : 'border-white/15 bg-white/10 text-white hover:border-white/40'
-                              }`}
+                                }`}
                             >
                               {formatSlotLabel(s.time)}
                             </button>
@@ -619,63 +612,55 @@ export default function ExpertProfile({ params }: PageProps) {
 
                   {/* Step 3: Client Details */}
                   <div className="mt-4 space-y-2.5">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-[#f5c3a8]">
-                      3. Your Contact Details
+                    <label className="block text-xs font-bold uppercase tracking-wider text-accent">
+                      {isAr ? '٣. بيانات التواصل' : '3. Your Contact Details'}
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="Full Name *"
+                      placeholder={isAr ? 'الاسم بالكامل *' : 'Full Name *'}
                       value={clientName}
                       onChange={(e) => setClientName(e.target.value)}
-                      className="w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs text-white placeholder-white/40 outline-none focus:border-[#ef5b4c]"
+                      className="w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs text-white placeholder-white/40 outline-none focus:border-accent"
                     />
                     <input
                       type="email"
                       required
-                      placeholder="Email Address *"
+                      placeholder={isAr ? 'البريد الإلكتروني *' : 'Email Address *'}
                       value={clientEmail}
                       onChange={(e) => setClientEmail(e.target.value)}
-                      className="w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs text-white placeholder-white/40 outline-none focus:border-[#ef5b4c]"
+                      className="w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs text-white placeholder-white/40 outline-none focus:border-accent"
                     />
                     <input
                       type="tel"
-                      placeholder="WhatsApp / Phone Number"
+                      placeholder={isAr ? 'رقم الهاتف / واتساب' : 'WhatsApp / Phone Number'}
                       value={clientPhone}
                       onChange={(e) => setClientPhone(e.target.value)}
-                      className="w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs text-white placeholder-white/40 outline-none focus:border-[#ef5b4c]"
+                      className="w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs text-white placeholder-white/40 outline-none focus:border-accent"
                     />
-
-                    <label className="flex items-start gap-2.5 rounded-xl bg-white/5 border border-white/15 p-3 text-[11px] text-white/90 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={adultsOnlyConfirmed}
-                        onChange={(e) => setAdultsOnlyConfirmed(e.target.checked)}
-                        className="mt-0.5 size-4 rounded accent-[#ef5b4c]"
-                      />
-                      <span>
-                        I confirm that I am <strong>18 years of age or older</strong> (أؤكد أن عمري 18 عاماً أو أكثر). *
-                      </span>
-                    </label>
                   </div>
 
                   {/* Step 4: InstaPay Payment Instructions & Receipt Upload */}
                   <div className="mt-4 rounded-2xl border border-white/15 bg-white/5 p-4 space-y-3">
-                    <p className="text-xs font-bold uppercase tracking-wider text-[#f5c3a8]">
-                      4. InstaPay Payment
+                    <p className="text-xs font-bold uppercase tracking-wider text-accent">
+                      {isAr ? '٤. الدفع عبر إنستاباي' : '4. InstaPay Payment'}
                     </p>
                     <div className="text-xs leading-relaxed text-white/80 space-y-1">
                       <p>
-                        Transfer <strong>{currentPriceEGP} EGP</strong> to InstaPay address:
+                        {isAr ? (
+                          <>حول مبلغ <strong>{currentPriceEGP} ج.م</strong> لعنوان إنستاباي التالي:</>
+                        ) : (
+                          <>Transfer <strong>{currentPriceEGP} EGP</strong> to InstaPay address:</>
+                        )}
                       </p>
-                      <p className="rounded-lg bg-black/40 px-2.5 py-1 font-mono text-[11px] font-bold text-white selection:bg-[#ef5b4c]">
+                      <p className="rounded-lg bg-black/40 px-2.5 py-1 font-mono text-[11px] font-bold text-white selection:bg-accent text-center">
                         bokbok@instapay
                       </p>
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-semibold text-[#b9c2ce] mb-2">
-                        Upload Transfer Receipt:
+                      <label className="block text-[11px] font-semibold text-white/70 mb-2">
+                        {isAr ? 'رفع إيصال التحويل:' : 'Upload Transfer Receipt:'}
                       </label>
                       {receiptUrl ? (
                         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 flex items-center justify-between gap-2">
@@ -687,8 +672,12 @@ export default function ExpertProfile({ params }: PageProps) {
                               className="size-10 rounded-lg object-cover border border-emerald-400/40 shrink-0"
                             />
                             <div className="min-w-0">
-                              <p className="text-[11px] font-bold text-emerald-300 truncate">✓ Receipt attached</p>
-                              <p className="text-[9px] text-emerald-400/70 truncate">Compressed & verified</p>
+                              <p className="text-[11px] font-bold text-emerald-300 truncate">
+                                {isAr ? '✓ تم إرفاق الإيصال' : '✓ Receipt attached'}
+                              </p>
+                              <p className="text-[9px] text-emerald-400/70 truncate">
+                                {isAr ? 'تم التحقق والرفع بنجاح' : 'Compressed & verified'}
+                              </p>
                             </div>
                           </div>
                           <CloudinaryUploadWidget
@@ -700,7 +689,7 @@ export default function ExpertProfile({ params }: PageProps) {
                               type="button"
                               className="text-[10px] font-bold text-emerald-300 hover:text-white underline shrink-0 px-1.5 py-0.5"
                             >
-                              Replace
+                              {isAr ? 'استبدال' : 'Replace'}
                             </button>
                           </CloudinaryUploadWidget>
                         </div>
@@ -711,12 +700,12 @@ export default function ExpertProfile({ params }: PageProps) {
                           onSuccess={(result) => setReceiptUrl(result.url)}
                           className="w-full"
                         >
-                          <div className="group cursor-pointer rounded-xl border border-dashed border-white/25 bg-white/5 p-3 text-center transition hover:border-[#ef5b4c] hover:bg-white/10">
-                            <p className="text-xs font-bold text-white group-hover:text-[#ef5b4c]">
-                              + Upload Receipt
+                          <div className="group cursor-pointer rounded-xl border border-dashed border-white/25 bg-white/5 p-3 text-center transition hover:border-accent hover:bg-white/10">
+                            <p className="text-xs font-bold text-white group-hover:text-accent">
+                              {isAr ? '+ رفع إيصال الدفع' : '+ Upload Receipt'}
                             </p>
                             <p className="mt-0.5 text-[10px] text-white/50">
-                              Instant Cloudinary upload with compression
+                              {isAr ? 'رفع فوري مع ضغط وتأمين الملف' : 'Instant Cloudinary upload with compression'}
                             </p>
                           </div>
                         </CloudinaryUploadWidget>
@@ -727,21 +716,23 @@ export default function ExpertProfile({ params }: PageProps) {
                   {/* Submit Button */}
                   <button
                     type="button"
-                    disabled={!selectedTime || !adultsOnlyConfirmed || bookingLoading || uploadingReceipt}
+                    disabled={!selectedTime || bookingLoading || uploadingReceipt}
                     onClick={handleBooking}
-                    className="mt-5 flex w-full items-center justify-center rounded-full bg-[#ef5b4c] px-5 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-white hover:text-[#14243b] disabled:opacity-40"
+                    className="mt-5 flex w-full items-center justify-center rounded-full bg-accent hover:bg-accent-hover px-5 py-3.5 text-sm font-bold text-primary shadow-xs transition disabled:opacity-40"
                   >
                     {bookingLoading
-                      ? 'Submitting appointment...'
+                      ? (isAr ? 'جاري إرسال الموعد...' : 'Submitting appointment...')
                       : selectedTime
-                        ? 'Book & Submit Receipt (18+)'
-                        : 'Choose a date & time'}
+                        ? (isAr ? 'حجز وتأكيد التحويل' : 'Book & Submit Receipt')
+                        : (isAr ? 'اختر التاريخ والتوقيت' : 'Choose a date & time')}
                   </button>
                 </>
               )}
 
               <p className="mt-4 text-center text-[11px] text-white/50">
-                Reschedule or cancel up to 12 hours before session • Adults 18+ only
+                {isAr
+                  ? 'يمكنك إعادة الجدولة أو الإلغاء حتى 12 ساعة قبل موعد الجلسة'
+                  : 'Reschedule or cancel up to 12 hours before session'}
               </p>
             </aside>
           </section>

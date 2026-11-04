@@ -50,10 +50,10 @@ interface ServiceItem {
   isStructuredVocationalProgramme?: boolean
   requiresLicensingReview?: boolean
   licensingReviewStatus?:
-    | 'not_required'
-    | 'pending_licensing_review'
-    | 'licensing_approved'
-    | 'licensing_rejected'
+  | 'not_required'
+  | 'pending_licensing_review'
+  | 'licensing_approved'
+  | 'licensing_rejected'
   licensingReviewReason?: string
   hasVerifiedAccreditationAuthorization?: boolean
   adminReviewNote?: string
@@ -463,11 +463,10 @@ export default function AdminConsolePage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`px-4 py-3 text-xs font-bold border-b-2 transition whitespace-nowrap ${
-                activeTab === tab.id
+              className={`px-4 py-3 text-xs font-bold border-b-2 transition whitespace-nowrap ${activeTab === tab.id
                   ? 'border-[#2855C5] text-white'
                   : 'border-transparent text-slate-400 hover:text-slate-200'
-              }`}
+                }`}
             >
               {tab.label}
             </button>
@@ -644,13 +643,12 @@ export default function AdminConsolePage() {
                 return (
                   <div
                     key={srv._id}
-                    className={`rounded-2xl border bg-[#121d2f] p-5 sm:p-6 space-y-3 ${
-                      srv.approvalStatus === 'pending'
+                    className={`rounded-2xl border bg-[#121d2f] p-5 sm:p-6 space-y-3 ${srv.approvalStatus === 'pending'
                         ? 'border-amber-500/30 bg-amber-500/5'
                         : srv.approvalStatus === 'rejected'
                           ? 'border-rose-500/30'
                           : 'border-slate-800'
-                    }`}
+                      }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                       <div className="space-y-1.5 flex-1">
@@ -663,13 +661,12 @@ export default function AdminConsolePage() {
                             {dMode === 'ONLINE' ? '🌐 Online' : dMode === 'IN_PERSON' ? '📍 In-Person' : '🔄 Hybrid'}
                           </span>
                           <span
-                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                              srv.approvalStatus === 'pending'
+                            className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${srv.approvalStatus === 'pending'
                                 ? 'bg-amber-500/20 text-amber-300'
                                 : srv.approvalStatus === 'approved'
                                   ? 'bg-emerald-500/20 text-emerald-300'
                                   : 'bg-rose-500/20 text-rose-300'
-                            }`}
+                              }`}
                           >
                             {srv.approvalStatus === 'pending'
                               ? 'Pending Admin Review'
@@ -723,7 +720,7 @@ export default function AdminConsolePage() {
 
                         {srv.intendedAudience?.en && (
                           <p className="text-xs text-slate-300">
-                            Intended Audience (18+): <strong>{srv.intendedAudience.en}</strong>
+                            Intended Audience: <strong>{srv.intendedAudience.en}</strong>
                             {srv.intendedAudience.ar ? ` (${srv.intendedAudience.ar})` : ''}
                           </p>
                         )}
@@ -868,13 +865,12 @@ export default function AdminConsolePage() {
                     <td className="py-3 px-4 text-slate-400">{exp.categorySlug || 'marketing'}</td>
                     <td className="py-3 px-4">
                       <span
-                        className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                          exp.status === 'approved' || !exp.status
+                        className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${exp.status === 'approved' || !exp.status
                             ? 'bg-emerald-500/20 text-emerald-300'
                             : exp.status === 'pending_review'
                               ? 'bg-amber-500/20 text-amber-300'
                               : 'bg-rose-500/20 text-rose-300'
-                        }`}
+                          }`}
                       >
                         {exp.status || 'approved'}
                       </span>
@@ -940,13 +936,12 @@ export default function AdminConsolePage() {
                     <td className="py-3 px-4 font-mono text-slate-300">{u.email}</td>
                     <td className="py-3 px-4">
                       <span
-                        className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
-                          u.role === 'admin'
+                        className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${u.role === 'admin'
                             ? 'bg-rose-500/20 text-rose-300'
                             : u.role === 'expert'
                               ? 'bg-blue-500/20 text-blue-300'
                               : 'bg-slate-700 text-slate-300'
-                        }`}
+                          }`}
                       >
                         {u.role}
                       </span>
@@ -995,7 +990,7 @@ export default function AdminConsolePage() {
                 <button
                   type="submit"
                   disabled={creatingTag}
-                  className="rounded-xl bg-[#2855C5] px-5 py-2.5 text-xs font-bold text-white hover:bg-[#ff7568] transition disabled:opacity-50 shrink-0"
+                  className="rounded-xl bg-accent px-5 py-2.5 text-xs font-bold text-primary hover:bg-accent-hover transition disabled:opacity-50 shrink-0"
                 >
                   {creatingTag ? 'Creating...' : '+ Add Tag'}
                 </button>
@@ -1030,11 +1025,10 @@ export default function AdminConsolePage() {
                         <td className="py-3 px-4 font-mono text-slate-400">{tag.slug}</td>
                         <td className="py-3 px-4">
                           <span
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                              tag.isActive
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tag.isActive
                                 ? 'bg-emerald-500/20 text-emerald-300'
                                 : 'bg-slate-700 text-slate-400'
-                            }`}
+                              }`}
                           >
                             {tag.isActive ? 'Active' : 'Inactive'}
                           </span>

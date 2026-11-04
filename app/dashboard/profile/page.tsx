@@ -199,7 +199,7 @@ export default function ExpertProfilePage() {
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+              className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-accent focus:ring-1 focus:ring-accent"
             />
           </label>
           <label className="text-xs font-bold text-[#14243b]">
@@ -209,7 +209,7 @@ export default function ExpertProfilePage() {
               value={role}
               onChange={(e) => setRole(e.target.value)}
               placeholder="e.g. Marketing Strategy Consultant"
-              className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+              className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-accent focus:ring-1 focus:ring-accent"
             />
           </label>
         </div>
@@ -221,7 +221,7 @@ export default function ExpertProfilePage() {
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="e.g. Cairo, Egypt or Remote"
-              className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+              className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-accent focus:ring-1 focus:ring-accent"
             />
           </label>
           <label className="text-xs font-bold text-[#14243b]">
@@ -230,7 +230,7 @@ export default function ExpertProfilePage() {
               value={instapayUsername}
               onChange={(e) => setInstapayUsername(e.target.value)}
               placeholder="e.g. yourname@instapay or 010xxxxxxxx"
-              className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+              className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-accent focus:ring-1 focus:ring-accent"
             />
           </label>
         </div>
@@ -246,7 +246,7 @@ export default function ExpertProfilePage() {
                 const cat = categoriesList.find((c) => c.slug === e.target.value)
                 setSubcategorySlug(cat?.subcategories?.[0]?.slug || '')
               }}
-              className="mt-1.5 w-full rounded-xl border border-[#dedbd5] bg-white px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+              className="mt-1.5 w-full rounded-xl border border-[#dedbd5] bg-white px-3.5 py-2.5 text-xs outline-none focus:border-accent focus:ring-1 focus:ring-accent"
             >
               {categoriesList.map((c) => (
                 <option key={c.slug} value={c.slug}>
@@ -260,7 +260,7 @@ export default function ExpertProfilePage() {
             <select
               value={subcategorySlug}
               onChange={(e) => setSubcategorySlug(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-[#dedbd5] bg-white px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+              className="mt-1.5 w-full rounded-xl border border-[#dedbd5] bg-white px-3.5 py-2.5 text-xs outline-none focus:border-accent focus:ring-1 focus:ring-accent"
             >
               {(selectedCategory?.subcategories || []).map((sub: any) => (
                 <option key={sub.slug} value={sub.slug}>
@@ -278,7 +278,7 @@ export default function ExpertProfilePage() {
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             placeholder="1 sentence summary shown on directory cards"
-            className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+            className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-accent focus:ring-1 focus:ring-accent"
           />
         </label>
 
@@ -290,7 +290,7 @@ export default function ExpertProfilePage() {
             value={about}
             onChange={(e) => setAbout(e.target.value)}
             placeholder="Share your background, achievements, and session approach..."
-            className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+            className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-accent focus:ring-1 focus:ring-accent"
           />
         </label>
 
@@ -301,7 +301,7 @@ export default function ExpertProfilePage() {
             value={tagsStr}
             onChange={(e) => setTagsStr(e.target.value)}
             placeholder="e.g. Marketing, Growth, Brand, Content"
-            className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-[#ef5b4c]"
+            className="mt-1.5 w-full rounded-xl border border-[#dedbd5] px-3.5 py-2.5 text-xs outline-none focus:border-accent focus:ring-1 focus:ring-accent"
           />
         </label>
 
@@ -309,7 +309,7 @@ export default function ExpertProfilePage() {
           <button
             type="submit"
             disabled={saving}
-            className="rounded-full bg-[#ef5b4c] px-6 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#14243b] disabled:opacity-50"
+            className="rounded-full bg-accent px-6 py-2.5 text-xs font-bold text-primary shadow-sm hover:bg-accent-hover transition disabled:opacity-50"
           >
             {saving ? 'Saving changes...' : 'Save Profile Changes'}
           </button>

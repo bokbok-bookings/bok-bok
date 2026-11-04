@@ -67,23 +67,11 @@ export async function POST(request: Request) {
       serviceId,
       paymentReceiptUrl,
       paymentReceiptPublicId,
-      adultsOnlyConfirmed,
     } = body
 
     if (!rawExpertId || !clientName?.trim()) {
       return NextResponse.json(
         { success: false, error: 'expertId and clientName are required' },
-        { status: 400 },
-      )
-    }
-
-    // MVP control: Limit MVP offers to adults aged 18 and over
-    if (adultsOnlyConfirmed === false) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Bok Bok MVP offers are restricted to adults aged 18 and over.',
-        },
         { status: 400 },
       )
     }

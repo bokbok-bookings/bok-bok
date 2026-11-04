@@ -7,8 +7,7 @@ export default function ServicesPage() {
     <CatalogListing
       view="all"
       title="Consultations, Workshops & Webinars"
-      subtitle="Bok Bok is an adults-only (18+) marketplace for Consultations, Workshops, and Webinars across 9 approved fields. Professional Services are outside the MVP."
-      badgeText="MVP Marketplace"
+      subtitle="Bok Bok is a marketplace for Consultations, Workshops, and Webinars across 9 approved fields."
     />
   )
 }

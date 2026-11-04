@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { BrandLogo } from '@/components/brand/logo'
 import {
@@ -12,7 +13,6 @@ import {
   Compass,
   Globe2,
   GraduationCap,
-  HeartHandshake,
   Palette,
   Plane,
   Search,
@@ -20,6 +20,7 @@ import {
   Sparkles,
   Star,
 } from 'lucide-react'
+import { useLanguage } from '@/lib/i18n/language-context'
 
 const fallbackCategories = [
   {
@@ -28,7 +29,8 @@ const fallbackCategories = [
     name: 'Marketing',
     nameAr: 'التسويق',
     description: 'Strategy, content, SEO, branding & campaign reviews',
-    experts: '8 specializations',
+    descriptionAr: 'استراتيجيات التسويق، المحتوى، تحسين محركات البحث ومراجعة الحملات',
+    subCount: 8,
   },
   {
     slug: 'business-entrepreneurship',
@@ -36,7 +38,8 @@ const fallbackCategories = [
     name: 'Business & Entrepreneurship',
     nameAr: 'الأعمال وريادة الأعمال',
     description: 'Business planning, startup mentoring & sales strategy',
-    experts: '8 specializations',
+    descriptionAr: 'تخطيط الأعمال، إرشاد الشركات الناشئة واستراتيجيات المبيعات',
+    subCount: 8,
   },
   {
     slug: 'technology-it',
@@ -44,7 +47,8 @@ const fallbackCategories = [
     name: 'Technology & IT',
     nameAr: 'التكنولوجيا وتقنية المعلومات',
     description: 'Web, mobile, AI, data, architecture & code reviews',
-    experts: '9 specializations',
+    descriptionAr: 'تطوير الويب، التطبيقات، الذكاء الاصطناعي وهندسة البرمجيات',
+    subCount: 9,
   },
   {
     slug: 'career-professional-development',
@@ -52,7 +56,8 @@ const fallbackCategories = [
     name: 'Career & Professional Development',
     nameAr: 'التطوير المهني والوظيفي',
     description: 'CV review, interview prep, career planning & leadership',
-    experts: '9 specializations',
+    descriptionAr: 'مراجعة السيرة الذاتية، التحضير للمقابلات والتخطيط المهني',
+    subCount: 9,
   },
   {
     slug: 'design-creative',
@@ -60,7 +65,44 @@ const fallbackCategories = [
     name: 'Design & Creative',
     nameAr: 'التصميم والإبداع',
     description: 'UI/UX, visual identity, illustration, video & styling',
-    experts: '10 specializations',
+    descriptionAr: 'تصميم تجربة المستخدم، الهوية البصرية، والإنتاج المرئي',
+    subCount: 10,
+  },
+  {
+    slug: 'languages-communication',
+    icon: Globe2,
+    name: 'Languages & Communication',
+    nameAr: 'اللغات والتواصل',
+    description: 'Conversation practice, business & presentation skills',
+    descriptionAr: 'ممارسة المحادثة، التواصل المهني ومهارات العرض والتقديم',
+    subCount: 5,
+  },
+  {
+    slug: 'personal-skills-lifestyle',
+    icon: Check,
+    name: 'Personal Skills & Lifestyle',
+    nameAr: 'المهارات الشخصية وأسلوب الحياة',
+    description: 'Time management, productivity & goal setting',
+    descriptionAr: 'إدارة الوقت، الإنتاجية الشخصية وتحديد الأهداف',
+    subCount: 5,
+  },
+  {
+    slug: 'hobbies-skills',
+    icon: Palette,
+    name: 'Hobbies & Skills',
+    nameAr: 'الهوايات والمهارات',
+    description: 'Drawing, creative writing, music & photography basics',
+    descriptionAr: 'الرسم، الكتابة الإبداعية، الموسيقى والتصوير الفوتوغرافي',
+    subCount: 6,
+  },
+  {
+    slug: 'travel',
+    icon: Plane,
+    name: 'Travel',
+    nameAr: 'السفر والترحال',
+    description: 'Destination info, preparation & travel guidance',
+    descriptionAr: 'إرشادات الوجهات، تجهيزات السفر والتخطيط العملي للرحلات',
+    subCount: 3,
   },
 ]
 
@@ -71,6 +113,7 @@ const experts = [
 ]
 
 export default function Page() {
+  const { isAr, t, localeHref } = useLanguage()
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
   const [categoriesList, setCategoriesList] = useState<any[]>(fallbackCategories)
@@ -87,7 +130,7 @@ export default function Page() {
             'career-professional-development': GraduationCap,
             'design-creative': Palette,
             'languages-communication': Globe2,
-            'personal-skills-lifestyle': Sparkles,
+            'personal-skills-lifestyle': Check,
             'hobbies-skills': Palette,
             travel: Plane,
           }
@@ -97,7 +140,8 @@ export default function Page() {
             name: c.name?.en || c.title?.en,
             nameAr: c.name?.ar || c.title?.ar,
             description: c.description?.en || 'Guidance from top experts in this field',
-            experts: `${c.subcategories?.length || 0} specializations`,
+            descriptionAr: c.description?.ar || 'إرشاد مباشر من نخبة المتخصصين والخبراء',
+            subCount: c.subcategories?.length || 0,
           }))
           setCategoriesList(formatted)
         }
@@ -118,53 +162,67 @@ export default function Page() {
   })
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#fbfaf7] text-[#14243b]">
+    <main className="min-h-screen overflow-hidden bg-background text-foreground">
       <div className="mx-auto max-w-[1280px] px-5 sm:px-8 lg:px-12">
+        {/* Hero Section */}
         <section id="top" className="relative grid min-h-[550px] items-center gap-12 py-8 lg:grid-cols-[1fr_0.88fr] lg:gap-20 lg:py-12">
           <div className="relative z-10">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#f4cfc8] bg-[#fff2ed] px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[#d95347]">
-              <span className="size-1.5 rounded-full bg-[#ef5b4c]" /> Consultations • Workshops • Webinars (18+)
-            </div>
-            <h1 className="max-w-[620px] text-[52px] font-semibold leading-[0.98] tracking-[-0.065em] text-[#14243b] sm:text-[68px]">
-              Find your<br />
-              <span className="text-[#ef5b4c]">right expert</span> & session.
+            <h1 className="max-w-[620px] text-[46px] sm:text-[64px] font-semibold leading-[1.05] tracking-[-0.05em] text-[#14243b]">
+              {t.home.heroTitleLine1}<br />
+              <span className="relative inline-block text-primary">
+                <span className="relative z-10">{t.home.heroTitleLine2}</span>
+                <span className="absolute bottom-1 left-0 w-full h-3 bg-accent -z-0 rounded-sm" />
+              </span>
             </h1>
-            <p className="mt-7 max-w-[480px] text-[17px] leading-7 text-[#637084]">
-              Connect with verified specialists across 9 approved fields. Book 1-on-1 consultations, interactive workshops, and live masterclass webinars with seamless scheduling.
+
+            <p className="mt-6 max-w-[480px] text-[16px] sm:text-[17px] leading-relaxed text-muted-foreground">
+              {t.home.heroSubtitle}
             </p>
+
             <div className="mt-9 flex flex-wrap gap-3">
-              <a
-                href="/explore"
-                className="group inline-flex items-center gap-3 rounded-full bg-[#ef5b4c] px-6 py-3.5 text-sm font-bold text-white shadow-[0_12px_24px_-12px_rgba(239,91,76,.7)] transition-all hover:-translate-y-0.5"
+              <Link
+                href={localeHref('/explore')}
+                className="group inline-flex items-center gap-3 rounded-full bg-accent hover:bg-accent-hover px-6 py-3.5 text-sm font-bold text-primary shadow-xs transition-all hover:-translate-y-0.5"
               >
-                Explore All <ArrowRight size={17} className="transition-transform group-hover:translate-x-1" />
-              </a>
-              <a
-                href="/consultations"
-                className="inline-flex items-center gap-2 rounded-full border border-[#d9d6d0] bg-white px-6 py-3.5 text-sm font-bold text-[#14243b] hover:border-[#14243b]"
+                {t.home.exploreAll}{' '}
+                <ArrowRight
+                  size={17}
+                  className={`transition-transform ${isAr ? 'rotate-180 group-hover:-translate-x-1' : 'group-hover:translate-x-1'}`}
+                />
+              </Link>
+              <Link
+                href={localeHref('/consultations')}
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-6 py-3.5 text-sm font-bold text-primary hover:border-primary transition"
               >
-                Consultations
-              </a>
-              <a
-                href="/workshops"
-                className="inline-flex items-center gap-2 rounded-full border border-[#d9d6d0] bg-white px-6 py-3.5 text-sm font-bold text-[#14243b] hover:border-[#14243b]"
+                {t.home.consultations}
+              </Link>
+              <Link
+                href={localeHref('/workshops')}
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-6 py-3.5 text-sm font-bold text-primary hover:border-primary transition"
               >
-                Workshops & Webinars
-              </a>
+                {t.home.workshops}
+              </Link>
+              <Link
+                href={localeHref('/webinars')}
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-6 py-3.5 text-sm font-bold text-primary hover:border-primary transition"
+              >
+                {t.home.webinars}
+              </Link>
             </div>
-            <div className="mt-10 flex items-center gap-5 text-[12px] font-medium text-[#637084]">
+
+            <div className="mt-10 flex items-center gap-5 text-[12px] font-medium text-muted-foreground">
               <span className="flex items-center gap-1.5">
-                <ShieldCheck size={17} className="text-[#ef5b4c]" /> Admin-reviewed offers
+                <ShieldCheck size={17} className="text-primary" /> {t.home.adminReviewed}
               </span>
               <span className="flex items-center gap-1.5">
-                <Check size={17} className="text-[#ef5b4c]" /> Adults 18+ marketplace
+                <Check size={17} className="text-primary" /> {t.home.verifiedSpecialists}
               </span>
             </div>
           </div>
 
           <div className="relative mx-auto flex w-full max-w-[500px] items-center justify-center lg:max-w-[540px]">
             <Image
-              src="/hero2.png"
+              src="/hero3.png"
               alt="Bok Bok Marketplace"
               width={996}
               height={941}
@@ -174,203 +232,169 @@ export default function Page() {
           </div>
         </section>
 
-        {/* 3 MVP Marketplace Offering Streams */}
-        <section className="py-8">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <a
-              href="/consultations"
-              className="group rounded-3xl border border-[#e7e2da] bg-white p-6 transition hover:-translate-y-1 hover:shadow-lg"
-            >
-              <div className="flex items-center justify-between">
-                <span className="grid size-10 place-items-center rounded-2xl bg-blue-50 text-blue-600 font-bold group-hover:bg-blue-600 group-hover:text-white transition">
-                  <HeartHandshake size={20} />
-                </span>
-                <span className="text-[11px] font-bold text-blue-600">1-on-1 Sessions</span>
-              </div>
-              <h3 className="mt-5 text-base font-bold text-[#14243b]">Consultations / الاستشارات</h3>
-              <p className="mt-1 text-xs text-[#637084] leading-relaxed">
-                Direct 1-on-1 advisory, reviews, and mentoring with vetted specialists.
-              </p>
-              <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-[#ef5b4c]">
-                Browse Consultations →
-              </span>
-            </a>
-
-            <a
-              href="/workshops"
-              className="group rounded-3xl border border-[#e7e2da] bg-white p-6 transition hover:-translate-y-1 hover:shadow-lg"
-            >
-              <div className="flex items-center justify-between">
-                <span className="grid size-10 place-items-center rounded-2xl bg-purple-50 text-purple-600 font-bold group-hover:bg-purple-600 group-hover:text-white transition">
-                  <GraduationCap size={20} />
-                </span>
-                <span className="text-[11px] font-bold text-purple-600">Hands-on Cohorts</span>
-              </div>
-              <h3 className="mt-5 text-base font-bold text-[#14243b]">Workshops / ورش العمل</h3>
-              <p className="mt-1 text-xs text-[#637084] leading-relaxed">
-                Small group interactive sessions with practical exercises and feedback.
-              </p>
-              <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-[#ef5b4c]">
-                Join Workshops →
-              </span>
-            </a>
-
-            <a
-              href="/webinars"
-              className="group rounded-3xl border border-[#e7e2da] bg-white p-6 transition hover:-translate-y-1 hover:shadow-lg"
-            >
-              <div className="flex items-center justify-between">
-                <span className="grid size-10 place-items-center rounded-2xl bg-amber-50 text-amber-600 font-bold group-hover:bg-amber-600 group-hover:text-white transition">
-                  <Sparkles size={20} />
-                </span>
-                <span className="text-[11px] font-bold text-amber-600">Live Masterclasses</span>
-              </div>
-              <h3 className="mt-5 text-base font-bold text-[#14243b]">Webinars / الندوات المباشرة</h3>
-              <p className="mt-1 text-xs text-[#637084] leading-relaxed">
-                Live virtual broadcasts and Q&A sessions with industry practitioners.
-              </p>
-              <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-[#ef5b4c]">
-                Discover Webinars →
-              </span>
-            </a>
-          </div>
-        </section>
-
-        <section id="categories" className="border-t border-[#e7e2da] py-20">
+        {/* Categories Section */}
+        <section id="categories" className="border-t border-border py-20">
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[.17em] text-[#ef5b4c]">
-                Approved MVP Taxonomy
-              </p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em] sm:text-4xl">
-                What can we help with?
+              <h2 className="text-3xl font-semibold tracking-[-.04em] sm:text-4xl text-primary">
+                {t.home.categoriesHeading}
               </h2>
             </div>
-            <a href="/explore" className="flex items-center gap-2 text-sm font-bold text-[#ef5b4c]">
-              Explore all 9 categories <ArrowRight size={16} />
-            </a>
+            <Link
+              href="/explore"
+              className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline"
+            >
+              {t.home.exploreAllCategories}{' '}
+              <ArrowRight
+                size={16}
+                className={isAr ? 'rotate-180' : ''}
+              />
+            </Link>
           </div>
-          <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {categoriesList.map(({ icon: Icon, name, nameAr, description, experts: count }) => (
-              <button
-                key={name}
-                onClick={() => {
-                  setActiveCategory(name)
-                  document.getElementById('experts')?.scrollIntoView({ behavior: 'smooth' })
-                }}
-                className="group rounded-3xl border border-[#e7e2da] bg-white p-5 text-left transition-all hover:-translate-y-1 hover:border-[#f1b0a7] hover:shadow-lg"
-              >
-                <div className="mb-6 flex items-center justify-between">
-                  <span className="grid size-11 place-items-center rounded-2xl bg-[#fff0ed] text-[#ef5b4c] transition-colors group-hover:bg-[#ef5b4c] group-hover:text-white">
-                    <Icon size={20} />
-                  </span>
-                  {nameAr && (
-                    <span className="text-xs font-semibold text-[#8b94a1]" dir="rtl">
-                      {nameAr}
+
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {categoriesList.map((c) => {
+              const targetSlug = c.slug || c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+              const displayName = isAr ? c.nameAr || c.name : c.name
+              const displayDesc = isAr ? c.descriptionAr || c.description : c.description
+              const Icon = c.icon
+
+              return (
+                <Link
+                  key={targetSlug}
+                  href={localeHref(`/explore?category=${encodeURIComponent(targetSlug)}`)}
+                  className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-border bg-surface p-6 sm:p-7 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-accent hover:bg-linear-to-b hover:from-white hover:to-secondary/20"
+                >
+                  {/* Subtle decorative hover glow */}
+                  <div className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-accent/15 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100" />
+
+                  <div>
+                    {/* Top Bar: Icon */}
+                    <div className="flex items-center justify-between">
+                      <span className="grid size-12 place-items-center rounded-2xl bg-secondary border border-accent/25 text-primary transition-all duration-300 group-hover:bg-accent group-hover:scale-105 group-hover:shadow-xs">
+                        <Icon size={22} className="transition-transform duration-300 group-hover:rotate-3" />
+                      </span>
+                    </div>
+
+                    {/* Title & Animated Arrow */}
+                    <h3 className="mt-5 text-lg font-bold text-foreground transition-colors group-hover:text-primary flex items-center justify-between">
+                      <span>{displayName}</span>
+                      <ArrowRight
+                        size={18}
+                        className={`text-primary opacity-0 transition-all duration-300 group-hover:opacity-100 shrink-0 ${isAr
+                            ? 'rotate-180 translate-x-2 group-hover:translate-x-0'
+                            : '-translate-x-2 group-hover:translate-x-0'
+                          }`}
+                      />
+                    </h3>
+
+                    {/* Description */}
+                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground line-clamp-2 min-h-9">
+                      {displayDesc}
+                    </p>
+                  </div>
+
+                  {/* Bottom Footer Row */}
+                  <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground transition-colors group-hover:text-primary">
+                      <span className="size-1.5 rounded-full bg-accent" />
+                      {c.subCount ?? 8} {t.home.specializations}
                     </span>
-                  )}
-                </div>
-                <p className="font-bold">{name}</p>
-                <p className="mt-1 min-h-10 text-xs leading-5 text-[#7c8797]">{description}</p>
-                <p className="mt-4 text-[11px] font-bold text-[#ef5b4c]">{count}</p>
-              </button>
-            ))}
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-primary group-hover:text-accent-hover transition-colors">
+                      {t.home.exploreOfferings} {isAr ? '←' : '→'}
+                    </span>
+                  </div>
+                </Link>
+              )
+            })}
           </div>
         </section>
 
+        {/* How It Works Section */}
         <section id="how-it-works" className="rounded-[36px] bg-[#14243b] px-7 py-14 text-white sm:px-12 sm:py-16">
           <div className="grid gap-12 lg:grid-cols-[.8fr_1.2fr] lg:items-end">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[.17em] text-[#f5c3a8]">
-                Simple by design
+              <p className="text-xs font-bold uppercase tracking-[.17em] text-accent">
+                {isAr ? 'بكل بساطة ووضوح' : 'Simple by design'}
               </p>
-              <h2 className="mt-4 max-w-md text-4xl font-semibold leading-tight tracking-[-.05em]">
-                Good advice is only three steps away.
+              <h2 className="mt-4 max-w-md text-3xl sm:text-4xl font-semibold leading-tight tracking-[-.05em]">
+                {t.home.howItWorksHeading}
               </h2>
-              <a
-                href="/how-it-works"
-                className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-[#f5c3a8] hover:underline"
+              <Link
+                href={localeHref('/how-it-works')}
+                className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-accent hover:underline"
               >
-                Learn how it works in detail →
-              </a>
+                {t.home.howItWorksLink}{' '}
+                <ArrowRight
+                  size={14}
+                  className={isAr ? 'rotate-180' : ''}
+                />
+              </Link>
             </div>
             <div className="grid gap-8 sm:grid-cols-3">
-              {[
-                ['01', 'Find your expert', 'Browse verified specialists across 9 approved MVP categories.'],
-                ['02', 'Choose a format & time', 'Pick a consultation, workshop, or webinar that fits your schedule.'],
-                ['03', 'Book with confidence', 'Reviewed offers for adults 18+ with clear scope and audience.'],
-              ].map(([number, title, text]) => (
+              {(isAr
+                ? [
+                  ['01', 'اختر خبيرك المعتمد', 'تصفح قائمة المختصين الموثوقين عبر 9 مجالات معتمدة.'],
+                  ['02', 'حدد النموذج والموعد', 'اختر استشارة فردية، ورشة عمل، أو ندوة تناسب وقتك.'],
+                  ['03', 'احجز بكل طمأنينة', 'عروض مراجعة بدقة مع نطاق عمل واضح ودعم مستمر.'],
+                ]
+                : [
+                  ['01', 'Find your expert', 'Browse verified specialists across 9 approved MVP categories.'],
+                  ['02', 'Choose a format & time', 'Pick a consultation, workshop, or webinar that fits your schedule.'],
+                  ['03', 'Book with confidence', 'Admin-reviewed offers with clear scope and guidance.'],
+                ]
+              ).map(([number, title, text]) => (
                 <div key={number} className="border-t border-white/20 pt-4">
-                  <p className="text-sm font-bold text-[#f5c3a8]">{number}</p>
-                  <p className="mt-5 font-bold">{title}</p>
-                  <p className="mt-2 text-sm leading-6 text-[#b9c2ce]">{text}</p>
+                  <p className="text-sm font-bold text-accent">{number}</p>
+                  <p className="mt-4 font-bold">{title}</p>
+                  <p className="mt-2 text-xs sm:text-sm leading-6 text-[#b9c2ce]">{text}</p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
+        {/* Featured Experts Section */}
         <section id="experts" className="py-20">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[.17em] text-[#ef5b4c]">
-                People worth meeting
+              <p className="text-xs font-bold uppercase tracking-[.17em] text-muted-foreground">
+                {isAr ? 'شخصيات ملهمة' : 'People worth meeting'}
               </p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em] sm:text-4xl">
-                Meet our top experts
+              <h2 className="mt-3 text-3xl font-semibold tracking-[-.04em] sm:text-4xl text-primary">
+                {t.home.featuredExpertsHeading}
               </h2>
             </div>
-            <div className="flex items-center gap-2">
-              <button className="grid size-9 place-items-center rounded-full border border-[#dedbd5] bg-white text-[#637084]">
-                <ChevronLeft size={17} />
-              </button>
-              <button className="grid size-9 place-items-center rounded-full border border-[#dedbd5] bg-white text-[#637084]">
-                <ChevronRight size={17} />
-              </button>
-            </div>
+            <Link
+              href={localeHref('/experts')}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+            >
+              {t.home.viewAllExperts}{' '}
+              <ArrowRight
+                size={14}
+                className={isAr ? 'rotate-180' : ''}
+              />
+            </Link>
           </div>
-          <div className="mt-8 flex flex-col gap-4 rounded-3xl border border-[#e7e2da] bg-white p-3 sm:flex-row sm:items-center sm:p-2">
+
+          <div className="mt-8 flex flex-col gap-4 rounded-3xl border border-border bg-surface p-3 sm:flex-row sm:items-center sm:p-2">
             <div className="flex flex-1 items-center gap-3 px-3">
-              <Search size={18} className="text-[#8b94a1]" />
+              <Search size={18} className="text-muted-foreground" />
               <input
                 aria-label="Search experts"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by name, skill or topic"
-                className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-[#a2a9b2]"
+                placeholder={t.experts.searchPlaceholder}
+                className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-muted-foreground"
               />
             </div>
-            <div className="flex gap-2 overflow-x-auto">
-              <button
-                onClick={() => setActiveCategory('All')}
-                className={`rounded-full px-4 py-2 text-xs font-bold ${
-                  activeCategory === 'All'
-                    ? 'bg-[#14243b] text-white'
-                    : 'bg-[#f7f5f1] text-[#637084]'
-                }`}
-              >
-                All
-              </button>
-              {['Business', 'Marketing', 'Career'].map((category) => (
-                <button
-                  key={category}
-                  onClick={() => setActiveCategory(category)}
-                  className={`rounded-full px-4 py-2 text-xs font-bold whitespace-nowrap ${
-                    activeCategory === category
-                      ? 'bg-[#14243b] text-white'
-                      : 'bg-[#f7f5f1] text-[#637084]'
-                  }`}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
           </div>
+
           <div className="mt-8 grid gap-4 lg:grid-cols-3">
             {filteredExperts.map((expert) => (
               <article
                 key={expert.name}
-                className="rounded-3xl border border-[#e7e2da] bg-white p-5 transition-all hover:-translate-y-1 hover:shadow-lg"
+                className="rounded-3xl border border-border bg-surface p-5 transition-all hover:-translate-y-1 hover:shadow-lg"
               >
                 <div className="flex items-start justify-between">
                   <div className={`relative size-14 overflow-hidden rounded-2xl ${expert.color}`}>
@@ -382,76 +406,75 @@ export default function Page() {
                       className="object-cover"
                     />
                   </div>
-                  <span className="flex items-center gap-1 rounded-full bg-[#fff9e8] px-2.5 py-1 text-[11px] font-bold text-[#b17b17]">
-                    <Star size={12} fill="currentColor" /> {expert.rating}
+                  <span className="flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-bold text-primary">
+                    <Star size={12} className="text-accent fill-accent" /> {expert.rating}
                   </span>
                 </div>
-                <h3 className="mt-5 font-bold">{expert.name}</h3>
-                <p className="mt-1 text-sm text-[#637084]">{expert.role}</p>
-                <p className="mt-1 text-xs text-[#9aa2ad]">{expert.location}</p>
+                <h3 className="mt-5 font-bold text-primary">{expert.name}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{expert.role}</p>
+                <p className="mt-1 text-xs text-muted-foreground/80">{expert.location}</p>
                 <div className="mt-4 flex flex-wrap gap-1.5">
                   {expert.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="rounded-full bg-[#f7f5f1] px-2.5 py-1 text-[10px] font-bold text-[#637084]"
+                      className="rounded-full bg-secondary/80 border border-accent/20 px-2.5 py-1 text-[10px] font-bold text-primary"
                     >
                       {tag}
                     </span>
                   ))}
                 </div>
-                <div className="mt-5 border-t border-[#eeeae4] pt-4">
+                <div className="mt-5 border-t border-border pt-4">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-[#8b94a1]">Next available</span>
-                    <span className="font-bold text-[#14243b]">{expert.next}</span>
+                    <span className="text-muted-foreground">{t.home.nextAvailable}</span>
+                    <span className="font-bold text-primary">{expert.next}</span>
                   </div>
                   <div className="mt-3 flex items-center justify-between">
-                    <span className="text-sm font-bold">From {expert.price}</span>
-                    <a
-                      href={`/experts/${expert.name.toLowerCase().replaceAll(' ', '-')}`}
-                      className="rounded-full bg-[#14243b] px-4 py-2 text-xs font-bold text-white hover:bg-[#ef5b4c]"
+                    <span className="text-sm font-bold text-primary">
+                      {t.home.fromPrice} {expert.price}
+                    </span>
+                    <Link
+                      href={localeHref(`/experts/${expert.name.toLowerCase().replaceAll(' ', '-')}`)}
+                      className="rounded-full bg-accent px-4 py-2 text-xs font-bold text-primary hover:bg-accent-hover transition shadow-xs"
                     >
-                      View profile
-                    </a>
+                      {t.home.viewProfile}
+                    </Link>
                   </div>
                 </div>
               </article>
             ))}
           </div>
+
           {filteredExperts.length === 0 && (
-            <div className="mt-8 rounded-3xl border border-dashed border-[#d9d6d0] p-12 text-center text-sm text-[#637084]">
-              No experts found. Try another search.
+            <div className="mt-8 rounded-3xl border border-dashed border-border p-12 text-center text-sm text-muted-foreground">
+              {t.home.noExpertsFound}
             </div>
           )}
         </section>
 
+        {/* Bottom CTA Banner */}
         <section
           id="become-expert"
-          className="mb-16 flex flex-col gap-7 rounded-[36px] bg-[#f5c3a8] px-7 py-12 sm:flex-row sm:items-center sm:justify-between sm:px-12"
+          className="mb-16 flex flex-col gap-7 rounded-[36px] bg-secondary border border-accent/30 px-7 py-12 sm:flex-row sm:items-center sm:justify-between sm:px-12"
         >
           <div>
-            <p className="text-xs font-bold uppercase tracking-[.17em] text-[#b65045]">
-              Your experience matters
+            <p className="text-xs font-bold uppercase tracking-[.17em] text-muted-foreground">
+              {t.home.becomeExpertTag}
             </p>
-            <h2 className="mt-3 max-w-xl text-3xl font-semibold tracking-[-.04em] text-[#14243b]">
-              Turn what you know into someone else&apos;s next breakthrough.
+            <h2 className="mt-3 max-w-xl text-3xl font-semibold tracking-[-.04em] text-primary">
+              {t.home.becomeExpertHeading}
             </h2>
           </div>
-          <a
-            href="/signup"
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[#14243b] px-6 py-3.5 text-sm font-bold text-white"
+          <Link
+            href={localeHref('/signup')}
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-accent hover:bg-accent-hover px-6 py-3.5 text-sm font-bold text-primary shadow-xs transition"
           >
-            Become an expert <ArrowRight size={17} />
-          </a>
+            {t.home.becomeExpertBtn}{' '}
+            <ArrowRight
+              size={17}
+              className={isAr ? 'rotate-180' : ''}
+            />
+          </Link>
         </section>
-        <footer className="flex flex-col gap-5 border-t border-[#e7e2da] py-8 text-xs text-[#7c8797] sm:flex-row sm:items-center sm:justify-between">
-          <BrandLogo href="/" size="sm" />
-          <span>Expertise, made human. (Adults 18+ Marketplace)</span>
-          <div className="flex gap-5">
-            <a href="#top">Privacy</a>
-            <a href="#top">Terms</a>
-            <a href="#top">Help center</a>
-          </div>
-        </footer>
       </div>
     </main>
   )

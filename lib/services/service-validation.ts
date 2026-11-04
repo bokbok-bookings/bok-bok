@@ -379,8 +379,8 @@ export function validateServiceInput(
 
   const rawAudience = pick('intendedAudience')
   let intendedAudience: LocalizedValue = {
-    en: 'Adults (18+) seeking professional or personal guidance',
-    ar: 'البالغون (18 سنة فأكثر) الباحثون عن الإرشاد والتطوير',
+    en: 'Learners and professionals seeking professional or personal guidance',
+    ar: 'الباحثون عن الإرشاد والتطوير المهني والشخصي',
   }
   if (rawAudience && typeof rawAudience === 'object') {
     const enAud = str(rawAudience.en)

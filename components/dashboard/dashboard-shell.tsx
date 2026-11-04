@@ -101,7 +101,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-bold text-[#14243b] truncate">{user.displayName}</p>
-              <span className="inline-block mt-0.5 rounded-full bg-[#ef5b4c]/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#ef5b4c]">
+              <span className="inline-block mt-0.5 rounded-full bg-secondary border border-accent/40 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary">
                 {user.role}
               </span>
             </div>
@@ -146,7 +146,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
                   }`}
               >
                 <span>{item.name}</span>
-                {isActive && <span className="text-[10px] text-[#ef5b4c] font-black">●</span>}
+                {isActive && <span className="text-[10px] text-accent font-black">●</span>}
               </Link>
             )
           })}

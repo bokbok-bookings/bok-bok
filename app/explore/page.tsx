@@ -7,8 +7,7 @@ export default function ExploreAllPage() {
     <CatalogListing
       view="all"
       title="Explore Marketplace"
-      subtitle="Discover admin-reviewed 1-on-1 consultations, interactive workshops, and live webinars across 9 approved MVP categories for adults aged 18+."
-      badgeText="Marketplace Directory (18+)"
+      subtitle="Discover admin-reviewed 1-on-1 consultations, interactive workshops, and live webinars across 9 approved MVP categories."
     />
   )
 }

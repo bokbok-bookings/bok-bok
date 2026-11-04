@@ -59,8 +59,8 @@ export default function OnboardingPage() {
   const [serviceDescAr, setServiceDescAr] = useState(
     'استشارة فردية مفصلة وتوجيه استراتيجي عملي مصمم خصيصاً لأهدافك.'
   )
-  const [audienceEn, setAudienceEn] = useState('Adult professionals and founders (18+)')
-  const [audienceAr, setAudienceAr] = useState('المهنيون ورواد الأعمال البالغون (+18)')
+  const [audienceEn, setAudienceEn] = useState('Professionals, founders, and learners')
+  const [audienceAr, setAudienceAr] = useState('المهنيون ورواد الأعمال والمتعلمون')
   const [adultsOnly, setAdultsOnly] = useState(true)
   const [isStructuredVocationalProgramme, setIsStructuredVocationalProgramme] = useState(false)
   const [serviceDuration, setServiceDuration] = useState(45)
@@ -277,11 +277,7 @@ export default function OnboardingPage() {
       return
     }
     if (!audienceEn || !audienceAr) {
-      alert('Intended adult audience (18+) in English and Arabic is required')
-      return
-    }
-    if (!adultsOnly) {
-      alert('All Bok Bok MVP offers are restricted to adults aged 18 and over.')
+      alert('Intended audience in English and Arabic is required')
       return
     }
 
@@ -711,7 +707,7 @@ export default function OnboardingPage() {
             <div>
               <h2 className="text-2xl font-bold text-[#101F49]">Define your first consultation offering</h2>
               <p className="mt-1 text-xs text-[#637084]">
-                Create your primary 1-on-1 consultation. All MVP offers require a clear activity description, intended adult audience (18+), and administrator review before publication.
+                Create your primary 1-on-1 consultation. All MVP offers require a clear activity description, intended audience, and administrator review before publication.
               </p>
             </div>
 
@@ -763,7 +759,7 @@ export default function OnboardingPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="text-xs font-bold text-[#101F49]">
-                Intended Adult Audience (English, 18+) *
+                Intended Audience (English) *
                 <input
                   required
                   value={audienceEn}
@@ -772,7 +768,7 @@ export default function OnboardingPage() {
                 />
               </label>
               <label className="text-xs font-bold text-[#101F49]">
-                Intended Adult Audience (Arabic, 18+) *
+                Intended Audience (Arabic) *
                 <input
                   required
                   dir="rtl"
@@ -851,7 +847,7 @@ export default function OnboardingPage() {
                     className="mt-0.5 size-4 rounded accent-[#2855C5]"
                   />
                   <span>
-                    I confirm this offer is restricted to <strong>adults aged 18 and over</strong> and excludes all prohibited medical, legal, financial, tutoring, and unverified accreditation claims. *
+                    I confirm this offer adheres to Bok Bok guidelines and excludes prohibited medical, legal, financial, tutoring, and unverified accreditation claims. *
                   </span>
                 </label>
                 <label className="flex items-start gap-2 text-xs font-bold text-[#101F49] cursor-pointer">
@@ -959,7 +955,7 @@ export default function OnboardingPage() {
 
               <div className="flex justify-between">
                 <span className="text-[#8b94a1]">Intended Audience:</span>
-                <strong>{audienceEn} (18+ Adults Only)</strong>
+                <strong>{audienceEn}</strong>
               </div>
             </div>
 

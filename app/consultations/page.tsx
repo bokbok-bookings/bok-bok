@@ -8,7 +8,6 @@ export default function ConsultationsPage() {
       view="consultations"
       title="Expert Consultations"
       subtitle="Connect 1-on-1 with vetted industry practitioners to resolve your specific business, career, or creative challenges."
-      badgeText="Individual Sessions"
     />
   )
 }
