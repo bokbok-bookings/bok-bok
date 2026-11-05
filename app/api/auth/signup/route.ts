@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
+import crypto from 'crypto'
 import bcrypt from 'bcryptjs'
 import { ObjectId } from 'mongodb'
 import { getUsersCollection, getExpertsCollection } from '@/lib/db'
 import { createSession } from '@/lib/auth/session'
+import { sendTransactionalEmail } from '@/lib/email/mailer'
+import { renderEmailVerificationEmail } from '@/lib/email/templates'
+import { getAppBaseUrl } from '@/lib/email/scheduler'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,7 +57,7 @@ export async function POST(request: Request) {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)+/g, '') || `expert-${Date.now().toString(36)}`
-      
+
       let finalSlug = baseSlug
       const existingSlug = await expertsCol.findOne({ slug: finalSlug })
       if (existingSlug) {
@@ -83,6 +87,9 @@ export async function POST(request: Request) {
       })
     }
 
+    const verificationToken = crypto.randomBytes(32).toString('hex')
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+
     await usersCol.insertOne({
       _id: userId,
       email,
@@ -91,10 +98,36 @@ export async function POST(request: Request) {
       role,
       expertId,
       status: 'active',
+      emailVerified: false,
+      emailVerificationToken: verificationToken,
+      emailVerificationExpiresAt: verificationExpires,
       createdAt: new Date(),
       updatedAt: new Date(),
       lastLoginAt: new Date(),
     })
+
+    // Send verification email via Brevo SMTP
+    try {
+      const baseUrl = getAppBaseUrl()
+      const verificationUrl = `${baseUrl}/api/auth/verify?token=${verificationToken}`
+      const emailContent = renderEmailVerificationEmail({
+        name,
+        verificationUrl,
+      })
+
+      await sendTransactionalEmail({
+        emailType: 'email_verification',
+        recipientEmail: email,
+        recipientName: name,
+        recipientRole: role === 'expert' ? 'expert' : 'client',
+        subject: emailContent.subject,
+        html: emailContent.html,
+        text: emailContent.text,
+      })
+    } catch (emailErr) {
+      console.error('Failed to send verification email:', emailErr)
+      // Do not block signup if email provider is temporarily unreachable
+    }
 
     // Establish JWT session
     await createSession({

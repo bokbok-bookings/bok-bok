@@ -16,6 +16,7 @@ export async function GET() {
       ...session,
       phone: fullUser?.phone,
       status: fullUser?.status,
+      emailVerified: fullUser?.emailVerified,
     },
   })
 }

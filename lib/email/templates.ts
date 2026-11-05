@@ -75,6 +75,146 @@ interface CommonEmailParams {
 }
 
 /**
+ * 0. Email Verification on Signup
+ */
+export function renderEmailVerificationEmail(params: {
+  name: string
+  verificationUrl: string
+}): { subject: string; html: string; text: string } {
+  const { name, verificationUrl } = params
+  const subject = 'Verify your email address - Bok Bok'
+
+  const contentHtml = `
+    <h2 class="h1">Welcome to Bok Bok!</h2>
+    <p class="p">
+      Hello ${name}, thank you for creating your Bok Bok account. Please verify your email address to confirm your registration and activate your account.
+    </p>
+
+    <div style="text-align: center; margin: 32px 0;">
+      <a href="${verificationUrl}" target="_blank" class="btn">Verify Email Address</a>
+    </div>
+
+    <div class="alert-box">
+      <strong>Security notice:</strong> This verification link will expire in 24 hours. If you did not create a Bok Bok account, you can safely ignore this email.
+    </div>
+
+    <p class="p" style="font-size: 12px; color: #8b94a1; word-break: break-all;">
+      If the button above does not work, copy and paste this link into your browser:<br/>
+      <a href="${verificationUrl}" style="color: #142D4E;">${verificationUrl}</a>
+    </p>
+  `
+
+  const text = `Welcome to Bok Bok!
+Hello ${name},
+
+Please verify your email address by visiting this link:
+${verificationUrl}
+
+This link is valid for 24 hours. If you didn't create an account, you can ignore this message.`
+
+  return {
+    subject,
+    html: emailLayout({
+      title: subject,
+      preheader: 'Please verify your email address for Bok Bok.',
+      contentHtml,
+    }),
+    text,
+  }
+}
+
+/**
+ * 0.5. Booking Received (Awaiting Verification) Email
+ */
+export function renderBookingReceivedEmail(params: {
+  booking: BookingDoc
+  expertName: string
+  clientName: string
+  serviceTitle: string
+  recipientRole: 'client' | 'expert' | 'admin'
+  bookingUrl?: string
+}): { subject: string; html: string; text: string } {
+  const { booking, expertName, clientName, serviceTitle, recipientRole, bookingUrl } = params
+  const isClient = recipientRole === 'client'
+  const isAdmin = recipientRole === 'admin'
+
+  const subject = isClient
+    ? `Booking Request Received: ${serviceTitle} with ${expertName} [${booking.reference || 'BK'}]`
+    : isAdmin
+      ? `New Booking Received [Awaiting Verification]: ${booking.reference || 'BK'} - ${clientName}`
+      : `New Consultation Booked: ${serviceTitle} with ${clientName} [${booking.reference || 'BK'}]`
+
+  const contentHtml = `
+    <h2 class="h1">${isClient
+      ? 'We Received Your Booking Request!'
+      : isAdmin
+        ? 'New Booking Awaiting Payment Verification'
+        : 'New Booking Received'
+    }</h2>
+    <p class="p">
+      ${isClient
+      ? `Hello ${clientName}, thank you for booking a session with <strong>${expertName}</strong>. Our team is currently verifying your payment. Once approved, you will receive full confirmation with your Google Meet link.`
+      : isAdmin
+        ? `A new booking has been placed by <strong>${clientName}</strong> for <strong>${expertName}</strong> and requires payment verification.`
+        : `Hello ${expertName}, client <strong>${clientName}</strong> has submitted a booking request for your service. We are verifying the payment and will confirm the session shortly.`
+    }
+    </p>
+
+    <div class="highlight-card">
+      <div class="meta-row">
+        <span class="meta-label">Reference</span>
+        <span class="meta-val">#${booking.reference || booking._id?.toString()}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Service</span>
+        <span class="meta-val">${serviceTitle}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Expert</span>
+        <span class="meta-val">${expertName}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Date &amp; Time</span>
+        <span class="meta-val">${booking.date} at ${booking.time} (Cairo Time)</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Duration</span>
+        <span class="meta-val">${booking.durationMinutes} minutes</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Status</span>
+        <span class="meta-val" style="color: #FCAD35;">Awaiting Verification</span>
+      </div>
+    </div>
+
+    ${bookingUrl
+      ? `<div style="text-align: center; margin: 24px 0;">
+            <a href="${bookingUrl}" target="_blank" class="btn">View Booking Details</a>
+          </div>`
+      : ''
+    }
+  `
+
+  const text = `${subject}
+Service: ${serviceTitle}
+Expert: ${expertName}
+Client: ${clientName}
+Date & Time: ${booking.date} at ${booking.time}
+Status: Awaiting Verification
+${bookingUrl ? `View details: ${bookingUrl}` : ''}`
+
+  return {
+    subject,
+    html: emailLayout({
+      title: subject,
+      preheader: `Booking ${booking.reference || 'BK'} received and awaiting verification.`,
+      contentHtml,
+    }),
+    text,
+  }
+}
+
+/**
  * 1. Booking Confirmation Email
  */
 export function renderBookingConfirmationEmail(params: CommonEmailParams & {

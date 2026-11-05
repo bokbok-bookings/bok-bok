@@ -9,7 +9,9 @@ import {
 } from '@/lib/availability-server'
 import { toObjectId, getServicesCollection, getExpertsCollection } from '@/lib/db'
 import { isAllowedMvpCategory, isAllowedMvpSubcategory } from '@/lib/data/categories'
-import { computeSessionBounds } from '@/lib/email/scheduler'
+import { computeSessionBounds, getAppBaseUrl, resolveExpertContact } from '@/lib/email/scheduler'
+import { sendTransactionalEmail } from '@/lib/email/mailer'
+import { renderBookingReceivedEmail } from '@/lib/email/templates'
 
 export const dynamic = 'force-dynamic'
 
@@ -205,6 +207,58 @@ export async function POST(request: Request) {
           status: paymentReceiptUrl ? 'awaiting_verification' : 'pending',
         })
 
+        // Trigger booking received email notifications (to client and expert)
+        try {
+          const baseUrl = getAppBaseUrl()
+          const { expertName, expertEmail } = await resolveExpertContact(expertObjId)
+          const bookingUrl = `${baseUrl}/bookings/${booking._id}?token=${rescheduleToken}`
+          const title = verifiedServiceTitle?.en || verifiedServiceTitle?.ar || 'Consultation Session'
+
+          if (clientEmail) {
+            const clientEmailData = renderBookingReceivedEmail({
+              booking,
+              expertName,
+              clientName: clientName.trim(),
+              serviceTitle: title,
+              recipientRole: 'client',
+              bookingUrl,
+            })
+            await sendTransactionalEmail({
+              bookingId: booking._id,
+              emailType: 'booking_received',
+              recipientEmail: clientEmail.trim(),
+              recipientName: clientName.trim(),
+              recipientRole: 'client',
+              subject: clientEmailData.subject,
+              html: clientEmailData.html,
+              text: clientEmailData.text,
+            })
+          }
+
+          if (expertEmail) {
+            const expertEmailData = renderBookingReceivedEmail({
+              booking,
+              expertName,
+              clientName: clientName.trim(),
+              serviceTitle: title,
+              recipientRole: 'expert',
+              bookingUrl,
+            })
+            await sendTransactionalEmail({
+              bookingId: booking._id,
+              emailType: 'booking_received',
+              recipientEmail: expertEmail,
+              recipientName: expertName,
+              recipientRole: 'expert',
+              subject: expertEmailData.subject,
+              html: expertEmailData.html,
+              text: expertEmailData.text,
+            })
+          }
+        } catch (emailErr) {
+          console.error('Failed to send booking notification email:', emailErr)
+        }
+
         return NextResponse.json({ success: true, booking, reference })
       }
     }
@@ -292,6 +346,58 @@ export async function POST(request: Request) {
       paymentReceiptPublicId: paymentReceiptPublicId || undefined,
       status: paymentReceiptUrl ? 'awaiting_verification' : 'pending',
     })
+
+    // Trigger booking received email notifications (to client and expert)
+    try {
+      const baseUrl = getAppBaseUrl()
+      const { expertName, expertEmail } = await resolveExpertContact(expertObjId)
+      const bookingUrl = `${baseUrl}/bookings/${booking._id}?token=${rescheduleToken}`
+      const title = verifiedServiceTitle?.en || verifiedServiceTitle?.ar || 'Consultation Session'
+
+      if (clientEmail) {
+        const clientEmailData = renderBookingReceivedEmail({
+          booking,
+          expertName,
+          clientName: clientName.trim(),
+          serviceTitle: title,
+          recipientRole: 'client',
+          bookingUrl,
+        })
+        await sendTransactionalEmail({
+          bookingId: booking._id,
+          emailType: 'booking_received',
+          recipientEmail: clientEmail.trim(),
+          recipientName: clientName.trim(),
+          recipientRole: 'client',
+          subject: clientEmailData.subject,
+          html: clientEmailData.html,
+          text: clientEmailData.text,
+        })
+      }
+
+      if (expertEmail) {
+        const expertEmailData = renderBookingReceivedEmail({
+          booking,
+          expertName,
+          clientName: clientName.trim(),
+          serviceTitle: title,
+          recipientRole: 'expert',
+          bookingUrl,
+        })
+        await sendTransactionalEmail({
+          bookingId: booking._id,
+          emailType: 'booking_received',
+          recipientEmail: expertEmail,
+          recipientName: expertName,
+          recipientRole: 'expert',
+          subject: expertEmailData.subject,
+          html: expertEmailData.html,
+          text: expertEmailData.text,
+        })
+      }
+    } catch (emailErr) {
+      console.error('Failed to send booking notification email:', emailErr)
+    }
 
     return NextResponse.json({ success: true, booking, reference })
   } catch (error: any) {

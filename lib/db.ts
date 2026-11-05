@@ -61,6 +61,9 @@ export interface UserDoc {
   expertId?: ObjectId // Linked expert profile for experts
   phone?: string
   status: UserStatus
+  emailVerified?: boolean
+  emailVerificationToken?: string
+  emailVerificationExpiresAt?: Date
   createdAt: Date
   updatedAt: Date
   lastLoginAt?: Date
@@ -336,6 +339,8 @@ export interface EmailLogDoc {
   _id?: ObjectId
   bookingId?: ObjectId
   emailType:
+    | 'email_verification'
+    | 'booking_received'
     | 'booking_confirmed'
     | 'meet_link_updated'
     | 'missing_meet_link_alert'

@@ -23,6 +23,10 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(true)
   const [expertId, setExpertId] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
+  const [userEmail, setUserEmail] = useState<string>('')
+  const [emailVerified, setEmailVerified] = useState<boolean>(true)
+  const [resendingEmail, setResendingEmail] = useState(false)
+  const [resendStatus, setResendStatus] = useState<string>('')
 
   // Step 1: Profile & Identity
   const [name, setName] = useState('')
@@ -97,6 +101,12 @@ export default function OnboardingPage() {
         if (json.user.role !== 'expert' && json.user.role !== 'admin') {
           router.push('/')
           return
+        }
+        if (json.user.email) {
+          setUserEmail(json.user.email)
+        }
+        if (json.user.emailVerified !== undefined) {
+          setEmailVerified(Boolean(json.user.emailVerified))
         }
         if (json.user.expertId) {
           setExpertId(json.user.expertId)
@@ -371,9 +381,8 @@ export default function OnboardingPage() {
             return (
               <div key={title} className="text-center">
                 <div
-                  className={`h-1.5 rounded-full transition ${
-                    isDone || isCurrent ? 'bg-[#2855C5]' : 'bg-[#E8E2D8]'
-                  }`}
+                  className={`h-1.5 rounded-full transition ${isDone || isCurrent ? 'bg-[#2855C5]' : 'bg-[#E8E2D8]'
+                    }`}
                 />
                 <p className={`mt-2 text-[11px] font-bold truncate ${isCurrent ? 'text-[#101F49]' : 'text-[#8b94a1]'}`}>
                   {title}
@@ -382,6 +391,54 @@ export default function OnboardingPage() {
             )
           })}
         </div>
+
+        {/* Email Verification Banner if not yet verified */}
+        {!emailVerified && (
+          <div className="mt-6 rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <span className="text-xl">✉️</span>
+                <div>
+                  <h4 className="text-xs font-bold text-amber-950">Verify your email address</h4>
+                  <p className="mt-0.5 text-[11px] text-amber-800">
+                    We sent a confirmation link to <strong className="text-amber-950">{userEmail}</strong>. Please check your inbox and verify to activate your profile.
+                  </p>
+                  {resendStatus && (
+                    <p className="mt-1 text-[11px] font-bold text-emerald-700">{resendStatus}</p>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={resendingEmail}
+                onClick={async () => {
+                  setResendingEmail(true)
+                  setResendStatus('')
+                  try {
+                    const res = await fetch('/api/auth/resend-verification', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email: userEmail }),
+                    })
+                    const j = await res.json()
+                    if (j.success) {
+                      setResendStatus('✓ Verification link resent!')
+                    } else {
+                      setResendStatus(j.error || 'Failed to resend')
+                    }
+                  } catch {
+                    setResendStatus('Failed to resend. Please try again.')
+                  } finally {
+                    setResendingEmail(false)
+                  }
+                }}
+                className="shrink-0 rounded-full border border-amber-400 bg-white px-3.5 py-1.5 text-xs font-bold text-amber-950 hover:bg-amber-100 transition disabled:opacity-50"
+              >
+                {resendingEmail ? 'Sending...' : 'Resend Link'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Step 1: Profile & Identity */}
         {step === 1 && (
@@ -393,11 +450,16 @@ export default function OnboardingPage() {
               </p>
             </div>
 
-            {/* Profile Picture & National ID Uploads */}
+            {/* Profile Picture & National ID / Passport Uploads */}
             <div className="rounded-2xl border border-[#E8E2D8] bg-[#FFF9EE] p-5 space-y-4">
-              <h3 className="text-xs font-black uppercase tracking-wider text-[#101F49]">
-                Identity & Verification Documents *
-              </h3>
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-[#101F49]">
+                  Identity & Verification Documents (National ID or Passport) *
+                </h3>
+                <p className="mt-1 text-[11px] text-[#637084]">
+                  Our administration team verifies your government documents before your expert profile goes live.
+                </p>
+              </div>
 
               {/* Profile Photo */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-4 border-b border-[#E8E2D8] pb-4">
@@ -435,7 +497,7 @@ export default function OnboardingPage() {
                 {/* ID Front */}
                 <div className="rounded-xl border border-[#E8E2D8] bg-white p-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-[#101F49]">National ID (Front) *</p>
+                    <p className="text-xs font-bold text-[#101F49]">National ID / Passport (Front / Main) *</p>
                     {nationalIdFrontUrl ? (
                       <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                         ✓ Uploaded
@@ -446,7 +508,7 @@ export default function OnboardingPage() {
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-[11px] text-[#8b94a1]">Front face of National ID card or passport.</p>
+                  <p className="mt-1 text-[11px] text-[#8b94a1]">Front face of National ID card or main passport bio page.</p>
                   {nationalIdFrontUrl ? (
                     <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50/50 p-2">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -485,7 +547,7 @@ export default function OnboardingPage() {
                 {/* ID Back */}
                 <div className="rounded-xl border border-[#E8E2D8] bg-white p-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-[#101F49]">National ID (Back) *</p>
+                    <p className="text-xs font-bold text-[#101F49]">National ID (Back) / Secondary Proof *</p>
                     {nationalIdBackUrl ? (
                       <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                         ✓ Uploaded
@@ -496,7 +558,7 @@ export default function OnboardingPage() {
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-[11px] text-[#8b94a1]">Back side of National ID card.</p>
+                  <p className="mt-1 text-[11px] text-[#8b94a1]">Back side of National ID card, or passport cover/residence permit.</p>
                   {nationalIdBackUrl ? (
                     <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50/50 p-2">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -583,11 +645,10 @@ export default function OnboardingPage() {
                       key={cat.slug}
                       type="button"
                       onClick={() => toggleCategory(cat.slug)}
-                      className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition ${
-                        isSelected
+                      className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition ${isSelected
                           ? 'bg-[#101F49] text-white shadow-sm'
                           : 'border border-[#E8E2D8] bg-white text-[#637084] hover:border-[#101F49]'
-                      }`}
+                        }`}
                     >
                       {cat.title?.en || cat.name?.en} ({cat.title?.ar || cat.name?.ar}) {isSelected ? '✓' : '+'}
                     </button>
@@ -621,11 +682,10 @@ export default function OnboardingPage() {
                               key={sub.slug}
                               type="button"
                               onClick={() => toggleSubcategory(selCat.categorySlug, sub.slug)}
-                              className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${
-                                isSubSelected
+                              className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${isSubSelected
                                   ? 'bg-[#2855C5] text-white'
                                   : 'border border-[#E8E2D8] bg-white text-[#637084] hover:border-[#2855C5]'
-                              }`}
+                                }`}
                             >
                               {sub.title?.en || sub.name?.en} • {sub.title?.ar || sub.name?.ar}
                             </button>
