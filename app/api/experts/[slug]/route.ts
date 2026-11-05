@@ -37,10 +37,32 @@ export async function GET(request: Request, { params }: RouteProps) {
       }
     }
 
+    // Strip admin-only fields before returning to public/client callers
+    const {
+      phone: _phone,
+      whatsapp: _whatsapp,
+      socialLinks: _socialLinks,
+      nationalIdFrontUrl: _idFront,
+      nationalIdBackUrl: _idBack,
+      commercialRegisterUrl: _commRegUrl,
+      taxIdDocumentUrl: _taxDocUrl,
+      commercialRegisterNumber: _commRegNum,
+      taxNumber: _taxNum,
+      bankAccount: _bankAccount,
+      instapayUsername: _instapay,
+      preferredPayoutMethod: _payoutMethod,
+      suggestedCategory: _suggestedCategory,
+      pendingInfoUpdate: _pendingInfoUpdate,
+      hasPendingInfoUpdate: _hasPendingInfoUpdate,
+      pendingInfoSubmittedAt: _pendingInfoSubmittedAt,
+      pendingInfoRejectionReason: _pendingInfoRejectionReason,
+      ...publicExpert
+    } = expert as any
+
     return NextResponse.json({
       success: true,
       data: {
-        ...expert,
+        ...publicExpert,
         _id: expert._id.toString(),
         id: expert._id.toString(),
       },

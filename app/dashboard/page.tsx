@@ -77,6 +77,7 @@ export default async function DashboardPage() {
     confirmedTotal,
     allTotal,
     activeServicesCount,
+    totalServicesCount,
     todayBookings,
     recentBookings,
   ] = await Promise.all([
@@ -88,6 +89,7 @@ export default async function DashboardPage() {
     bookingsCol.countDocuments({ expertId: expertObjId, status: 'confirmed' }),
     bookingsCol.countDocuments({ expertId: expertObjId }),
     servicesCol.countDocuments({ expertId: expertObjId, isActive: true }),
+    servicesCol.countDocuments({ expertId: expertObjId }),
     bookingsCol
       .find({ expertId: expertObjId, date: todayDateStr })
       .sort({ time: 1 })
@@ -99,21 +101,34 @@ export default async function DashboardPage() {
       .toArray(),
   ])
 
+  const avatarImage = expertDoc?.avatarUrl || expertDoc?.image || ''
+  const displayName = expertDoc?.name || session.displayName
+
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-[#eeeae4] pb-6">
-        <div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
-            Welcome Back
-          </span>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-[#14243b]">
-            {expertDoc?.name || session.displayName}
-          </h1>
-          <p className="text-xs text-[#637084] mt-0.5">
-            Today is{' '}
-            {now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}.
-          </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#eeeae4] pb-6">
+        <div className="flex items-center gap-4">
+          <div className="relative size-14 shrink-0 overflow-hidden rounded-full bg-[#14243b] text-white flex items-center justify-center font-bold text-lg uppercase border border-[#dedbd5]">
+            {avatarImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatarImage} alt={displayName} className="size-full object-cover" />
+            ) : (
+              displayName.charAt(0)
+            )}
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+              Welcome Back
+            </span>
+            <h1 className="mt-0.5 text-3xl font-semibold tracking-tight text-[#14243b]">
+              {displayName}
+            </h1>
+            <p className="text-xs text-[#637084] mt-0.5">
+              Today is{' '}
+              {now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}.
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -131,6 +146,29 @@ export default async function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Prompt to add first service if account has no service (consultation, webinar, or workshop) */}
+      {totalServicesCount === 0 && (
+        <div className="rounded-3xl border border-accent/50 bg-secondary/60 p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+          <div>
+            <span className="inline-block rounded-full bg-accent/20 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-primary">
+              Action Needed
+            </span>
+            <h2 className="mt-1.5 text-lg font-bold text-primary">
+              Add your first service to start receiving bookings
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Your account currently has no active consultation, webinar, or workshop. Create your first service offering so clients can book with you.
+            </p>
+          </div>
+          <Link
+            href="/dashboard/services?new=1"
+            className="shrink-0 inline-flex items-center justify-center rounded-full bg-accent hover:bg-accent-hover px-6 py-3 text-xs font-bold text-primary shadow-sm transition"
+          >
+            + Add Your First Service
+          </Link>
+        </div>
+      )}
 
       {/* Metrics Row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -210,11 +248,10 @@ export default async function DashboardPage() {
                     <div className="text-right space-y-1.5">
                       <div>
                         <span
-                          className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                            b.status === 'confirmed'
+                          className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${b.status === 'confirmed'
                               ? 'bg-emerald-100 text-emerald-800'
                               : 'bg-amber-100 text-amber-800'
-                          }`}
+                            }`}
                         >
                           {b.status}
                         </span>
@@ -273,9 +310,9 @@ export default async function DashboardPage() {
                 href="/dashboard/profile"
                 className="block rounded-2xl border border-[#eeeae4] p-3.5 hover:border-[#14243b] transition"
               >
-                <p className="text-xs font-bold text-[#14243b]">Update Public Bio & Rates</p>
+                <p className="text-xs font-bold text-[#14243b]">Info</p>
                 <p className="text-[11px] text-[#637084] mt-0.5">
-                  Keep your headline, photo, and about text fresh.
+                  Manage your account info, payout methods, certificates, and verification details.
                 </p>
               </Link>
             </div>
@@ -349,13 +386,12 @@ export default async function DashboardPage() {
                       </td>
                       <td className="py-3">
                         <span
-                          className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                            b.status === 'confirmed'
+                          className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${b.status === 'confirmed'
                               ? 'bg-emerald-100 text-emerald-800'
                               : b.status === 'awaiting_verification'
                                 ? 'bg-amber-100 text-amber-800'
                                 : 'bg-neutral-100 text-neutral-700'
-                          }`}
+                            }`}
                         >
                           {b.status}
                         </span>

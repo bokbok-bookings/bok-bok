@@ -74,10 +74,18 @@ export function VisionSection() {
           >
             {isAr ? '”' : '“'}
           </span>
-          <h2 className="relative text-3xl sm:text-4xl md:text-[44px] font-semibold leading-[1.15] tracking-[-0.04em] text-primary">
-            {isAr
-              ? 'حياة واحدة. وخبرات أعمار متعددة.'
-              : 'One life. Many lifetimes of experience.'}
+          <h2 className="relative text-3xl sm:text-4xl md:text-[44px] leading-[1.2] tracking-[-0.03em] text-primary">
+            {isAr ? (
+              <>
+                <span className="font-heading font-semibold">لديك حياة واحدة فقط، </span>
+                <span className="font-body font-normal text-primary/85">ولكن يمكنك اكتساب خبرات أعمار متعددة.</span>
+              </>
+            ) : (
+              <>
+                <span className="font-heading font-semibold">You only have one life, </span>
+                <span className="font-heading font-semibold ">but you can gain the experience of many lifetimes.</span>
+              </>
+            )}
           </h2>
         </blockquote>
 

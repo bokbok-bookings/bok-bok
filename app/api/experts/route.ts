@@ -5,6 +5,34 @@ import { isAllowedMvpCategory, isRemovedCategory } from '@/lib/data/categories'
 
 export const dynamic = 'force-dynamic'
 
+function sanitizePublicExpert(expert: any) {
+  const {
+    phone: _phone,
+    whatsapp: _whatsapp,
+    socialLinks: _socialLinks,
+    nationalIdFrontUrl: _idFront,
+    nationalIdBackUrl: _idBack,
+    commercialRegisterUrl: _commRegUrl,
+    taxIdDocumentUrl: _taxDocUrl,
+    commercialRegisterNumber: _commRegNum,
+    taxNumber: _taxNum,
+    bankAccount: _bankAccount,
+    instapayUsername: _instapay,
+    preferredPayoutMethod: _payoutMethod,
+    suggestedCategory: _suggestedCategory,
+    pendingInfoUpdate: _pendingInfoUpdate,
+    hasPendingInfoUpdate: _hasPendingInfoUpdate,
+    pendingInfoSubmittedAt: _pendingInfoSubmittedAt,
+    pendingInfoRejectionReason: _pendingInfoRejectionReason,
+    ...publicExpert
+  } = expert
+  return {
+    ...publicExpert,
+    _id: expert._id.toString(),
+    id: expert._id.toString(),
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -55,11 +83,7 @@ export async function GET(request: Request) {
 
       return NextResponse.json({
         success: true,
-        data: {
-          ...expert,
-          _id: expert._id.toString(),
-          id: expert._id.toString(),
-        },
+        data: sanitizePublicExpert(expert),
       })
     }
 
@@ -109,11 +133,7 @@ export async function GET(request: Request) {
 
     const formatted = docs
       .filter((e) => !e.categorySlug || !isRemovedCategory(e.categorySlug))
-      .map((e) => ({
-        ...e,
-        _id: e._id.toString(),
-        id: e._id.toString(),
-      }))
+      .map((e) => sanitizePublicExpert(e))
 
     return NextResponse.json({
       success: true,

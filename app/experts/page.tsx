@@ -264,10 +264,12 @@ export default function ExpertsPage() {
                         <p className="mt-0.5 text-sm text-muted-foreground">{expert.role}</p>
                         <p className="mt-1 text-xs text-muted-foreground/80">{expert.location}</p>
                       </div>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-secondary border border-accent/40 px-2.5 py-1 text-[11px] font-bold text-primary shrink-0">
-                        <span className="text-accent">★</span>
-                        <span>{expert.rating || '5.0'}</span>
-                      </span>
+                      {Number(expert.reviews) > 0 && Number(expert.rating) > 0 && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-secondary border border-accent/40 px-2.5 py-1 text-[11px] font-bold text-primary shrink-0">
+                          <span className="text-accent">★</span>
+                          <span>{expert.rating}</span>
+                        </span>
+                      )}
                     </div>
 
                     <p className="mt-4 text-sm leading-6 text-muted-foreground line-clamp-3">

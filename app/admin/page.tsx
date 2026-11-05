@@ -11,16 +11,53 @@ import { AttendanceManager } from '@/components/dashboard/attendance-manager'
 
 interface ExpertItem {
   _id: string
+  accountType?: 'expert' | 'organization'
+  fName?: string
+  lName?: string
   name: string
   slug: string
   role: string
   location: string
+  phone?: string
+  whatsapp?: string
   image?: string
   avatarUrl?: string
   nationalIdFrontUrl?: string
   nationalIdBackUrl?: string
+  commercialRegisterNumber?: string
+  taxNumber?: string
+  commercialRegisterUrl?: string
+  taxIdDocumentUrl?: string
+  certificates?: Array<{ title: string; fileUrl: string; fileType?: 'pdf' | 'image' }>
+  socialLinks?: {
+    linkedin?: string
+    instagram?: string
+    facebook?: string
+    twitter?: string
+    website?: string
+    other?: string
+  }
+  suggestedCategory?: {
+    categoryName?: string
+    subcategoryName?: string
+    notes?: string
+  }
+  preferredPayoutMethod?: 'instapay' | 'bank_account'
+  instapayUsername?: string
+  bankAccount?: {
+    bankName?: string
+    accountHolderName?: string
+    accountNumber?: string
+    iban?: string
+  }
   categories?: Array<{ categorySlug: string; subcategories: string[] }>
   status?: string
+  hasPendingInfoUpdate?: boolean
+  pendingInfoSubmittedAt?: string
+  pendingInfoRejectionReason?: string
+  pendingInfoUpdate?: Record<string, any>
+  bio?: string
+  about?: string
   categorySlug?: string
   subcategorySlug?: string
   price: string
@@ -215,12 +252,17 @@ export default function AdminConsolePage() {
     }
   }, [])
 
-  const handleExpertAction = async (expertId: string, action: 'approve' | 'reject' | 'suspend') => {
+  const handleExpertAction = async (
+    expertId: string,
+    action: 'approve' | 'reject' | 'suspend' | 'approve_info_update' | 'reject_info_update'
+  ) => {
     let rejectionReason = ''
-    if (action === 'reject') {
+    if (action === 'reject' || action === 'reject_info_update') {
       const reason = prompt('Rejection reason or required improvements for the expert:')
       if (reason === null) return
       rejectionReason = reason
+    } else if (action === 'approve_info_update') {
+      if (!confirm('Approve and publish these requested Info changes?')) return
     } else {
       if (!confirm(`Are you sure you want to ${action} this expert?`)) return
     }
@@ -357,7 +399,9 @@ export default function AdminConsolePage() {
     }
   }
 
-  const pendingExperts = experts.filter((e) => e.status === 'pending_review')
+  const pendingExperts = experts.filter(
+    (e) => e.status === 'pending_review' || Boolean(e.hasPendingInfoUpdate)
+  )
   const pendingServicesList = services.filter((s) => s.approvalStatus === 'pending')
 
   if (loading) {
@@ -464,8 +508,8 @@ export default function AdminConsolePage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={`px-4 py-3 text-xs font-bold border-b-2 transition whitespace-nowrap ${activeTab === tab.id
-                  ? 'border-[#2855C5] text-white'
-                  : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-[#2855C5] text-white'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
                 }`}
             >
               {tab.label}
@@ -504,16 +548,96 @@ export default function AdminConsolePage() {
                         )}
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <h3 className="text-lg font-bold text-white">{exp.name}</h3>
                           <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-bold text-amber-300">
-                            Verification Pending
+                            {exp.status === 'pending_review' ? 'Verification Pending' : 'Live Expert'}
+                          </span>
+                          {exp.hasPendingInfoUpdate && (
+                            <span className="rounded-full bg-indigo-500/25 border border-indigo-400/40 px-2.5 py-0.5 text-[10px] font-bold text-indigo-200">
+                              ✎ Pending Info Edit Request
+                            </span>
+                          )}
+                          <span className="rounded-full bg-sky-500/20 px-2.5 py-0.5 text-[10px] font-bold text-sky-300 uppercase">
+                            {exp.accountType === 'organization' ? 'Organization (مؤسسة)' : 'Individual Expert'}
                           </span>
                         </div>
                         <p className="text-xs text-slate-300 mt-0.5 font-medium">{exp.role}</p>
                         <p className="text-[11px] text-slate-400 mt-1">
                           {exp.location} • Slug: <span className="font-mono text-slate-300">/{exp.slug}</span>
                         </p>
+
+                        {/* Admin-Only Phone, WhatsApp & Payout Info */}
+                        <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-slate-300">
+                          {exp.phone && (
+                            <span className="rounded-md bg-slate-800/80 border border-slate-700 px-2 py-0.5">
+                              📞 Phone: <strong>{exp.phone}</strong>
+                            </span>
+                          )}
+                          {exp.whatsapp && (
+                            <span className="rounded-md bg-emerald-950/60 border border-emerald-700/50 px-2 py-0.5 text-emerald-300">
+                              💬 WhatsApp: <strong>{exp.whatsapp}</strong>
+                            </span>
+                          )}
+                          <span className="rounded-md bg-slate-800/80 border border-slate-700 px-2 py-0.5">
+                            💳 Preferred Payout:{' '}
+                            <strong className="uppercase text-amber-300">
+                              {exp.preferredPayoutMethod || 'instapay'}
+                            </strong>
+                            {exp.instapayUsername ? ` (InstaPay: ${exp.instapayUsername})` : ''}
+                            {exp.bankAccount?.accountNumber || exp.bankAccount?.iban
+                              ? ` (Bank: ${exp.bankAccount?.bankName || ''} ${exp.bankAccount?.accountNumber || exp.bankAccount?.iban || ''})`
+                              : ''}
+                          </span>
+                        </div>
+
+                        {/* Admin-Only Social Media Links */}
+                        {exp.socialLinks &&
+                          Object.values(exp.socialLinks).some((v) => Boolean(v)) && (
+                            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+                              <span className="text-slate-400 font-semibold">Social Verification:</span>
+                              {exp.socialLinks.linkedin && (
+                                <a
+                                  href={exp.socialLinks.linkedin}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-sky-400 hover:underline"
+                                >
+                                  LinkedIn ↗
+                                </a>
+                              )}
+                              {exp.socialLinks.website && (
+                                <a
+                                  href={exp.socialLinks.website}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-sky-400 hover:underline"
+                                >
+                                  Website ↗
+                                </a>
+                              )}
+                              {exp.socialLinks.instagram && (
+                                <a
+                                  href={exp.socialLinks.instagram}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-sky-400 hover:underline"
+                                >
+                                  Instagram ↗
+                                </a>
+                              )}
+                              {exp.socialLinks.facebook && (
+                                <a
+                                  href={exp.socialLinks.facebook}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-sky-400 hover:underline"
+                                >
+                                  Facebook ↗
+                                </a>
+                              )}
+                            </div>
+                          )}
 
                         {/* Categories badges */}
                         {exp.categories && exp.categories.length > 0 && (
@@ -528,10 +652,27 @@ export default function AdminConsolePage() {
                             ))}
                           </div>
                         )}
+
+                        {/* Suggested Category / Subcategory */}
+                        {exp.suggestedCategory &&
+                          (exp.suggestedCategory.categoryName || exp.suggestedCategory.subcategoryName) && (
+                            <div className="mt-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-200">
+                              <strong>💡 Suggested New Category/Subcategory:</strong>{' '}
+                              {exp.suggestedCategory.categoryName && (
+                                <span>Category: &ldquo;{exp.suggestedCategory.categoryName}&rdquo; </span>
+                              )}
+                              {exp.suggestedCategory.subcategoryName && (
+                                <span>Subcategory: &ldquo;{exp.suggestedCategory.subcategoryName}&rdquo; </span>
+                              )}
+                              {exp.suggestedCategory.notes && (
+                                <span className="text-amber-300/80">({exp.suggestedCategory.notes})</span>
+                              )}
+                            </div>
+                          )}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
                       <Link
                         href={`/dashboard?expertId=${exp._id}`}
                         target="_blank"
@@ -539,73 +680,243 @@ export default function AdminConsolePage() {
                       >
                         Inspect Dashboard ↗
                       </Link>
-                      <button
-                        onClick={() => handleExpertAction(exp._id, 'reject')}
-                        className="rounded-full px-3 py-1.5 text-xs font-bold text-rose-400 hover:bg-rose-950/40"
-                      >
-                        Reject
-                      </button>
-                      <button
-                        onClick={() => handleExpertAction(exp._id, 'approve')}
-                        className="rounded-full bg-emerald-500 px-5 py-1.5 text-xs font-bold text-slate-950 hover:bg-emerald-400 transition"
-                      >
-                        Approve Expert ✓
-                      </button>
+                      {exp.hasPendingInfoUpdate && exp.status !== 'pending_review' ? (
+                        <>
+                          <button
+                            onClick={() => handleExpertAction(exp._id, 'reject_info_update')}
+                            className="rounded-full px-3 py-1.5 text-xs font-bold text-rose-400 hover:bg-rose-950/40"
+                          >
+                            Reject Info Changes
+                          </button>
+                          <button
+                            onClick={() => handleExpertAction(exp._id, 'approve_info_update')}
+                            className="rounded-full bg-indigo-500 px-5 py-1.5 text-xs font-bold text-white hover:bg-indigo-400 transition"
+                          >
+                            Approve Info Changes ✓
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleExpertAction(exp._id, 'reject')}
+                            className="rounded-full px-3 py-1.5 text-xs font-bold text-rose-400 hover:bg-rose-950/40"
+                          >
+                            Reject
+                          </button>
+                          <button
+                            onClick={() => handleExpertAction(exp._id, 'approve')}
+                            className="rounded-full bg-emerald-500 px-5 py-1.5 text-xs font-bold text-slate-950 hover:bg-emerald-400 transition"
+                          >
+                            Approve Expert ✓
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
 
-                  {/* National ID Documents Verification Section */}
-                  <div className="border-t border-slate-800/80 pt-4">
-                    <p className="text-xs font-bold text-slate-300 mb-2">Submitted Identification Documents:</p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-xl border border-slate-800 bg-[#0d1624] p-3 flex items-center justify-between">
-                        <div>
-                          <p className="text-xs font-bold text-white">National ID (Front Face)</p>
-                          <p className="text-[10px] text-slate-400">
-                            {exp.nationalIdFrontUrl ? 'Uploaded image ready' : 'Not uploaded'}
-                          </p>
-                        </div>
-                        {exp.nationalIdFrontUrl ? (
-                          <button
-                            onClick={() =>
-                              setDocModal({
-                                title: `${exp.name} — National ID Front`,
-                                url: exp.nationalIdFrontUrl!,
-                              })
-                            }
-                            className="rounded-full bg-slate-800 border border-slate-700 px-3 py-1 text-[11px] font-bold text-slate-200 hover:bg-slate-700"
-                          >
-                            Inspect ID Front ↗
-                          </button>
-                        ) : (
-                          <span className="text-[11px] text-rose-400 font-bold">Missing</span>
+                  {/* Pending Info Update Diff / Preview Box */}
+                  {exp.hasPendingInfoUpdate && exp.pendingInfoUpdate && (
+                    <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/30 p-4 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-indigo-200">
+                          ✎ Requested Info Changes (Requires Admin Review)
+                        </p>
+                        {exp.status === 'pending_review' && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleExpertAction(exp._id, 'reject_info_update')}
+                              className="rounded-full border border-rose-500/40 px-2.5 py-1 text-[10px] font-bold text-rose-300 hover:bg-rose-950/50"
+                            >
+                              Discard Edits
+                            </button>
+                            <button
+                              onClick={() => handleExpertAction(exp._id, 'approve_info_update')}
+                              className="rounded-full bg-indigo-500 px-3 py-1 text-[10px] font-bold text-white hover:bg-indigo-400"
+                            >
+                              Apply Edits ✓
+                            </button>
+                          </div>
                         )}
                       </div>
-
-                      <div className="rounded-xl border border-slate-800 bg-[#0d1624] p-3 flex items-center justify-between">
-                        <div>
-                          <p className="text-xs font-bold text-white">National ID (Back Face)</p>
-                          <p className="text-[10px] text-slate-400">
-                            {exp.nationalIdBackUrl ? 'Uploaded image ready' : 'Not uploaded'}
-                          </p>
-                        </div>
-                        {exp.nationalIdBackUrl ? (
-                          <button
-                            onClick={() =>
-                              setDocModal({
-                                title: `${exp.name} — National ID Back`,
-                                url: exp.nationalIdBackUrl!,
-                              })
-                            }
-                            className="rounded-full bg-slate-800 border border-slate-700 px-3 py-1 text-[11px] font-bold text-slate-200 hover:bg-slate-700"
-                          >
-                            Inspect ID Back ↗
-                          </button>
-                        ) : (
-                          <span className="text-[11px] text-rose-400 font-bold">Missing</span>
+                      <div className="grid gap-2 sm:grid-cols-2 text-xs text-slate-200">
+                        {exp.pendingInfoUpdate.name && (
+                          <div className="rounded-lg bg-slate-900/70 p-2.5 border border-slate-800">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Requested Name</span>
+                            <span className="font-semibold text-white">{exp.pendingInfoUpdate.name}</span>
+                            {exp.pendingInfoUpdate.slug && (
+                              <span className="ml-2 font-mono text-[11px] text-indigo-300">
+                                (/{exp.pendingInfoUpdate.slug})
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {exp.pendingInfoUpdate.role && (
+                          <div className="rounded-lg bg-slate-900/70 p-2.5 border border-slate-800">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Requested Headline / Role</span>
+                            <span className="font-semibold text-white">{exp.pendingInfoUpdate.role}</span>
+                          </div>
+                        )}
+                        {exp.pendingInfoUpdate.bio !== undefined && (
+                          <div className="rounded-lg bg-slate-900/70 p-2.5 border border-slate-800 sm:col-span-2">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Requested Short Bio</span>
+                            <p className="text-slate-200 mt-0.5">{exp.pendingInfoUpdate.bio || '—'}</p>
+                          </div>
+                        )}
+                        {exp.pendingInfoUpdate.about !== undefined && (
+                          <div className="rounded-lg bg-slate-900/70 p-2.5 border border-slate-800 sm:col-span-2">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Requested Detailed Description (About)</span>
+                            <p className="text-slate-200 mt-0.5 whitespace-pre-line">{exp.pendingInfoUpdate.about || '—'}</p>
+                          </div>
+                        )}
+                        {Array.isArray(exp.pendingInfoUpdate.certificates) && (
+                          <div className="rounded-lg bg-slate-900/70 p-2.5 border border-slate-800 sm:col-span-2">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1.5">
+                              Requested Certificates ({exp.pendingInfoUpdate.certificates.length})
+                            </span>
+                            <div className="flex flex-wrap gap-2">
+                              {exp.pendingInfoUpdate.certificates.map((cert: any, idx: number) => (
+                                <a
+                                  key={idx}
+                                  href={cert.fileUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="rounded-lg bg-slate-800 border border-slate-700 px-2.5 py-1 text-[11px] font-semibold text-indigo-300 hover:underline"
+                                >
+                                  📜 {cert.title} ({cert.fileType || 'file'}) ↗
+                                </a>
+                              ))}
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
+                  )}
+
+                  {/* Identification / Organization Documents & Certificates Verification Section */}
+                  <div className="border-t border-slate-800/80 pt-4 space-y-3">
+                    <p className="text-xs font-bold text-slate-300">
+                      {exp.accountType === 'organization'
+                        ? 'Submitted Organization Documents (سجل تجاري & رقم ضريبي):'
+                        : 'Submitted Identification Documents:'}
+                    </p>
+
+                    {exp.accountType === 'organization' ? (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-xl border border-slate-800 bg-[#0d1624] p-3 flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-bold text-white">سجل تجاري (Commercial Register)</p>
+                            <p className="text-[11px] text-slate-300 font-mono">
+                              No: {exp.commercialRegisterNumber || '—'}
+                            </p>
+                          </div>
+                          {exp.commercialRegisterUrl ? (
+                            <a
+                              href={exp.commercialRegisterUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-full bg-slate-800 border border-slate-700 px-3 py-1 text-[11px] font-bold text-slate-200 hover:bg-slate-700"
+                            >
+                              Open Document ↗
+                            </a>
+                          ) : (
+                            <span className="text-[11px] text-slate-400">Number Only</span>
+                          )}
+                        </div>
+
+                        <div className="rounded-xl border border-slate-800 bg-[#0d1624] p-3 flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-bold text-white">رقم ضريبي (Tax Number)</p>
+                            <p className="text-[11px] text-slate-300 font-mono">
+                              No: {exp.taxNumber || '—'}
+                            </p>
+                          </div>
+                          {exp.taxIdDocumentUrl ? (
+                            <a
+                              href={exp.taxIdDocumentUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-full bg-slate-800 border border-slate-700 px-3 py-1 text-[11px] font-bold text-slate-200 hover:bg-slate-700"
+                            >
+                              Open Document ↗
+                            </a>
+                          ) : (
+                            <span className="text-[11px] text-slate-400">Number Only</span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-xl border border-slate-800 bg-[#0d1624] p-3 flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-bold text-white">National ID / Passport (Front)</p>
+                            <p className="text-[10px] text-slate-400">
+                              {exp.nationalIdFrontUrl ? 'Uploaded image ready' : 'Not uploaded'}
+                            </p>
+                          </div>
+                          {exp.nationalIdFrontUrl ? (
+                            <button
+                              onClick={() =>
+                                setDocModal({
+                                  title: `${exp.name} — National ID Front`,
+                                  url: exp.nationalIdFrontUrl!,
+                                })
+                              }
+                              className="rounded-full bg-slate-800 border border-slate-700 px-3 py-1 text-[11px] font-bold text-slate-200 hover:bg-slate-700"
+                            >
+                              Inspect ID Front ↗
+                            </button>
+                          ) : (
+                            <span className="text-[11px] text-rose-400 font-bold">Missing</span>
+                          )}
+                        </div>
+
+                        <div className="rounded-xl border border-slate-800 bg-[#0d1624] p-3 flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-bold text-white">National ID (Back)</p>
+                            <p className="text-[10px] text-slate-400">
+                              {exp.nationalIdBackUrl ? 'Uploaded image ready' : 'Not uploaded'}
+                            </p>
+                          </div>
+                          {exp.nationalIdBackUrl ? (
+                            <button
+                              onClick={() =>
+                                setDocModal({
+                                  title: `${exp.name} — National ID Back`,
+                                  url: exp.nationalIdBackUrl!,
+                                })
+                              }
+                              className="rounded-full bg-slate-800 border border-slate-700 px-3 py-1 text-[11px] font-bold text-slate-200 hover:bg-slate-700"
+                            >
+                              Inspect ID Back ↗
+                            </button>
+                          ) : (
+                            <span className="text-[11px] text-rose-400 font-bold">Missing</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Optional Certificates */}
+                    {exp.certificates && exp.certificates.length > 0 && (
+                      <div className="pt-2">
+                        <p className="text-xs font-bold text-slate-300 mb-2">
+                          Uploaded Certificates ({exp.certificates.length}):
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {exp.certificates.map((cert, i) => (
+                            <a
+                              key={i}
+                              href={cert.fileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-sky-300 hover:bg-slate-700"
+                            >
+                              📄 {cert.title} ↗
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
@@ -644,10 +955,10 @@ export default function AdminConsolePage() {
                   <div
                     key={srv._id}
                     className={`rounded-2xl border bg-[#121d2f] p-5 sm:p-6 space-y-3 ${srv.approvalStatus === 'pending'
-                        ? 'border-amber-500/30 bg-amber-500/5'
-                        : srv.approvalStatus === 'rejected'
-                          ? 'border-rose-500/30'
-                          : 'border-slate-800'
+                      ? 'border-amber-500/30 bg-amber-500/5'
+                      : srv.approvalStatus === 'rejected'
+                        ? 'border-rose-500/30'
+                        : 'border-slate-800'
                       }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -662,10 +973,10 @@ export default function AdminConsolePage() {
                           </span>
                           <span
                             className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${srv.approvalStatus === 'pending'
-                                ? 'bg-amber-500/20 text-amber-300'
-                                : srv.approvalStatus === 'approved'
-                                  ? 'bg-emerald-500/20 text-emerald-300'
-                                  : 'bg-rose-500/20 text-rose-300'
+                              ? 'bg-amber-500/20 text-amber-300'
+                              : srv.approvalStatus === 'approved'
+                                ? 'bg-emerald-500/20 text-emerald-300'
+                                : 'bg-rose-500/20 text-rose-300'
                               }`}
                           >
                             {srv.approvalStatus === 'pending'
@@ -866,10 +1177,10 @@ export default function AdminConsolePage() {
                     <td className="py-3 px-4">
                       <span
                         className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${exp.status === 'approved' || !exp.status
-                            ? 'bg-emerald-500/20 text-emerald-300'
-                            : exp.status === 'pending_review'
-                              ? 'bg-amber-500/20 text-amber-300'
-                              : 'bg-rose-500/20 text-rose-300'
+                          ? 'bg-emerald-500/20 text-emerald-300'
+                          : exp.status === 'pending_review'
+                            ? 'bg-amber-500/20 text-amber-300'
+                            : 'bg-rose-500/20 text-rose-300'
                           }`}
                       >
                         {exp.status || 'approved'}
@@ -937,10 +1248,10 @@ export default function AdminConsolePage() {
                     <td className="py-3 px-4">
                       <span
                         className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${u.role === 'admin'
-                            ? 'bg-rose-500/20 text-rose-300'
-                            : u.role === 'expert'
-                              ? 'bg-blue-500/20 text-blue-300'
-                              : 'bg-slate-700 text-slate-300'
+                          ? 'bg-rose-500/20 text-rose-300'
+                          : u.role === 'expert'
+                            ? 'bg-blue-500/20 text-blue-300'
+                            : 'bg-slate-700 text-slate-300'
                           }`}
                       >
                         {u.role}
@@ -1026,8 +1337,8 @@ export default function AdminConsolePage() {
                         <td className="py-3 px-4">
                           <span
                             className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${tag.isActive
-                                ? 'bg-emerald-500/20 text-emerald-300'
-                                : 'bg-slate-700 text-slate-400'
+                              ? 'bg-emerald-500/20 text-emerald-300'
+                              : 'bg-slate-700 text-slate-400'
                               }`}
                           >
                             {tag.isActive ? 'Active' : 'Inactive'}

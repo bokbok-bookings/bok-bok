@@ -34,11 +34,13 @@ export default async function ExpertDashboardLayout({
       user={{
         userId: session.userId,
         email: session.email,
-        displayName: session.displayName,
+        displayName: expertDoc?.name || session.displayName,
         role: session.role,
         expertId: session.expertId,
         status: expertDoc?.status,
         slug: expertDoc?.slug,
+        avatarUrl: expertDoc?.avatarUrl || expertDoc?.image || '',
+        accountType: expertDoc?.accountType,
       }}
     >
       {children}

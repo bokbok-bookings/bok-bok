@@ -61,7 +61,11 @@ export async function GET(request: Request) {
     }
 
     const email = profile.email.toLowerCase().trim()
-    const name = profile.name || profile.given_name || email.split('@')[0]
+    const givenName = (profile.given_name || '').trim()
+    const familyName = (profile.family_name || '').trim()
+    const name = profile.name || `${givenName} ${familyName}`.trim() || email.split('@')[0]
+    const fName = givenName || name.split(/\s+/)[0] || ''
+    const lName = familyName || name.split(/\s+/).slice(1).join(' ') || ''
     const picture = profile.picture || ''
 
     const usersCol = await getUsersCollection()
@@ -76,7 +80,8 @@ export async function GET(request: Request) {
 
       if (role === 'expert') {
         expertId = new ObjectId()
-        const baseSlug = name
+        const slugSource = fName && lName ? `${fName}-${lName}` : name
+        const baseSlug = slugSource
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/(^-|-$)+/g, '') || `expert-${Date.now().toString(36)}`
@@ -91,21 +96,25 @@ export async function GET(request: Request) {
           _id: expertId,
           id: expertId.toString(),
           userId: userId,
+          accountType: 'expert',
+          fName,
+          lName,
           name: name,
           slug: finalSlug,
           role: 'Consultant',
           location: 'Cairo, Egypt',
-          image: picture || '/experts/layla.png',
+          image: picture || '',
           avatarUrl: picture || '',
-          rating: '5.0',
+          rating: '',
           reviews: 0,
           price: '500 EGP',
           priceNumber: 500,
           tags: [],
-          durationMinutes: 45,
+          durationMinutes: 30,
           about: '',
           bio: '',
           status: 'draft',
+          preferredPayoutMethod: 'instapay',
           createdAt: new Date(),
           updatedAt: new Date(),
         })
@@ -116,6 +125,9 @@ export async function GET(request: Request) {
         email,
         passwordHash: '', // Google OAuth user
         displayName: name,
+        fName,
+        lName,
+        accountType: role === 'expert' ? 'expert' : undefined,
         role,
         expertId,
         status: 'active',
@@ -164,7 +176,11 @@ export async function GET(request: Request) {
       // If expert has draft or pending status, check if onboarding is needed
       if (user.role === 'expert' && user.expertId) {
         const expertDoc = await expertsCol.findOne({ _id: user.expertId })
-        if (expertDoc && (expertDoc.status === 'draft' || !expertDoc.nationalIdFrontUrl)) {
+        const hasDocs =
+          expertDoc?.accountType === 'organization'
+            ? Boolean(expertDoc?.commercialRegisterUrl || expertDoc?.commercialRegisterNumber)
+            : Boolean(expertDoc?.nationalIdFrontUrl)
+        if (expertDoc && (expertDoc.status === 'draft' || !hasDocs)) {
           return NextResponse.redirect(new URL('/onboarding', request.url))
         }
         return NextResponse.redirect(new URL(callbackUrl || '/dashboard', request.url))

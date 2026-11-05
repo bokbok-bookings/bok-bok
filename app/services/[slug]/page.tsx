@@ -400,9 +400,11 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 min-w-0">
                       <h3 className="text-lg font-bold text-primary truncate">{service.expert.name}</h3>
-                      <span className="shrink-0 flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs font-bold text-primary">
-                        <Star size={12} fill="currentColor" className="text-accent" /> {service.expert.rating}
-                      </span>
+                      {Number(service.expert.reviews) > 0 && Number(service.expert.rating) > 0 && (
+                        <span className="shrink-0 flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs font-bold text-primary">
+                          <Star size={12} fill="currentColor" className="text-accent" /> {service.expert.rating}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5 truncate">{service.expert.role}</p>
                     <p className="text-xs text-muted-foreground/80 mt-0.5 truncate">{service.expert.location}</p>

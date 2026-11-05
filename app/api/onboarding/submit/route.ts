@@ -57,9 +57,74 @@ export async function POST(request: Request) {
       )
     }
 
-    if (!expert.nationalIdFrontUrl || !expert.nationalIdBackUrl) {
+    if (!expert.phone || !expert.whatsapp) {
       return NextResponse.json(
-        { success: false, error: 'Please upload both front and back of your National ID before submitting.' },
+        {
+          success: false,
+          error: 'Please provide both your phone number and WhatsApp number (for admin contact only) before submitting.',
+        },
+        { status: 400 }
+      )
+    }
+
+    if (expert.accountType === 'organization') {
+      const hasCommercialReg = Boolean(
+        expert.commercialRegisterNumber?.trim() || expert.commercialRegisterUrl
+      )
+      const hasTaxId = Boolean(expert.taxNumber?.trim() || expert.taxIdDocumentUrl)
+      if (!hasCommercialReg || !hasTaxId) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'For organizations, please provide both Commercial Register (سجل تجاري) and Tax Number (رقم ضريبي) before submitting.',
+          },
+          { status: 400 }
+        )
+      }
+    } else {
+      if (!expert.nationalIdFrontUrl || !expert.nationalIdBackUrl) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Please upload both front and back of your National ID / Passport before submitting.',
+          },
+          { status: 400 }
+        )
+      }
+    }
+
+    const hasInstapay = Boolean(expert.instapayUsername?.trim())
+    const hasBankAccount = Boolean(
+      expert.bankAccount?.accountNumber?.trim() || expert.bankAccount?.iban?.trim()
+    )
+
+    if (!hasInstapay && !hasBankAccount) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Please provide a payout method (InstaPay or Bank Account) before submitting.',
+        },
+        { status: 400 }
+      )
+    }
+
+    if (expert.preferredPayoutMethod === 'bank_account' && !hasBankAccount) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'You selected Bank Account as your preferred payout method. Please enter your bank account number or IBAN.',
+        },
+        { status: 400 }
+      )
+    }
+
+    if (expert.preferredPayoutMethod === 'instapay' && !hasInstapay) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'You selected InstaPay as your preferred payout method. Please enter your InstaPay handle or phone number.',
+        },
         { status: 400 }
       )
     }

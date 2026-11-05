@@ -42,7 +42,7 @@ export function BrandLogo({
   const logoMark = (
     <div className="relative flex shrink-0 items-center justify-center">
       <Image
-        src="/testFavsmall.png"
+        src="/yellowShadowLogo.png"
         alt="Bok Bok Logo"
         width={dimensions.width}
         height={dimensions.height}
@@ -54,7 +54,7 @@ export function BrandLogo({
 
   const content = (
     <div className={`flex items-center gap-2.5 ${className}`}>
-      {logoMark}
+      {/* {logoMark} */}
       {showText && (
         <div className="leading-none">
           <BokBok

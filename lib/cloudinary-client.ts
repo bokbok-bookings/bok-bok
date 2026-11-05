@@ -21,10 +21,13 @@ export function optimizeCloudinaryUrl(url?: string, options: OptimizeUrlOptions 
     return url
   }
 
+  // Preserve custom crop coordinates if already present in URL
+  const hasExistingCrop = url.includes('c_crop')
+
   const {
     width,
     height,
-    crop = width && height ? 'limit' : 'limit',
+    crop = hasExistingCrop ? undefined : (width && height ? 'limit' : 'limit'),
     gravity,
     quality = 'auto:good',
     format = 'auto',
@@ -40,10 +43,15 @@ export function optimizeCloudinaryUrl(url?: string, options: OptimizeUrlOptions 
   const transformString = transforms.join(',')
 
   // Case 1: URL with existing transformation: /image/upload/<existing_transforms>/v1234/
-  const regexWithTransform = /(https?:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(?:[a-z0-9_,-]+\/)?(v\d+\/.*)/
+  const regexWithTransform = /(https?:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\/)(?:([a-z0-9_,-]+)\/)?(v\d+\/.*)/
   const match = url.match(regexWithTransform)
   if (match) {
-    return `${match[1]}${transformString}/${match[2]}`
+    const existingTransforms = match[2]
+    if (existingTransforms && existingTransforms.includes('c_crop')) {
+      // Preserve existing crop and add format/quality
+      return `${match[1]}${existingTransforms},f_${format},q_${quality},fl_strip_profile/${match[3]}`
+    }
+    return `${match[1]}${transformString}/${match[3]}`
   }
 
   // Case 2: URL without version: /image/upload/<path>

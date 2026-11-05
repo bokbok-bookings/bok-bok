@@ -174,6 +174,12 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
 
   useEffect(() => {
     loadServices()
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('new') === '1') {
+        openAddModal()
+      }
+    }
   }, [expertId])
 
   const openAddModal = () => {

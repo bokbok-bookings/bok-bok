@@ -324,18 +324,20 @@ export default function ExpertProfile({ params }: PageProps) {
                     </span>
                     <span className="text-xs font-semibold text-muted-foreground">{profile.location}</span>
                   </div>
-                  <h2 className="mt-2 text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-[-.04em] text-primary break-words">
+                  <h2 className="mt-2 font-body text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-primary break-words">
                     {profile.name}
                   </h2>
                   <p className="mt-1 text-base sm:text-lg font-medium text-muted-foreground break-words">
                     {profile.role}
                   </p>
-                  <p className="mt-2 text-xs font-bold text-primary">
-                    <span className="text-accent">★</span> {profile.rating || '5.0'}{' '}
-                    <span className="font-normal text-muted-foreground">
-                      ({profile.reviews || 0} {isAr ? 'تقييم موثق' : 'verified reviews'})
-                    </span>
-                  </p>
+                  {Number(profile.reviews) > 0 && Number(profile.rating) > 0 && (
+                    <p className="mt-2 text-xs font-bold text-primary">
+                      <span className="text-accent">★</span> {profile.rating}{' '}
+                      <span className="font-normal text-muted-foreground">
+                        ({profile.reviews} {isAr ? 'تقييم موثق' : 'verified reviews'})
+                      </span>
+                    </p>
+                  )}
 
                   {/* About Description */}
                   {(profile.about || profile.bio) && (

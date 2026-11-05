@@ -16,6 +16,8 @@ interface DashboardShellProps {
     expertId?: string
     status?: ExpertStatus
     slug?: string
+    avatarUrl?: string
+    accountType?: 'expert' | 'organization'
   }
 }
 
@@ -54,7 +56,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
       href: '/dashboard/bookings',
     },
     {
-      name: 'Public Profile',
+      name: 'Info',
       href: '/dashboard/profile',
     },
   ]
@@ -78,7 +80,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
 
       {/* Sidebar Navigation */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-[#e7e2da] flex flex-col transition-transform duration-200 md:static md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed inset-y-0 left-0 z-50 w-64 shrink-0 bg-white border-r border-[#e7e2da] flex flex-col transition-transform duration-200 md:sticky md:top-0 md:h-screen md:max-h-screen md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
       >
         {/* Brand Header */}
@@ -96,13 +98,22 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
         {/* User Card */}
         <div className="p-4 mx-4 my-4 rounded-2xl bg-[#faf8f5] border border-[#eeeae4]">
           <div className="flex items-center gap-3">
-            <div className="size-9 rounded-full bg-[#14243b] text-white flex items-center justify-center font-bold text-xs uppercase">
-              {user.displayName.charAt(0)}
+            <div className="relative size-10 shrink-0 overflow-hidden rounded-full bg-[#14243b] text-white flex items-center justify-center font-bold text-xs uppercase border border-[#dedbd5]">
+              {user.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.avatarUrl}
+                  alt={user.displayName}
+                  className="size-full object-cover"
+                />
+              ) : (
+                user.displayName.charAt(0)
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-bold text-[#14243b] truncate">{user.displayName}</p>
               <span className="inline-block mt-0.5 rounded-full bg-secondary border border-accent/40 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary">
-                {user.role}
+                {user.accountType === 'organization' ? 'Organization' : user.role}
               </span>
             </div>
           </div>

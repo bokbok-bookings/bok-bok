@@ -168,11 +168,21 @@ export default function Page() {
         {/* Hero Section */}
         <section id="top" className="relative grid min-h-[550px] items-center gap-12 py-8 lg:grid-cols-[1fr_0.88fr] lg:gap-20 lg:py-12">
           <div className="relative z-10">
-            <h1 className="max-w-[620px] text-[46px] sm:text-[64px] font-semibold leading-[1.05] tracking-[-0.05em] text-[#14243b]">
+            <h1 className="max-w-[620px] text-[40px] sm:text-[54px] lg:text-[64px] font-semibold leading-[1.12] sm:leading-[1.05] tracking-[-0.05em] text-[#14243b]">
               {t.home.heroTitleLine1}<br />
-              <span className="relative inline-block text-primary">
-                <span className="relative z-10">{t.home.heroTitleLine2}</span>
-                <span className="absolute bottom-1 left-0 w-full h-3 bg-accent -z-0 rounded-sm" />
+              <span
+                className="relative inline box-decoration-clone text-primary px-1 rounded-sm"
+                style={{
+                  backgroundImage:
+                    'linear-gradient(to top, var(--accent, #FCAD35) 0%, var(--accent, #FCAD35) 100%)',
+                  backgroundSize: '100% clamp(10px, 0.22em, 16px)',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: '0 88%',
+                  WebkitBoxDecorationBreak: 'clone',
+                  boxDecorationBreak: 'clone',
+                }}
+              >
+                {t.home.heroTitleLine2}
               </span>
             </h1>
 
@@ -417,9 +427,11 @@ export default function Page() {
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     </div>
-                    <span className="flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-bold text-primary">
-                      <Star size={12} className="text-accent fill-accent" /> {expert.rating}
-                    </span>
+                    {Number((expert as any).reviews ?? 0) > 0 && Number(expert.rating) > 0 && (
+                      <span className="flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-bold text-primary">
+                        <Star size={12} className="text-accent fill-accent" /> {expert.rating}
+                      </span>
+                    )}
                   </div>
                   <h3 className="mt-5 font-bold text-primary group-hover:text-primary transition-colors">{expert.name}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">{expert.role}</p>

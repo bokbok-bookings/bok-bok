@@ -10,10 +10,12 @@ import { useLanguage } from '@/lib/i18n/language-context'
 export default function SignupPage() {
   const router = useRouter()
   const { isAr, localeHref } = useLanguage()
-  const [displayName, setDisplayName] = useState('')
+  const [fName, setFName] = useState('')
+  const [lName, setLName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<'expert' | 'client'>('expert')
+  const [accountType, setAccountType] = useState<'expert' | 'organization'>('expert')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [successNotice, setSuccessNotice] = useState<{
@@ -27,11 +29,21 @@ export default function SignupPage() {
     setLoading(true)
     setError('')
 
+    const displayName = `${fName.trim()} ${lName.trim()}`.trim()
+
     try {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ displayName, email, password, role }),
+        body: JSON.stringify({
+          fName: fName.trim(),
+          lName: lName.trim(),
+          displayName,
+          email,
+          password,
+          role,
+          accountType: role === 'expert' ? accountType : undefined,
+        }),
       })
       const data = await res.json()
 
@@ -171,6 +183,39 @@ export default function SignupPage() {
                   </div>
                 </div>
 
+                {/* Expert vs Organization sub-selector when role === 'expert' */}
+                {role === 'expert' && (
+                  <div>
+                    <p className="text-xs font-bold text-primary mb-2">
+                      {isAr ? 'نوع حساب مقدم الخدمة:' : 'Account Type:'}
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAccountType('expert')}
+                        className={`rounded-xl border px-3 py-2 text-start text-xs font-bold transition ${
+                          accountType === 'expert'
+                            ? 'border-accent bg-secondary text-primary'
+                            : 'border-border bg-background text-muted-foreground hover:border-primary'
+                        }`}
+                      >
+                        {isAr ? 'خبير فردي (Individual)' : 'Individual Expert'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAccountType('organization')}
+                        className={`rounded-xl border px-3 py-2 text-start text-xs font-bold transition ${
+                          accountType === 'organization'
+                            ? 'border-accent bg-secondary text-primary'
+                            : 'border-border bg-background text-muted-foreground hover:border-primary'
+                        }`}
+                      >
+                        {isAr ? 'مؤسسة / شركة (Organization)' : 'Organization'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Google Sign In Button */}
                 <a
                   href={`/api/auth/google/signin?role=${role}`}
@@ -210,16 +255,28 @@ export default function SignupPage() {
                   </span>
                 </div>
 
-                <label className="text-xs font-bold text-primary">
-                  {isAr ? 'الاسم بالكامل' : 'Full name'}
-                  <input
-                    required
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder={isAr ? 'مثال: ليلى حسن' : 'e.g. Layla Hassan'}
-                    className="mt-1.5 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-xs text-foreground outline-none focus:border-accent"
-                  />
-                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-xs font-bold text-primary">
+                    {isAr ? 'الاسم الأول (First Name)' : 'First Name'}
+                    <input
+                      required
+                      value={fName}
+                      onChange={(e) => setFName(e.target.value)}
+                      placeholder={isAr ? 'مثال: ليلى' : 'e.g. Layla'}
+                      className="mt-1.5 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-xs text-foreground outline-none focus:border-accent"
+                    />
+                  </label>
+                  <label className="text-xs font-bold text-primary">
+                    {isAr ? 'اسم العائلة (Last Name)' : 'Last Name'}
+                    <input
+                      required
+                      value={lName}
+                      onChange={(e) => setLName(e.target.value)}
+                      placeholder={isAr ? 'مثال: حسن' : 'e.g. Hassan'}
+                      className="mt-1.5 w-full rounded-xl border border-border bg-background px-4 py-2.5 text-xs text-foreground outline-none focus:border-accent"
+                    />
+                  </label>
+                </div>
 
                 <label className="text-xs font-bold text-primary">
                   {isAr ? 'البريد الإلكتروني' : 'Email address'}

@@ -81,7 +81,7 @@ export async function GET(request: Request, { params }: RouteProps) {
             role: expert.role,
             location: expert.location,
             image: expert.image || expert.avatarUrl || '/experts/layla.png',
-            rating: expert.rating || '5.0',
+            rating: expert.reviews && Number(expert.reviews) > 0 ? expert.rating : '',
             reviews: expert.reviews || 0,
             bio: expert.bio || expert.about || '',
           }

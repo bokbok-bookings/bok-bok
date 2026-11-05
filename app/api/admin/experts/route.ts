@@ -70,15 +70,35 @@ export async function PATCH(request: Request) {
     }
 
     if (action === 'approve') {
+      const existing = await expertsCol.findOne({ _id: expertObjId })
+      if (existing?.pendingInfoUpdate && typeof existing.pendingInfoUpdate === 'object') {
+        Object.assign(updateDoc, existing.pendingInfoUpdate)
+      }
       updateDoc.status = 'approved'
       updateDoc.approvedAt = new Date()
       updateDoc.approvedBy = new ObjectId(auth.session.userId)
       updateDoc.rejectionReason = null
+      updateDoc.hasPendingInfoUpdate = false
+      updateDoc.pendingInfoUpdate = null
+      updateDoc.pendingInfoRejectionReason = null
     } else if (action === 'reject') {
       updateDoc.status = 'rejected'
       updateDoc.rejectionReason = rejectionReason || 'Profile does not meet directory quality standards.'
     } else if (action === 'suspend') {
       updateDoc.status = 'suspended'
+    } else if (action === 'approve_info_update') {
+      const existing = await expertsCol.findOne({ _id: expertObjId })
+      if (existing?.pendingInfoUpdate && typeof existing.pendingInfoUpdate === 'object') {
+        Object.assign(updateDoc, existing.pendingInfoUpdate)
+      }
+      updateDoc.hasPendingInfoUpdate = false
+      updateDoc.pendingInfoUpdate = null
+      updateDoc.pendingInfoRejectionReason = null
+    } else if (action === 'reject_info_update') {
+      updateDoc.hasPendingInfoUpdate = false
+      updateDoc.pendingInfoUpdate = null
+      updateDoc.pendingInfoRejectionReason =
+        rejectionReason || 'Requested info changes did not meet verification requirements.'
     }
 
     await expertsCol.updateOne({ _id: expertObjId }, { $set: updateDoc })

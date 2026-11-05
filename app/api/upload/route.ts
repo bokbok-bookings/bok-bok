@@ -61,7 +61,7 @@ function hasValidMagicBytes(buffer: Buffer, mimeType: string): boolean {
 export async function POST(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const type = searchParams.get('type') || 'receipt' // 'avatar' | 'receipt' | 'id_document' | 'general'
+    const type = searchParams.get('type') || 'receipt' // 'avatar' | 'receipt' | 'id_document' | 'certificate' | 'general'
 
     let folder = 'bokbok/receipts'
     let maxWidth = 1600
@@ -73,6 +73,10 @@ export async function POST(request: Request) {
       maxHeight = 800
     } else if (type === 'id_document') {
       folder = 'bokbok/national_ids'
+      maxWidth = 1800
+      maxHeight = 1800
+    } else if (type === 'certificate') {
+      folder = 'bokbok/certificates'
       maxWidth = 1800
       maxHeight = 1800
     }

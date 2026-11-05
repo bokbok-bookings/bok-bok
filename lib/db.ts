@@ -51,15 +51,51 @@ export function toObjectId(val: string | ObjectId): ObjectId {
 
 export type UserRole = 'admin' | 'expert' | 'client'
 export type UserStatus = 'active' | 'pending' | 'disabled'
+export type ExpertAccountType = 'expert' | 'organization'
+export type PayoutMethod = 'instapay' | 'bank_account'
+
+export interface BankAccountDetails {
+  bankName?: string
+  accountHolderName?: string
+  accountNumber?: string
+  iban?: string
+}
+
+export interface ExpertCertificate {
+  title: string
+  fileUrl: string
+  fileType?: 'pdf' | 'image'
+}
+
+export interface ExpertSocialLinks {
+  linkedin?: string
+  instagram?: string
+  facebook?: string
+  twitter?: string
+  website?: string
+  other?: string
+}
+
+export interface SuggestedCategoryInfo {
+  categoryName?: string
+  subcategoryName?: string
+  parentCategorySlug?: string
+  notes?: string
+  createdAt?: Date
+}
 
 export interface UserDoc {
   _id: ObjectId
   email: string
   passwordHash: string
   displayName: string
+  fName?: string
+  lName?: string
+  accountType?: ExpertAccountType
   role: UserRole
   expertId?: ObjectId // Linked expert profile for experts
   phone?: string
+  whatsapp?: string
   status: UserStatus
   emailVerified?: boolean
   emailVerificationToken?: string
@@ -80,14 +116,26 @@ export interface ExpertDoc {
   _id: ObjectId
   id?: string
   userId?: ObjectId
+  accountType?: ExpertAccountType
+  fName?: string
+  lName?: string
   name: string
   slug: string
   role: string
   location: string
+  phone?: string // Admin only
+  whatsapp?: string // Admin only
   image: string
   avatarUrl?: string
   nationalIdFrontUrl?: string
   nationalIdBackUrl?: string
+  commercialRegisterNumber?: string
+  taxNumber?: string
+  commercialRegisterUrl?: string
+  taxIdDocumentUrl?: string
+  certificates?: ExpertCertificate[]
+  socialLinks?: ExpertSocialLinks // Admin only
+  suggestedCategory?: SuggestedCategoryInfo
   rating: string
   reviews: number
   price: string
@@ -105,7 +153,13 @@ export interface ExpertDoc {
   rejectionReason?: string
   approvedAt?: Date
   approvedBy?: ObjectId
+  hasPendingInfoUpdate?: boolean
+  pendingInfoSubmittedAt?: Date
+  pendingInfoRejectionReason?: string
+  pendingInfoUpdate?: Record<string, any>
+  preferredPayoutMethod?: PayoutMethod
   instapayUsername?: string
+  bankAccount?: BankAccountDetails
   createdAt?: Date
   updatedAt?: Date
   googleCalendarEventId?: string
@@ -339,16 +393,16 @@ export interface EmailLogDoc {
   _id?: ObjectId
   bookingId?: ObjectId
   emailType:
-    | 'email_verification'
-    | 'booking_received'
-    | 'booking_confirmed'
-    | 'meet_link_updated'
-    | 'missing_meet_link_alert'
-    | 'reminder_day_of'
-    | 'reminder_before_session'
-    | 'reschedule_confirmed'
-    | 'attendance_prompt'
-    | 'attendance_dispute_admin'
+  | 'email_verification'
+  | 'booking_received'
+  | 'booking_confirmed'
+  | 'meet_link_updated'
+  | 'missing_meet_link_alert'
+  | 'reminder_day_of'
+  | 'reminder_before_session'
+  | 'reschedule_confirmed'
+  | 'attendance_prompt'
+  | 'attendance_dispute_admin'
   recipientEmail: string
   recipientRole: 'client' | 'expert' | 'admin'
   subject: string

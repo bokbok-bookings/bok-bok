@@ -13,11 +13,30 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { email: rawEmail, password, displayName, role: rawRole } = body
+    const {
+      email: rawEmail,
+      password,
+      displayName,
+      fName: rawFName,
+      lName: rawLName,
+      role: rawRole,
+      accountType: rawAccountType,
+    } = body
 
-    if (!rawEmail || !password || !displayName) {
+    const cleanFName = rawFName ? String(rawFName).trim() : String(displayName || '').trim().split(/\s+/)[0] || ''
+    const cleanLName = rawLName
+      ? String(rawLName).trim()
+      : String(displayName || '')
+          .trim()
+          .split(/\s+/)
+          .slice(1)
+          .join(' ') || ''
+
+    const name = `${cleanFName} ${cleanLName}`.trim() || String(displayName || '').trim()
+
+    if (!rawEmail || !password || !name) {
       return NextResponse.json(
-        { success: false, error: 'Name, email, and password are required' },
+        { success: false, error: 'First name, last name, email, and password are required' },
         { status: 400 }
       )
     }
@@ -31,7 +50,7 @@ export async function POST(request: Request) {
 
     const email = String(rawEmail).trim().toLowerCase()
     const role = rawRole === 'expert' ? 'expert' : 'client'
-    const name = String(displayName).trim()
+    const accountType = rawAccountType === 'organization' ? 'organization' : 'expert'
 
     const usersCol = await getUsersCollection()
     const existing = await usersCol.findOne({ email })
@@ -52,11 +71,13 @@ export async function POST(request: Request) {
       expertId = new ObjectId()
       const expertsCol = await getExpertsCollection()
 
-      // Generate a clean slug
-      const baseSlug = name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)+/g, '') || `expert-${Date.now().toString(36)}`
+      // Generate a clean slug from fName and lName
+      const slugSource = cleanFName && cleanLName ? `${cleanFName}-${cleanLName}` : name
+      const baseSlug =
+        slugSource
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)+/g, '') || `expert-${Date.now().toString(36)}`
 
       let finalSlug = baseSlug
       const existingSlug = await expertsCol.findOne({ slug: finalSlug })
@@ -68,20 +89,25 @@ export async function POST(request: Request) {
         _id: expertId,
         id: expertId.toString(),
         userId: userId,
+        accountType,
+        fName: cleanFName,
+        lName: cleanLName,
         name: name,
         slug: finalSlug,
         role: 'Consultant',
         location: 'Cairo, Egypt',
-        image: '/experts/layla.png',
-        rating: '5.0',
+        image: '',
+        avatarUrl: '',
+        rating: '',
         reviews: 0,
         price: '500 EGP',
         priceNumber: 500,
         tags: [],
-        durationMinutes: 45,
+        durationMinutes: 30,
         about: '',
         bio: '',
         status: 'draft',
+        preferredPayoutMethod: 'instapay',
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -95,6 +121,9 @@ export async function POST(request: Request) {
       email,
       passwordHash,
       displayName: name,
+      fName: cleanFName,
+      lName: cleanLName,
+      accountType: role === 'expert' ? accountType : undefined,
       role,
       expertId,
       status: 'active',
