@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { BrandLogo } from '@/components/brand/logo'
 import {
   ArrowRight,
@@ -107,10 +107,10 @@ const fallbackCategories = [
   },
 ]
 
-const experts = [
-  { name: 'Ahmed Mohamed', role: 'Marketing Consultant', location: 'Cairo, Egypt', initials: 'AM', image: '/experts/ahmed.png', color: 'bg-[#f2b58f]', rating: '4.9', reviews: '124', price: '500 EGP', next: 'Today, 8:00 PM', tags: ['Marketing', 'Growth'] },
-  { name: 'Layla Hassan', role: 'Product Strategy Expert', location: 'Dubai, UAE', initials: 'LH', image: '/experts/layla.png', color: 'bg-[#d4c7ee]', rating: '5.0', reviews: '89', price: '750 EGP', next: 'Tomorrow, 11:00 AM', tags: ['Product', 'Business'] },
-  { name: 'Omar Khalil', role: 'Career & Leadership Coach', location: 'Amman, Jordan', initials: 'OK', image: '/experts/omar.png', color: 'bg-[#b8d5c3]', rating: '4.8', reviews: '67', price: '400 EGP', next: 'Today, 6:30 PM', tags: ['Career', 'Leadership'] },
+const fallbackExperts = [
+  { name: 'Ahmed Mohamed', slug: 'ahmed-mohamed', role: 'Marketing Consultant', location: 'Cairo, Egypt', initials: 'AM', image: '/experts/ahmed.png', color: 'bg-[#f2b58f]', rating: '4.9', reviews: '124', price: '500 EGP', next: 'Today, 8:00 PM', tags: ['Marketing', 'Growth'], featuredHome: true },
+  { name: 'Layla Hassan', slug: 'layla-hassan', role: 'Product Strategy Expert', location: 'Dubai, UAE', initials: 'LH', image: '/experts/layla.png', color: 'bg-[#d4c7ee]', rating: '5.0', reviews: '89', price: '750 EGP', next: 'Tomorrow, 11:00 AM', tags: ['Product', 'Business'], featuredHome: true },
+  { name: 'Omar Khalil', slug: 'omar-khalil', role: 'Career & Leadership Coach', location: 'Amman, Jordan', initials: 'OK', image: '/experts/omar.png', color: 'bg-[#b8d5c3]', rating: '4.8', reviews: '67', price: '400 EGP', next: 'Today, 6:30 PM', tags: ['Career', 'Leadership'], featuredHome: true },
 ]
 
 export default function Page() {
@@ -118,6 +118,79 @@ export default function Page() {
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
   const [categoriesList, setCategoriesList] = useState<any[]>(fallbackCategories)
+  const [homeExperts, setHomeExperts] = useState<any[]>(fallbackExperts)
+  const categoriesCarouselRef = useRef<HTMLDivElement>(null)
+
+  const scrollCategories = (direction: 'next' | 'prev') => {
+    if (!categoriesCarouselRef.current) return
+    const container = categoriesCarouselRef.current
+    const scrollAmount = container.clientWidth * 0.95
+    const delta =
+      direction === 'next'
+        ? isAr
+          ? -scrollAmount
+          : scrollAmount
+        : isAr
+          ? scrollAmount
+          : -scrollAmount
+    container.scrollBy({ left: delta, behavior: 'smooth' })
+  }
+
+  // Fetch real featured & top approved experts from DB
+  useEffect(() => {
+    fetch('/api/experts')
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          const colors = [
+            'bg-[#f2b58f]',
+            'bg-[#d4c7ee]',
+            'bg-[#b8d5c3]',
+            'bg-[#ffe4a0]',
+            'bg-[#c5e3f6]',
+            'bg-[#ffd1c7]',
+          ]
+          const mapped = json.data.map((e: any, idx: number) => {
+            const displayName =
+              e.name ||
+              `${e.fName || ''} ${e.lName || ''}`.trim() ||
+              'Expert Specialist'
+            const slug =
+              e.slug ||
+              displayName
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/(^-|-$)/g, '')
+            const tags =
+              Array.isArray(e.tags) && e.tags.length > 0
+                ? e.tags
+                : [e.categorySlug || 'Guidance']
+
+            return {
+              name: displayName,
+              slug,
+              role: e.role || 'Verified Specialist',
+              location: e.location || 'Cairo, Egypt',
+              initials: displayName.substring(0, 2).toUpperCase(),
+              image: e.avatarUrl || e.image || '/experts/ahmed.png',
+              color: colors[idx % colors.length],
+              rating: e.rating || '5.0',
+              reviews: String(e.reviews || 0),
+              price: e.price || '500 EGP',
+              tags,
+              featuredHome: Boolean(e.featuredHome),
+            }
+          })
+
+          // Prioritize experts marked as featuredHome: true, then others
+          const featured = mapped.filter((e: any) => e.featuredHome)
+          const standard = mapped.filter((e: any) => !e.featuredHome)
+          const combined = [...featured, ...standard]
+          setHomeExperts(combined.slice(0, 6))
+        }
+      })
+      .catch((err) => console.error('Failed to load featured home experts:', err))
+  }, [])
 
   useEffect(() => {
     fetch('/api/categories')
@@ -150,15 +223,17 @@ export default function Page() {
       .catch((err) => console.error('Failed to load categories:', err))
   }, [])
 
-  const filteredExperts = experts.filter((expert) => {
+  const filteredExperts = homeExperts.filter((expert) => {
     const matchesSearch =
       !search ||
-      `${expert.name} ${expert.role} ${expert.tags.join(' ')}`
+      `${expert.name} ${expert.role} ${(expert.tags || []).join(' ')}`
         .toLowerCase()
         .includes(search.toLowerCase())
     const matchesCategory =
       activeCategory === 'All' ||
-      expert.tags.some((t) => activeCategory.toLowerCase().includes(t.toLowerCase()))
+      (expert.tags || []).some((t: string) =>
+        activeCategory.toLowerCase().includes(t.toLowerCase())
+      )
     return matchesSearch && matchesCategory
   })
 
@@ -251,25 +326,51 @@ export default function Page() {
 
         {/* Categories Section */}
         <section id="categories" className="border-t border-border py-20">
-          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
               <h2 className="text-3xl font-semibold tracking-[-.04em] sm:text-4xl text-primary">
                 {t.home.categoriesHeading}
               </h2>
             </div>
-            <Link
-              href="/explore"
-              className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline"
-            >
-              {t.home.exploreAllCategories}{' '}
-              <ArrowRight
-                size={16}
-                className={isAr ? 'rotate-180' : ''}
-              />
-            </Link>
+
+            <div className="flex items-center justify-between sm:justify-end gap-3">
+              <Link
+                href="/explore"
+                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-primary hover:underline"
+              >
+                {t.home.exploreAllCategories}{' '}
+                <ArrowRight
+                  size={15}
+                  className={isAr ? 'rotate-180' : ''}
+                />
+              </Link>
+
+              {/* Mobile Carousel Arrow Controls */}
+              <div className="flex sm:hidden items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => scrollCategories('prev')}
+                  aria-label="Previous categories"
+                  className="flex size-8 items-center justify-center rounded-full border border-border bg-surface text-primary shadow-2xs hover:bg-muted active:scale-90 transition cursor-pointer"
+                >
+                  <ChevronLeft size={16} className={isAr ? 'rotate-180' : ''} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollCategories('next')}
+                  aria-label="Next categories"
+                  className="flex size-8 items-center justify-center rounded-full border border-border bg-surface text-primary shadow-2xs hover:bg-muted active:scale-90 transition cursor-pointer"
+                >
+                  <ChevronRight size={16} className={isAr ? 'rotate-180' : ''} />
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div
+            ref={categoriesCarouselRef}
+            className="mt-8 sm:mt-10 flex overflow-x-auto scrollbar-none snap-x snap-mandatory gap-3 pb-3 pt-1 -mx-5 px-5 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-4 sm:overflow-visible sm:pb-0 sm:pt-0"
+          >
             {categoriesList.map((c) => {
               const targetSlug = c.slug || c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
               const displayName = isAr ? c.nameAr || c.name : c.name
@@ -280,7 +381,7 @@ export default function Page() {
                 <Link
                   key={targetSlug}
                   href={localeHref(`/explore?category=${encodeURIComponent(targetSlug)}`)}
-                  className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-border bg-surface p-6 sm:p-7 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-accent hover:bg-linear-to-b hover:from-white hover:to-secondary/20"
+                  className="group relative flex flex-col justify-between overflow-hidden rounded-2xl sm:rounded-3xl border border-border bg-surface p-4 sm:p-7 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-accent hover:bg-linear-to-b hover:from-white hover:to-secondary/20 w-[calc(50%-6px)] min-w-[calc(50%-6px)] max-w-[calc(50%-6px)] shrink-0 snap-start sm:w-auto sm:min-w-0 sm:max-w-none sm:shrink"
                 >
                   {/* Subtle decorative hover glow */}
                   <div className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-accent/15 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100" />
@@ -288,17 +389,18 @@ export default function Page() {
                   <div>
                     {/* Top Bar: Icon */}
                     <div className="flex items-center justify-between">
-                      <span className="grid size-12 place-items-center rounded-2xl bg-secondary border border-accent/25 text-primary transition-all duration-300 group-hover:bg-accent group-hover:scale-105 group-hover:shadow-xs">
-                        <Icon size={22} className="transition-transform duration-300 group-hover:rotate-3" />
+                      <span className="grid size-10 sm:size-12 place-items-center rounded-xl sm:rounded-2xl bg-secondary border border-accent/25 text-primary transition-all duration-300 group-hover:bg-accent group-hover:scale-105 group-hover:shadow-xs">
+                        <Icon size={19} className="transition-transform duration-300 group-hover:rotate-3 sm:hidden" />
+                        <Icon size={22} className="transition-transform duration-300 group-hover:rotate-3 hidden sm:block" />
                       </span>
                     </div>
 
                     {/* Title & Animated Arrow */}
-                    <h3 className="mt-5 text-lg font-bold text-foreground transition-colors group-hover:text-primary flex items-center justify-between">
-                      <span>{displayName}</span>
+                    <h3 className="mt-3.5 sm:mt-5 text-sm sm:text-lg font-bold text-foreground transition-colors group-hover:text-primary flex items-center justify-between">
+                      <span className="line-clamp-1">{displayName}</span>
                       <ArrowRight
                         size={18}
-                        className={`text-primary opacity-0 transition-all duration-300 group-hover:opacity-100 shrink-0 ${isAr
+                        className={`text-primary opacity-0 transition-all duration-300 group-hover:opacity-100 shrink-0 hidden sm:block ${isAr
                           ? 'rotate-180 translate-x-2 group-hover:translate-x-0'
                           : '-translate-x-2 group-hover:translate-x-0'
                           }`}
@@ -306,19 +408,21 @@ export default function Page() {
                     </h3>
 
                     {/* Description */}
-                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground line-clamp-2 min-h-9">
+                    <p className="mt-1.5 sm:mt-2 text-[11px] sm:text-xs leading-snug sm:leading-relaxed text-muted-foreground line-clamp-2 min-h-7 sm:min-h-9">
                       {displayDesc}
                     </p>
                   </div>
 
                   {/* Bottom Footer Row */}
-                  <div className="mt-6 flex items-center justify-between border-t border-border pt-4">
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground transition-colors group-hover:text-primary">
-                      <span className="size-1.5 rounded-full bg-accent" />
-                      {c.subCount ?? 8} {t.home.specializations}
+                  <div className="mt-4 sm:mt-6 flex items-center justify-between border-t border-border pt-3 sm:pt-4">
+                    <span className="inline-flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-[11px] font-bold text-muted-foreground transition-colors group-hover:text-primary truncate">
+                      <span className="size-1.5 rounded-full bg-accent shrink-0" />
+                      <span>{c.subCount ?? 8}</span>
+                      <span className="hidden xs:inline">{t.home.specializations}</span>
                     </span>
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-primary group-hover:text-accent-hover transition-colors">
-                      {t.home.exploreOfferings} {isAr ? '←' : '→'}
+                    <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-bold text-primary group-hover:text-accent-hover transition-colors shrink-0">
+                      <span className="hidden sm:inline">{t.home.exploreOfferings} </span>
+                      <span className="text-xs">{isAr ? '←' : '→'}</span>
                     </span>
                   </div>
                 </Link>
@@ -396,7 +500,7 @@ export default function Page() {
             </Link>
           </div>
 
-          <div className="mt-8 flex flex-col gap-4 rounded-3xl border border-border bg-surface p-3 sm:flex-row sm:items-center sm:p-2">
+          {/* <div className="mt-8 flex flex-col gap-4 rounded-3xl border border-border bg-surface p-3 sm:flex-row sm:items-center sm:p-2">
             <div className="flex flex-1 items-center gap-3 px-3">
               <Search size={18} className="text-muted-foreground" />
               <input
@@ -407,18 +511,18 @@ export default function Page() {
                 className="w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-muted-foreground"
               />
             </div>
-          </div>
+          </div> */}
 
           <div className="mt-8 grid gap-4 lg:grid-cols-3">
             {filteredExperts.map((expert) => (
               <Link
-                key={expert.name}
-                href={localeHref(`/experts/${expert.name.toLowerCase().replaceAll(' ', '-')}`)}
+                key={expert.slug || expert.name}
+                href={localeHref(`/experts/${expert.slug || expert.name.toLowerCase().replaceAll(' ', '-')}`)}
                 className="group flex flex-col justify-between rounded-3xl border border-border bg-surface p-5 transition-all duration-300 hover:-translate-y-1.5 hover:border-accent hover:shadow-lg cursor-pointer"
               >
                 <div>
-                  <div className="flex items-start justify-between">
-                    <div className={`relative size-14 overflow-hidden rounded-2xl ${expert.color}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className={`relative size-14 shrink-0 overflow-hidden rounded-2xl ${expert.color}`}>
                       <Image
                         src={expert.image}
                         alt={`${expert.name} portrait`}
@@ -427,17 +531,24 @@ export default function Page() {
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     </div>
-                    {Number((expert as any).reviews ?? 0) > 0 && Number(expert.rating) > 0 && (
-                      <span className="flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-bold text-primary">
-                        <Star size={12} className="text-accent fill-accent" /> {expert.rating}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                      {expert.featuredHome && (
+                        <span className="flex items-center gap-1 rounded-full bg-amber-400/20 border border-amber-400/40 px-2.5 py-1 text-[10px] font-bold text-amber-900 shadow-2xs">
+                          ⭐ {isAr ? 'مميز' : 'Featured'}
+                        </span>
+                      )}
+                      {Number((expert as any).reviews ?? 0) > 0 && Number(expert.rating) > 0 && (
+                        <span className="flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-[11px] font-bold text-primary">
+                          <Star size={12} className="text-accent fill-accent" /> {expert.rating}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <h3 className="mt-5 font-bold text-primary group-hover:text-primary transition-colors">{expert.name}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">{expert.role}</p>
                   <p className="mt-1 text-xs text-muted-foreground/80">{expert.location}</p>
                   <div className="mt-4 flex flex-wrap gap-1.5">
-                    {expert.tags.map((tag) => (
+                    {(expert.tags || []).map((tag: string) => (
                       <span
                         key={tag}
                         className="rounded-full bg-secondary/80 border border-accent/20 px-2.5 py-1 text-[10px] font-bold text-primary"

@@ -603,6 +603,28 @@ export async function PATCH(request: Request) {
           console.error('[Google Calendar] Failed to delete event on cancel:', calErr?.message)
         }
       }
+    } else if (action === 'edit') {
+      const { updates } = body
+      if (updates && typeof updates === 'object') {
+        if (updates.clientName) updateDoc.clientName = String(updates.clientName).trim()
+        if (updates.clientEmail) updateDoc.clientEmail = String(updates.clientEmail).trim().toLowerCase()
+        if (updates.clientPhone !== undefined) updateDoc.clientPhone = String(updates.clientPhone).trim()
+        if (updates.date) updateDoc.date = updates.date
+        if (updates.time) updateDoc.time = updates.time
+        if (updates.durationMinutes !== undefined) updateDoc.durationMinutes = Number(updates.durationMinutes) || 30
+        if (updates.amount !== undefined) updateDoc.amount = Number(updates.amount) || 0
+        if (updates.currency) updateDoc.currency = updates.currency
+        if (updates.status) {
+          updateDoc.status = updates.status
+          if (updates.status === 'confirmed' && !existing.sessionStartAt) {
+            updateDoc.attendanceStatus = 'pending'
+          }
+        }
+        if (updates.paymentStatus) updateDoc.paymentStatus = updates.paymentStatus
+        if (updates.googleMeetLink !== undefined) updateDoc.googleMeetLink = updates.googleMeetLink
+        if (updates.adminNotes !== undefined) updateDoc.adminNotes = updates.adminNotes
+      }
+      await bookingsCol.updateOne({ _id: bookingObjId }, { $set: updateDoc })
     } else {
       return NextResponse.json(
         { success: false, error: `Unsupported booking action: ${String(action)}` },
@@ -618,6 +640,63 @@ export async function PATCH(request: Request) {
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to update booking' },
       { status: 500 },
+    )
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const auth = await resolveAuth(request)
+    if (auth.error || !auth.session) {
+      return NextResponse.json({ success: false, error: auth.error || 'Unauthorized' }, { status: auth.status })
+    }
+
+    if (auth.session.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Only administrators can delete bookings.' },
+        { status: 403 }
+      )
+    }
+
+    const { searchParams } = new URL(request.url)
+    let id = searchParams.get('id') || searchParams.get('bookingId')
+    if (!id) {
+      try {
+        const body = await request.json()
+        id = body.id || body.bookingId
+      } catch {}
+    }
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Booking ID is required' }, { status: 400 })
+    }
+
+    const bookingObjId = toObjectId(id)
+    const bookingsCol = await getBookingsCollection()
+
+    const existing = await bookingsCol.findOne({ _id: bookingObjId })
+    if (!existing) {
+      return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 })
+    }
+
+    if (existing.googleCalendarEventId) {
+      try {
+        await deleteCalendarEvent(existing.googleCalendarEventId)
+      } catch (calErr: any) {
+        console.error('[Google Calendar] Failed to delete event on booking delete:', calErr?.message)
+      }
+    }
+
+    await bookingsCol.deleteOne({ _id: bookingObjId })
+
+    return NextResponse.json({
+      success: true,
+      message: 'Booking deleted successfully',
+    })
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message || 'Failed to delete booking' },
+      { status: 500 }
     )
   }
 }

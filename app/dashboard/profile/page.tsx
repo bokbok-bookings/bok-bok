@@ -368,6 +368,61 @@ export default function ExpertProfilePage() {
         </div>
       )}
 
+      {/* Homepage Spotlight Status */}
+      <div
+        className={`rounded-3xl border p-5 sm:p-6 transition-all ${profile?.featuredHome
+            ? 'border-amber-300 bg-gradient-to-r from-amber-50/90 via-amber-50/60 to-surface text-amber-950 shadow-xs'
+            : 'border-border bg-surface text-foreground'
+          }`}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div
+              className={`size-11 shrink-0 rounded-2xl grid place-items-center text-xl shadow-xs ${profile?.featuredHome
+                  ? 'bg-amber-400/30 border border-amber-400/50 text-amber-900'
+                  : 'bg-muted border border-border text-muted-foreground'
+                }`}
+            >
+              ⭐
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-primary">
+                  Homepage Spotlight Status
+                </h3>
+                {profile?.featuredHome ? (
+                  <span className="rounded-full bg-amber-400/30 border border-amber-500/40 px-2.5 py-0.5 text-[10px] font-black text-amber-950 uppercase tracking-wider">
+                    Featured on Home
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-muted border border-border px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                    Standard Directory
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground leading-relaxed max-w-xl">
+                {profile?.featuredHome
+                  ? 'Congratulations! Your profile is actively featured in the "Meet vetted specialists" showcase on the BokBok homepage, giving you maximum client visibility.'
+                  : 'Platform administrators curate standout and verified specialists to be spotlighted directly on the BokBok homepage.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="shrink-0 flex items-center">
+            {profile?.featuredHome ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1.5 text-xs font-bold text-emerald-800">
+                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                Live on Homepage
+              </span>
+            ) : (
+              <span className="text-[11px] font-semibold text-muted-foreground italic">
+                Curated by Admin
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
       <form
         onSubmit={handleSave}
         className="rounded-3xl border border-border bg-surface p-6 sm:p-8 shadow-sm space-y-6"
@@ -415,8 +470,8 @@ export default function ExpertProfilePage() {
             type="button"
             onClick={() => setAccountType('expert')}
             className={`flex items-center gap-3 rounded-2xl border p-3.5 text-left transition ${accountType === 'expert'
-                ? 'border-primary bg-primary text-white'
-                : 'border-border bg-background text-foreground hover:border-primary'
+              ? 'border-primary bg-primary text-white'
+              : 'border-border bg-background text-foreground hover:border-primary'
               }`}
           >
             <UserCheck size={16} className={accountType === 'expert' ? 'text-accent' : 'text-primary'} />
@@ -432,8 +487,8 @@ export default function ExpertProfilePage() {
             type="button"
             onClick={() => setAccountType('organization')}
             className={`flex items-center gap-3 rounded-2xl border p-3.5 text-left transition ${accountType === 'organization'
-                ? 'border-primary bg-primary text-white'
-                : 'border-border bg-background text-foreground hover:border-primary'
+              ? 'border-primary bg-primary text-white'
+              : 'border-border bg-background text-foreground hover:border-primary'
               }`}
           >
             <Building2 size={16} className={accountType === 'organization' ? 'text-accent' : 'text-primary'} />
@@ -538,8 +593,8 @@ export default function ExpertProfilePage() {
               type="button"
               onClick={() => setPreferredPayoutMethod('instapay')}
               className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition text-left ${preferredPayoutMethod === 'instapay'
-                  ? 'border-primary bg-primary text-white'
-                  : 'border-border bg-surface text-foreground hover:border-primary'
+                ? 'border-primary bg-primary text-white'
+                : 'border-border bg-surface text-foreground hover:border-primary'
                 }`}
             >
               ⚡ Prefer InstaPay
@@ -548,8 +603,8 @@ export default function ExpertProfilePage() {
               type="button"
               onClick={() => setPreferredPayoutMethod('bank_account')}
               className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition text-left ${preferredPayoutMethod === 'bank_account'
-                  ? 'border-primary bg-primary text-white'
-                  : 'border-border bg-surface text-foreground hover:border-primary'
+                ? 'border-primary bg-primary text-white'
+                : 'border-border bg-surface text-foreground hover:border-primary'
                 }`}
             >
               🏦 Prefer Bank Account

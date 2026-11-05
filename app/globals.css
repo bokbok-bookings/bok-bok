@@ -190,3 +190,11 @@
 @utility font-body {
   font-family: var(--font-body), 'Outfit', sans-serif !important;
 }
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

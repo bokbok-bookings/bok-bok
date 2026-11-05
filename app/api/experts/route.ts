@@ -41,6 +41,7 @@ export async function GET(request: Request) {
     const category = searchParams.get('category')
     const tag = searchParams.get('tag')
     const q = searchParams.get('q')
+    const featuredHome = searchParams.get('featuredHome')
 
     // Reject removed or unapproved category filter queries
     if (category && category !== 'All' && category !== 'All experts') {
@@ -111,6 +112,10 @@ export async function GET(request: Request) {
       filter.tags = tag
     }
 
+    if (featuredHome === 'true') {
+      filter.featuredHome = true
+    }
+
     if (q) {
       const regex = new RegExp(q.trim(), 'i')
       filter.$and = filter.$and || []
@@ -128,7 +133,7 @@ export async function GET(request: Request) {
 
     const docs = await expertsCol
       .find(filter)
-      .sort({ rating: -1, reviews: -1, createdAt: -1 })
+      .sort({ featuredHome: -1, rating: -1, reviews: -1, createdAt: -1 })
       .toArray()
 
     const formatted = docs

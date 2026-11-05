@@ -216,54 +216,54 @@ export function AttendanceManager() {
     <div className="space-y-8">
       {/* Metrics Row */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-7">
-        <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-4">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Scheduled</span>
-          <p className="mt-1 text-2xl font-black text-white">{stats.totalSessions}</p>
-          <p className="text-[10px] text-slate-500">Confirmed sessions</p>
+        <div className="rounded-2xl border border-border bg-white p-4 shadow-xs">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Scheduled</span>
+          <p className="mt-1 text-2xl font-black text-foreground">{stats.totalSessions}</p>
+          <p className="text-[10px] text-muted-foreground">Confirmed sessions</p>
         </div>
-        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">Completed</span>
-          <p className="mt-1 text-2xl font-black text-emerald-300">{stats.completed}</p>
-          <p className="text-[10px] text-emerald-400/70">Mutual attendance</p>
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 shadow-xs">
+          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800">Completed</span>
+          <p className="mt-1 text-2xl font-black text-emerald-900">{stats.completed}</p>
+          <p className="text-[10px] text-emerald-700/80">Mutual attendance</p>
         </div>
-        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4">
-          <span className="text-[10px] font-black uppercase tracking-wider text-rose-400">Disputed</span>
-          <p className="mt-1 text-2xl font-black text-rose-300">{stats.disputed}</p>
-          <p className="text-[10px] text-rose-400/70">Needs admin action</p>
+        <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 shadow-xs">
+          <span className="text-[10px] font-black uppercase tracking-wider text-rose-800">Disputed</span>
+          <p className="mt-1 text-2xl font-black text-rose-900">{stats.disputed}</p>
+          <p className="text-[10px] text-rose-700/80">Needs admin action</p>
         </div>
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
-          <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">Client Absent</span>
-          <p className="mt-1 text-2xl font-black text-amber-300">{stats.clientAbsent}</p>
-          <p className="text-[10px] text-amber-400/70">Client no-show</p>
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 shadow-xs">
+          <span className="text-[10px] font-black uppercase tracking-wider text-amber-800">Client Absent</span>
+          <p className="mt-1 text-2xl font-black text-amber-900">{stats.clientAbsent}</p>
+          <p className="text-[10px] text-amber-700/80">Client no-show</p>
         </div>
-        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4">
-          <span className="text-[10px] font-black uppercase tracking-wider text-rose-400">Expert Absent</span>
-          <p className="mt-1 text-2xl font-black text-rose-300">{stats.expertAbsent}</p>
-          <p className="text-[10px] text-rose-400/70">Expert no-show</p>
+        <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 shadow-xs">
+          <span className="text-[10px] font-black uppercase tracking-wider text-rose-800">Expert Absent</span>
+          <p className="mt-1 text-2xl font-black text-rose-900">{stats.expertAbsent}</p>
+          <p className="text-[10px] text-rose-700/80">Expert no-show</p>
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-4">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Both Absent</span>
-          <p className="mt-1 text-2xl font-black text-white">{stats.bothAbsent}</p>
-          <p className="text-[10px] text-slate-500">Neither attended</p>
+        <div className="rounded-2xl border border-border bg-white p-4 shadow-xs">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Both Absent</span>
+          <p className="mt-1 text-2xl font-black text-foreground">{stats.bothAbsent}</p>
+          <p className="text-[10px] text-muted-foreground">Neither attended</p>
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-4">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Pending</span>
-          <p className="mt-1 text-2xl font-black text-slate-300">{stats.pending}</p>
-          <p className="text-[10px] text-slate-500">Awaiting reports</p>
+        <div className="rounded-2xl border border-border bg-white p-4 shadow-xs">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Pending</span>
+          <p className="mt-1 text-2xl font-black text-muted-foreground">{stats.pending}</p>
+          <p className="text-[10px] text-muted-foreground">Awaiting reports</p>
         </div>
       </div>
 
       {/* Global Reminder & Window Settings Card */}
-      <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+      <div className="rounded-2xl border border-border bg-white p-6 space-y-4 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
           <div>
-            <h3 className="text-sm font-bold text-white">Automated Notifications &amp; Attendance Configuration</h3>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <h3 className="text-sm font-bold text-foreground">Automated Notifications &amp; Attendance Configuration</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
               Configure global reminder intervals and attendance reporting windows.
             </p>
           </div>
           {settingsMessage && (
-            <span className="text-xs font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/40 px-3 py-1 rounded-full">
+            <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
               ✓ {settingsMessage}
             </span>
           )}
@@ -271,13 +271,13 @@ export function AttendanceManager() {
 
         <form onSubmit={handleSavePlatformSettings} className="grid gap-4 sm:grid-cols-3 items-end">
           <div>
-            <label className="block text-xs font-bold text-slate-300 mb-1.5">
+            <label className="block text-xs font-bold text-foreground mb-1.5">
               Reminder 2: Pre-Session Interval (Minutes)
             </label>
             <select
               value={reminderMinutes}
               onChange={(e) => setReminderMinutes(Number(e.target.value))}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white outline-none focus:border-blue-500"
+              className="w-full rounded-xl border border-border bg-white px-3 py-2 text-xs text-foreground outline-none focus:border-primary shadow-2xs"
             >
               <option value={10}>10 minutes before session</option>
               <option value={15}>15 minutes before session (Default)</option>
@@ -287,7 +287,7 @@ export function AttendanceManager() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-300 mb-1.5">
+            <label className="block text-xs font-bold text-foreground mb-1.5">
               Attendance Reporting Deadline (Hours Post-Session)
             </label>
             <input
@@ -296,7 +296,7 @@ export function AttendanceManager() {
               max={168}
               value={reportingHours}
               onChange={(e) => setReportingHours(Number(e.target.value))}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white outline-none focus:border-blue-500"
+              className="w-full rounded-xl border border-border bg-white px-3 py-2 text-xs text-foreground outline-none focus:border-primary shadow-2xs"
             />
           </div>
 
@@ -304,7 +304,7 @@ export function AttendanceManager() {
             <button
               type="submit"
               disabled={savingSettings}
-              className="w-full rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-500 transition disabled:opacity-50"
+              className="w-full rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary-hover transition disabled:opacity-50 shadow-xs"
             >
               {savingSettings ? 'Saving...' : 'Save System Settings'}
             </button>
@@ -313,7 +313,7 @@ export function AttendanceManager() {
       </div>
 
       {/* Filter Bar */}
-      <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="rounded-2xl border border-border bg-white p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
         <div className="flex flex-wrap items-center gap-2">
           {['all', 'disputed', 'pending', 'completed', 'client_absent', 'expert_absent'].map((st) => (
             <button
@@ -321,8 +321,8 @@ export function AttendanceManager() {
               onClick={() => setStatusFilter(st)}
               className={`rounded-full px-3 py-1.5 text-xs font-bold transition capitalize ${
                 statusFilter === st
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-800 text-slate-300 hover:text-white'
+                  ? 'bg-primary text-white shadow-2xs'
+                  : 'bg-neutral-100 text-muted-foreground border border-border hover:text-foreground hover:bg-neutral-200'
               }`}
             >
               {st.replace('_', ' ')}
@@ -337,11 +337,11 @@ export function AttendanceManager() {
             value={clientSearch}
             onChange={(e) => setClientSearch(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && loadData()}
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-white outline-none placeholder:text-slate-500"
+            className="rounded-xl border border-border bg-white px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground shadow-2xs focus:border-primary"
           />
           <button
             onClick={loadData}
-            className="rounded-xl bg-slate-800 border border-slate-700 px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-slate-700"
+            className="rounded-xl bg-white border border-border px-3 py-1.5 text-xs font-bold text-foreground hover:bg-neutral-50 shadow-2xs"
           >
             Filter
           </button>
@@ -349,41 +349,41 @@ export function AttendanceManager() {
       </div>
 
       {/* Sessions Table */}
-      <div className="rounded-2xl border border-slate-800 bg-[#121d2f] overflow-x-auto">
+      <div className="rounded-2xl border border-border bg-white overflow-x-auto shadow-xs">
         {loading ? (
-          <p className="p-12 text-center text-xs font-bold text-slate-500">Loading attendance sessions...</p>
+          <p className="p-12 text-center text-xs font-bold text-muted-foreground">Loading attendance sessions...</p>
         ) : bookings.length === 0 ? (
-          <div className="p-12 text-center text-xs text-slate-400">
+          <div className="p-12 text-center text-xs text-muted-foreground">
             No confirmed sessions match the selected attendance filters.
           </div>
         ) : (
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-800 text-slate-400">
-                <th className="py-3 px-4 font-semibold">Ref</th>
-                <th className="py-3 px-4 font-semibold">Client</th>
-                <th className="py-3 px-4 font-semibold">Expert</th>
-                <th className="py-3 px-4 font-semibold">Date &amp; Time</th>
-                <th className="py-3 px-4 font-semibold">Expert Report</th>
-                <th className="py-3 px-4 font-semibold">Client Report</th>
-                <th className="py-3 px-4 font-semibold">Status</th>
-                <th className="py-3 px-4 font-semibold text-right">Actions</th>
+              <tr className="border-b border-border bg-neutral-50/80 text-muted-foreground font-semibold">
+                <th className="py-3 px-4">Ref</th>
+                <th className="py-3 px-4">Client</th>
+                <th className="py-3 px-4">Expert</th>
+                <th className="py-3 px-4">Date &amp; Time</th>
+                <th className="py-3 px-4">Expert Report</th>
+                <th className="py-3 px-4">Client Report</th>
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-border">
               {bookings.map((b) => (
-                <tr key={b._id} className="hover:bg-slate-800/30">
-                  <td className="py-3 px-4 font-mono font-bold text-white">
+                <tr key={b._id} className="hover:bg-neutral-50/60 transition">
+                  <td className="py-3 px-4 font-mono font-bold text-foreground">
                     {b.reference || b._id.slice(-6).toUpperCase()}
                   </td>
                   <td className="py-3 px-4">
-                    <p className="font-bold text-white">{b.clientName}</p>
-                    <p className="text-[10px] text-slate-400">{b.clientEmail}</p>
+                    <p className="font-bold text-foreground">{b.clientName}</p>
+                    <p className="text-[10px] text-muted-foreground">{b.clientEmail}</p>
                   </td>
-                  <td className="py-3 px-4 font-medium text-slate-300">
+                  <td className="py-3 px-4 font-medium text-foreground">
                     {b.expertName}
                   </td>
-                  <td className="py-3 px-4 text-slate-400">
+                  <td className="py-3 px-4 text-muted-foreground">
                     {b.date} at {b.time} ({b.durationMinutes}m)
                   </td>
                   <td className="py-3 px-4">
@@ -391,14 +391,14 @@ export function AttendanceManager() {
                       <span
                         className={`font-semibold ${
                           b.expertAttendanceReport.response === 'attended'
-                            ? 'text-emerald-400'
-                            : 'text-rose-400'
+                            ? 'text-emerald-700'
+                            : 'text-rose-700'
                         }`}
                       >
                         {b.expertAttendanceReport.response === 'attended' ? '✓ Attended' : '✕ Marked Absent'}
                       </span>
                     ) : (
-                      <span className="text-slate-500">Not submitted</span>
+                      <span className="text-muted-foreground">Not submitted</span>
                     )}
                   </td>
                   <td className="py-3 px-4">
@@ -406,26 +406,26 @@ export function AttendanceManager() {
                       <span
                         className={`font-semibold ${
                           b.clientAttendanceReport.response === 'attended'
-                            ? 'text-emerald-400'
-                            : 'text-rose-400'
+                            ? 'text-emerald-700'
+                            : 'text-rose-700'
                         }`}
                       >
                         {b.clientAttendanceReport.response === 'attended' ? '✓ Attended' : '✕ Marked Absent'}
                       </span>
                     ) : (
-                      <span className="text-slate-500">Not submitted</span>
+                      <span className="text-muted-foreground">Not submitted</span>
                     )}
                   </td>
                   <td className="py-3 px-4">
                     <span
                       className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
                         b.attendanceStatus === 'completed'
-                          ? 'bg-emerald-500/20 text-emerald-300'
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                           : b.attendanceStatus === 'disputed'
-                          ? 'bg-rose-500/20 text-rose-300'
+                          ? 'bg-rose-50 text-rose-800 border border-rose-200'
                           : b.attendanceStatus === 'client_absent' || b.attendanceStatus === 'expert_absent'
-                          ? 'bg-amber-500/20 text-amber-300'
-                          : 'bg-slate-800 text-slate-400'
+                          ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                          : 'bg-neutral-100 text-muted-foreground border border-border'
                       }`}
                     >
                       {b.attendanceStatus}
@@ -434,7 +434,7 @@ export function AttendanceManager() {
                   <td className="py-3 px-4 text-right">
                     <button
                       onClick={() => handleInspect(b)}
-                      className="rounded-full bg-slate-800 border border-slate-700 px-3 py-1 text-[11px] font-bold text-slate-200 hover:bg-slate-700 hover:text-white"
+                      className="rounded-full bg-white border border-border px-3 py-1 text-[11px] font-bold text-foreground hover:bg-neutral-50 shadow-2xs transition"
                     >
                       {b.attendanceStatus === 'disputed' ? 'Resolve Dispute' : 'Inspect'}
                     </button>
@@ -448,20 +448,20 @@ export function AttendanceManager() {
 
       {/* MODAL: Audit Trail & Admin Dispute Resolution */}
       {inspectBooking && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-2xl rounded-3xl border border-slate-700 bg-[#121d2f] p-6 shadow-2xl space-y-5 text-white max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-2xl rounded-3xl border border-border bg-white p-6 shadow-2xl space-y-5 text-foreground max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
-                <h3 className="text-base font-bold text-white">
+                <h3 className="text-base font-bold text-foreground">
                   Attendance Audit &amp; Resolution — Ref #{inspectBooking.reference || inspectBooking._id.slice(-6).toUpperCase()}
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-muted-foreground">
                   {inspectBooking.clientName} with {inspectBooking.expertName} on {inspectBooking.date} at {inspectBooking.time}
                 </p>
               </div>
               <button
                 onClick={() => setInspectBooking(null)}
-                className="size-7 rounded-full bg-slate-800 text-xs font-bold text-slate-400 hover:bg-slate-700"
+                className="size-7 rounded-full bg-neutral-100 border border-border text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-neutral-200"
               >
                 ✕
               </button>
@@ -469,72 +469,72 @@ export function AttendanceManager() {
 
             {/* Reports Side-by-Side */}
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-slate-800 bg-[#0d1624] p-4 space-y-2">
-                <span className="text-[10px] font-bold uppercase text-slate-400">Expert Submission</span>
+              <div className="rounded-2xl border border-border bg-neutral-50 p-4 space-y-2">
+                <span className="text-[10px] font-bold uppercase text-muted-foreground">Expert Submission</span>
                 {inspectBooking.expertAttendanceReport ? (
                   <>
-                    <p className="text-sm font-bold text-emerald-400 capitalize">
+                    <p className="text-sm font-bold text-emerald-700 capitalize">
                       Response: {inspectBooking.expertAttendanceReport.response}
                     </p>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-muted-foreground">
                       Submitted: {new Date(inspectBooking.expertAttendanceReport.submittedAt).toLocaleString()}
                     </p>
                     {inspectBooking.expertAttendanceReport.notes && (
-                      <p className="text-xs text-slate-300 pt-1">
+                      <p className="text-xs text-foreground pt-1">
                         Notes: &quot;{inspectBooking.expertAttendanceReport.notes}&quot;
                       </p>
                     )}
                   </>
                 ) : (
-                  <p className="text-xs text-slate-500">Expert has not submitted an attendance report yet.</p>
+                  <p className="text-xs text-muted-foreground">Expert has not submitted an attendance report yet.</p>
                 )}
               </div>
 
-              <div className="rounded-2xl border border-slate-800 bg-[#0d1624] p-4 space-y-2">
-                <span className="text-[10px] font-bold uppercase text-slate-400">Client Submission</span>
+              <div className="rounded-2xl border border-border bg-neutral-50 p-4 space-y-2">
+                <span className="text-[10px] font-bold uppercase text-muted-foreground">Client Submission</span>
                 {inspectBooking.clientAttendanceReport ? (
                   <>
-                    <p className="text-sm font-bold text-emerald-400 capitalize">
+                    <p className="text-sm font-bold text-emerald-700 capitalize">
                       Response: {inspectBooking.clientAttendanceReport.response}
                     </p>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-muted-foreground">
                       Submitted: {new Date(inspectBooking.clientAttendanceReport.submittedAt).toLocaleString()}
                     </p>
                     {inspectBooking.clientAttendanceReport.notes && (
-                      <p className="text-xs text-slate-300 pt-1">
+                      <p className="text-xs text-foreground pt-1">
                         Notes: &quot;{inspectBooking.clientAttendanceReport.notes}&quot;
                       </p>
                     )}
                   </>
                 ) : (
-                  <p className="text-xs text-slate-500">Client has not submitted an attendance report yet.</p>
+                  <p className="text-xs text-muted-foreground">Client has not submitted an attendance report yet.</p>
                 )}
               </div>
             </div>
 
             {/* Immutable Audit Trail List */}
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 block">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">
                 Immutable Attendance Audit Trail
               </span>
               {loadingAudit ? (
-                <p className="text-xs text-slate-500">Loading audit history...</p>
+                <p className="text-xs text-muted-foreground">Loading audit history...</p>
               ) : auditLogs.length === 0 ? (
-                <p className="text-xs text-slate-500">No attendance reports or overrides recorded yet.</p>
+                <p className="text-xs text-muted-foreground">No attendance reports or overrides recorded yet.</p>
               ) : (
                 <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                   {auditLogs.map((log) => (
                     <div
                       key={log._id}
-                      className="rounded-xl border border-slate-800 bg-[#0d1624] p-2.5 text-xs flex items-center justify-between"
+                      className="rounded-xl border border-border bg-neutral-50 p-2.5 text-xs flex items-center justify-between"
                     >
                       <div>
-                        <span className="font-bold uppercase text-blue-400">[{log.userRole}]</span>{' '}
+                        <span className="font-bold uppercase text-primary">[{log.userRole}]</span>{' '}
                         <span>Reported &apos;{log.attendanceResponse}&apos;</span>{' '}
-                        <span className="text-slate-500">({log.previousStatus} → {log.updatedStatus})</span>
-                        {log.notes && <p className="text-[11px] text-slate-400 mt-0.5">&quot;{log.notes}&quot;</p>}
+                        <span className="text-muted-foreground">({log.previousStatus} → {log.updatedStatus})</span>
+                        {log.notes && <p className="text-[11px] text-muted-foreground mt-0.5">&quot;{log.notes}&quot;</p>}
                       </div>
-                      <span className="text-[10px] text-slate-500">
+                      <span className="text-[10px] text-muted-foreground">
                         {new Date(log.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
@@ -544,18 +544,18 @@ export function AttendanceManager() {
             </div>
 
             {/* Admin Override & Dispute Resolution Form */}
-            <form onSubmit={handleResolveDispute} className="border-t border-slate-800 pt-4 space-y-3">
-              <span className="text-xs font-bold text-white block">
+            <form onSubmit={handleResolveDispute} className="border-t border-border pt-4 space-y-3">
+              <span className="text-xs font-bold text-foreground block">
                 Admin Dispute Resolution / Manual Override
               </span>
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Set Final Attendance Status</label>
+                  <label className="block text-[11px] text-muted-foreground mb-1 font-semibold">Set Final Attendance Status</label>
                   <select
                     value={resolveStatus}
                     onChange={(e) => setResolveStatus(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white outline-none focus:border-blue-500"
+                    className="w-full rounded-xl border border-border bg-white px-3 py-2 text-xs text-foreground outline-none focus:border-primary shadow-2xs"
                   >
                     <option value="completed">Completed (Both Attended)</option>
                     <option value="client_absent">Client Absent (Expert Attended, Client No-Show)</option>
@@ -567,14 +567,14 @@ export function AttendanceManager() {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Resolution Reason / Audit Notes</label>
+                  <label className="block text-[11px] text-muted-foreground mb-1 font-semibold">Resolution Reason / Audit Notes</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Verified via screenshots, technical issues"
                     value={resolveNotes}
                     onChange={(e) => setResolveNotes(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white outline-none focus:border-blue-500"
+                    className="w-full rounded-xl border border-border bg-white px-3 py-2 text-xs text-foreground outline-none focus:border-primary shadow-2xs"
                   />
                 </div>
               </div>
@@ -583,14 +583,14 @@ export function AttendanceManager() {
                 <button
                   type="button"
                   onClick={() => setInspectBooking(null)}
-                  className="rounded-full px-4 py-2 text-xs font-bold text-slate-400 hover:text-white"
+                  className="rounded-full px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground"
                 >
                   Close
                 </button>
                 <button
                   type="submit"
                   disabled={resolving}
-                  className="rounded-full bg-blue-600 px-6 py-2 text-xs font-bold text-white hover:bg-blue-500 disabled:opacity-50"
+                  className="rounded-full bg-primary px-6 py-2 text-xs font-bold text-white hover:bg-primary-hover shadow-xs disabled:opacity-50"
                 >
                   {resolving ? 'Saving...' : 'Apply Admin Resolution'}
                 </button>
@@ -602,4 +602,3 @@ export function AttendanceManager() {
     </div>
   )
 }
-

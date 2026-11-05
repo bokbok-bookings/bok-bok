@@ -94,6 +94,15 @@ export async function PATCH(request: Request) {
       updateDoc.hasPendingInfoUpdate = false
       updateDoc.pendingInfoUpdate = null
       updateDoc.pendingInfoRejectionReason = null
+    } else if (action === 'toggle_featured') {
+      const existing = await expertsCol.findOne({ _id: expertObjId })
+      const newFeatured = !Boolean(existing?.featuredHome)
+      updateDoc.featuredHome = newFeatured
+      if (newFeatured) {
+        updateDoc.featuredHomeAt = new Date()
+      } else {
+        updateDoc.featuredHomeAt = null
+      }
     } else if (action === 'reject_info_update') {
       updateDoc.hasPendingInfoUpdate = false
       updateDoc.pendingInfoUpdate = null

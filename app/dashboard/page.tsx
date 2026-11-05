@@ -118,9 +118,16 @@ export default async function DashboardPage() {
             )}
           </div>
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
-              Welcome Back
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                Welcome Back
+              </span>
+              {expertDoc?.featuredHome && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 border border-amber-400/40 px-2 py-0.5 text-[9px] font-black text-amber-900 tracking-wider">
+                  ⭐ FEATURED ON HOME
+                </span>
+              )}
+            </div>
             <h1 className="mt-0.5 text-3xl font-semibold tracking-tight text-[#14243b]">
               {displayName}
             </h1>

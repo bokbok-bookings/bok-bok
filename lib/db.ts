@@ -150,6 +150,8 @@ export interface ExpertDoc {
   about: string
   bio: string
   status?: ExpertStatus
+  featuredHome?: boolean
+  featuredHomeAt?: Date
   rejectionReason?: string
   approvedAt?: Date
   approvedBy?: ObjectId

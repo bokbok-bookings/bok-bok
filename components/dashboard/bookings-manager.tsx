@@ -98,6 +98,22 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
   const [attendanceNotes, setAttendanceNotes] = useState('')
   const [submittingAttendance, setSubmittingAttendance] = useState(false)
 
+  // Edit Booking Modal (Admin)
+  const [editingBooking, setEditingBooking] = useState<BookingDocItem | null>(null)
+  const [editClientName, setEditClientName] = useState('')
+  const [editClientEmail, setEditClientEmail] = useState('')
+  const [editClientPhone, setEditClientPhone] = useState('')
+  const [editDate, setEditDate] = useState('')
+  const [editTime, setEditTime] = useState('')
+  const [editDuration, setEditDuration] = useState(30)
+  const [editAmount, setEditAmount] = useState<number | ''>(0)
+  const [editCurrency, setEditCurrency] = useState('EGP')
+  const [editStatus, setEditStatus] = useState('confirmed')
+  const [editPaymentStatus, setEditPaymentStatus] = useState('paid')
+  const [editMeetLink, setEditMeetLink] = useState('')
+  const [editAdminNotes, setEditAdminNotes] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
   const [syncingAll, setSyncingAll] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -312,6 +328,110 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
       })
     } finally {
       setSubmittingAttendance(false)
+    }
+  }
+
+  const handleOpenEditBooking = (b: BookingDocItem) => {
+    setEditingBooking(b)
+    setEditClientName(b.clientName || '')
+    setEditClientEmail(b.clientEmail || '')
+    setEditClientPhone(b.clientPhone || '')
+    setEditDate(b.date || '')
+    setEditTime(b.time || '')
+    setEditDuration(b.durationMinutes || 30)
+    setEditAmount(b.amount ?? 0)
+    setEditCurrency(b.currency || 'EGP')
+    setEditStatus(b.status || 'confirmed')
+    setEditPaymentStatus(b.paymentStatus || 'paid')
+    setEditMeetLink(b.googleMeetLink || '')
+    setEditAdminNotes(b.adminNotes || '')
+  }
+
+  const handleSaveEditBooking = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingBooking) return
+    setSavingEdit(true)
+    try {
+      const res = await fetch('/api/dashboard/bookings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingBooking._id,
+          action: 'edit',
+          updates: {
+            clientName: editClientName.trim(),
+            clientEmail: editClientEmail.trim().toLowerCase(),
+            clientPhone: editClientPhone.trim(),
+            date: editDate,
+            time: editTime,
+            durationMinutes: Number(editDuration) || 30,
+            amount: Number(editAmount) || 0,
+            currency: editCurrency,
+            status: editStatus,
+            paymentStatus: editPaymentStatus,
+            googleMeetLink: editMeetLink.trim(),
+            adminNotes: editAdminNotes.trim(),
+          },
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setBookings((prev) =>
+          prev.map((b) =>
+            b._id === editingBooking._id
+              ? {
+                  ...b,
+                  clientName: editClientName.trim(),
+                  clientEmail: editClientEmail.trim().toLowerCase(),
+                  clientPhone: editClientPhone.trim(),
+                  date: editDate,
+                  time: editTime,
+                  durationMinutes: Number(editDuration) || 30,
+                  amount: Number(editAmount) || 0,
+                  currency: editCurrency,
+                  status: editStatus,
+                  paymentStatus: editPaymentStatus,
+                  googleMeetLink: editMeetLink.trim(),
+                  adminNotes: editAdminNotes.trim(),
+                }
+              : b,
+          ),
+        )
+        setEditingBooking(null)
+        setFeedback({ type: 'success', text: 'Booking details updated successfully.' })
+      } else {
+        alert(json.error || 'Failed to update booking')
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error updating booking')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const handleDeleteBooking = async (b: BookingDocItem) => {
+    const ref = b.reference || b._id.slice(-6).toUpperCase()
+    if (
+      !confirm(
+        `Are you sure you want to permanently delete booking #${ref} for ${b.clientName}?\n\nThis will remove the booking and cancel its Google Calendar event if one exists.`
+      )
+    ) {
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/dashboard/bookings?id=${b._id}`, {
+        method: 'DELETE',
+      })
+      const json = await res.json()
+      if (json.success) {
+        setBookings((prev) => prev.filter((item) => item._id !== b._id))
+        setFeedback({ type: 'success', text: `Booking #${ref} deleted successfully.` })
+      } else {
+        alert(json.error || 'Failed to delete booking')
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error deleting booking')
     }
   }
 
@@ -778,6 +898,26 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                             </button>
                           </>
                         )}
+                        {isAdmin && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditBooking(b)}
+                              className="rounded-full bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1 text-[10px] font-bold hover:bg-blue-600 hover:text-white transition cursor-pointer"
+                              title="Edit booking data"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteBooking(b)}
+                              className="rounded-full bg-rose-50 text-rose-700 border border-rose-200 px-2 py-1 text-[10px] font-bold hover:bg-rose-600 hover:text-white transition cursor-pointer"
+                              title="Delete booking"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1155,6 +1295,194 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* MODAL 5: Edit Booking Record (Admin) */}
+      {editingBooking && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <form
+            onSubmit={handleSaveEditBooking}
+            className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 text-[#14243b] shadow-2xl space-y-4"
+          >
+            <div className="flex items-center justify-between border-b border-[#eeeae4] pb-3">
+              <div>
+                <h3 className="text-base font-bold text-[#14243b]">Edit Booking Record</h3>
+                <p className="text-[11px] text-[#8b94a1]">
+                  Reference #{editingBooking.reference || editingBooking._id.slice(-6).toUpperCase()}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingBooking(null)}
+                className="size-7 rounded-full bg-[#f4f2ee] text-xs font-bold text-[#637084] hover:bg-[#dedbd5]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="text-xs font-bold text-[#14243b]">Client Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editClientName}
+                  onChange={(e) => setEditClientName(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-border bg-neutral-50 px-3 py-2 text-xs text-[#14243b] outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[#14243b]">Client Email *</label>
+                <input
+                  type="email"
+                  required
+                  value={editClientEmail}
+                  onChange={(e) => setEditClientEmail(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-border bg-neutral-50 px-3 py-2 text-xs text-[#14243b] outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[#14243b]">Client Phone</label>
+                <input
+                  type="text"
+                  value={editClientPhone}
+                  onChange={(e) => setEditClientPhone(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-border bg-neutral-50 px-3 py-2 text-xs text-[#14243b] outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[#14243b]">Booking Status</label>
+                <select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-border bg-neutral-50 px-3 py-2 text-xs font-semibold text-[#14243b] outline-none focus:border-primary"
+                >
+                  <option value="confirmed">Confirmed</option>
+                  <option value="completed">Completed</option>
+                  <option value="awaiting_verification">Awaiting Verification</option>
+                  <option value="pending">Pending</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[#14243b]">Date</label>
+                <input
+                  type="date"
+                  required
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-border bg-neutral-50 px-3 py-2 text-xs text-[#14243b] outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[#14243b]">Time</label>
+                <input
+                  type="time"
+                  required
+                  value={editTime}
+                  onChange={(e) => setEditTime(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-border bg-neutral-50 px-3 py-2 text-xs text-[#14243b] outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[#14243b]">Duration (minutes)</label>
+                <input
+                  type="number"
+                  min="5"
+                  step="5"
+                  value={editDuration}
+                  onChange={(e) => setEditDuration(parseInt(e.target.value) || 30)}
+                  className="mt-1 w-full rounded-xl border border-border bg-neutral-50 px-3 py-2 text-xs text-[#14243b] outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[#14243b]">Amount & Currency</label>
+                <div className="mt-1 flex gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={editAmount}
+                    onChange={(e) => setEditAmount(e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                    className="flex-1 rounded-xl border border-border bg-neutral-50 px-3 py-2 text-xs text-[#14243b] outline-none focus:border-primary"
+                  />
+                  <select
+                    value={editCurrency}
+                    onChange={(e) => setEditCurrency(e.target.value)}
+                    className="w-24 rounded-xl border border-border bg-neutral-50 px-2 py-2 text-xs font-semibold text-[#14243b] outline-none focus:border-primary"
+                  >
+                    <option value="EGP">EGP</option>
+                    <option value="USD">USD</option>
+                    <option value="SAR">SAR</option>
+                    <option value="AED">AED</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[#14243b]">Payment Status</label>
+                <select
+                  value={editPaymentStatus}
+                  onChange={(e) => setEditPaymentStatus(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-border bg-neutral-50 px-3 py-2 text-xs font-semibold text-[#14243b] outline-none focus:border-primary"
+                >
+                  <option value="paid">Paid</option>
+                  <option value="pending">Pending</option>
+                  <option value="refunded">Refunded</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-[#14243b]">Google Meet Link</label>
+                <input
+                  type="url"
+                  placeholder="https://meet.google.com/..."
+                  value={editMeetLink}
+                  onChange={(e) => setEditMeetLink(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-border bg-neutral-50 px-3 py-2 text-xs text-[#14243b] outline-none focus:border-primary font-mono"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-[#14243b]">Admin Internal Notes</label>
+              <textarea
+                rows={2}
+                placeholder="Optional notes for admin records..."
+                value={editAdminNotes}
+                onChange={(e) => setEditAdminNotes(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-border bg-neutral-50 p-3 text-xs text-[#14243b] outline-none focus:border-primary resize-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-[#eeeae4] pt-4">
+              <button
+                type="button"
+                onClick={() => setEditingBooking(null)}
+                disabled={savingEdit}
+                className="rounded-full border border-border bg-surface px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-neutral-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={savingEdit}
+                className="rounded-full bg-[#14243b] px-6 py-2 text-xs font-bold text-white hover:bg-[#1f3654] transition disabled:opacity-50"
+              >
+                {savingEdit ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

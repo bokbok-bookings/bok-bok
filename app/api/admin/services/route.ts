@@ -235,6 +235,27 @@ export async function PATCH(request: Request) {
         'Rejected during separate vocational/licensing review. Calling an offer a consultation, workshop, or webinar does not exempt it from licensing requirements.'
     } else if (action === 'verify_accreditation') {
       updateDoc.hasVerifiedAccreditationAuthorization = Boolean(body.verified)
+    } else if (action === 'edit') {
+      const { updates } = body
+      if (updates && typeof updates === 'object') {
+        if (updates.title) updateDoc.title = updates.title
+        if (updates.description) updateDoc.description = updates.description
+        if (updates.durationMinutes !== undefined) updateDoc.durationMinutes = Number(updates.durationMinutes) || 30
+        if (updates.price !== undefined || updates.priceNumber !== undefined) {
+          const num = Number(updates.priceNumber ?? updates.price) || 0
+          const curr = existing.pricing?.baseCurrency || 'EGP'
+          updateDoc.pricing = {
+            baseCurrency: curr,
+            prices: { [curr]: num },
+          }
+        }
+        if (updates.serviceKind) updateDoc.serviceKind = updates.serviceKind
+        if (updates.bookingType) updateDoc.bookingType = updates.bookingType
+        if (updates.approvalStatus) updateDoc.approvalStatus = updates.approvalStatus
+        if (updates.isActive !== undefined) updateDoc.isActive = Boolean(updates.isActive)
+        if (updates.categorySlug) updateDoc.categorySlug = updates.categorySlug
+        if (updates.subcategorySlug) updateDoc.subcategorySlug = updates.subcategorySlug
+      }
     } else {
       return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 })
     }
@@ -248,6 +269,46 @@ export async function PATCH(request: Request) {
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to update service' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const auth = await checkAdmin()
+    if (auth.error || !auth.session) {
+      return NextResponse.json({ success: false, error: auth.error || 'Unauthorized' }, { status: auth.status })
+    }
+
+    const { searchParams } = new URL(request.url)
+    let serviceId = searchParams.get('serviceId') || searchParams.get('id')
+    if (!serviceId) {
+      try {
+        const body = await request.json()
+        serviceId = body.serviceId || body.id
+      } catch { }
+    }
+
+    if (!serviceId) {
+      return NextResponse.json({ success: false, error: 'Service ID is required' }, { status: 400 })
+    }
+
+    const serviceObjId = toObjectId(serviceId)
+    const servicesCol = await getServicesCollection()
+
+    const res = await servicesCol.deleteOne({ _id: serviceObjId })
+    if (res.deletedCount === 0) {
+      return NextResponse.json({ success: false, error: 'Service not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Service deleted successfully',
+    })
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message || 'Failed to delete service' },
       { status: 500 }
     )
   }

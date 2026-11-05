@@ -482,14 +482,14 @@ export function CategoriesManager() {
       {/* Toast Feedback */}
       {feedback && (
         <div
-          className={`flex items-center gap-2 rounded-xl p-4 text-xs font-semibold ${feedback.type === 'success'
-              ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-              : 'border border-rose-500/30 bg-rose-500/10 text-rose-300'
+          className={`flex items-center gap-2 rounded-xl p-4 text-xs font-semibold shadow-xs ${feedback.type === 'success'
+              ? 'border border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border border-rose-200 bg-rose-50 text-rose-800'
             }`}
         >
           <AlertCircle size={16} />
           <span>{feedback.text}</span>
-          <button onClick={() => setFeedback(null)} className="ml-auto text-white/50 hover:text-white">
+          <button onClick={() => setFeedback(null)} className="ml-auto text-muted-foreground hover:text-foreground">
             <X size={14} />
           </button>
         </div>
@@ -499,41 +499,41 @@ export function CategoriesManager() {
       {selectedCategory ? (
         <div className="space-y-6 animate-in fade-in duration-200">
           {/* Header & Back Breadcrumb */}
-          <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-5 sm:p-6">
+          <div className="rounded-2xl border border-border bg-white p-5 sm:p-6 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <button
                   onClick={() => setSelectedCategory(null)}
-                  className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-white transition"
+                  className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition"
                 >
                   <ArrowLeft size={14} /> Back to all categories
                 </button>
                 <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-                    <span className="grid size-7 place-items-center rounded-lg bg-[#2855C5]/20 text-[#2855C5] text-xs font-black">
+                  <h2 className="text-xl font-bold text-foreground tracking-tight flex items-center gap-2">
+                    <span className="grid size-7 place-items-center rounded-lg bg-primary/10 text-primary text-xs font-black">
                       #{selectedCategory.sortOrder}
                     </span>
                     {selectedCategory.name.en}
                   </h2>
-                  <span className="rounded-lg bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-300 font-mono" dir="rtl">
+                  <span className="rounded-lg bg-neutral-100 border border-border px-2.5 py-1 text-xs font-semibold text-foreground font-mono" dir="rtl">
                     {selectedCategory.name.ar}
                   </span>
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${selectedCategory.isActive
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                        : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                        : 'bg-rose-50 text-rose-800 border border-rose-200'
                       }`}
                   >
                     {selectedCategory.isActive ? 'Category Active' : 'Category Inactive'}
                   </span>
                 </div>
                 {selectedCategory.description?.en && (
-                  <p className="mt-1.5 text-xs text-slate-400 max-w-2xl">
+                  <p className="mt-1.5 text-xs text-muted-foreground max-w-2xl">
                     {selectedCategory.description.en} — <span dir="rtl">{selectedCategory.description.ar}</span>
                   </p>
                 )}
                 {!selectedCategory.isActive && (
-                  <p className="mt-2 text-xs font-medium text-amber-400/90 flex items-center gap-1.5">
+                  <p className="mt-2 text-xs font-medium text-amber-800 flex items-center gap-1.5">
                     <AlertCircle size={14} /> Note: This category is currently inactive. Its subcategories are excluded from public service creation and directory pages.
                   </p>
                 )}
@@ -542,14 +542,14 @@ export function CategoriesManager() {
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => loadSubcategories(selectedCategory._id)}
-                  className="grid size-9 place-items-center rounded-xl border border-slate-700 bg-slate-800 text-slate-300 hover:text-white hover:border-slate-600 transition"
+                  className="grid size-9 place-items-center rounded-xl border border-border bg-white text-muted-foreground hover:text-foreground hover:bg-neutral-50 transition shadow-2xs"
                   title="Refresh subcategories"
                 >
                   <RefreshCw size={14} className={loadingSubs ? 'animate-spin' : ''} />
                 </button>
                 <button
                   onClick={openCreateSubcategory}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#2855C5] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#2855C5]/90 transition"
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-primary-hover transition"
                 >
                   <Plus size={15} /> Add Subcategory
                 </button>
@@ -560,25 +560,25 @@ export function CategoriesManager() {
           {/* Subcategories Filter & Search */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md">
-              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 value={subSearch}
                 onChange={(e) => setSubSearch(e.target.value)}
                 placeholder="Search subcategory in English or Arabic..."
-                className="w-full rounded-xl border border-slate-800 bg-[#121d2f] py-2 pl-9 pr-3 text-xs text-white placeholder:text-slate-500 outline-none focus:border-[#2855C5]"
+                className="w-full rounded-xl border border-border bg-white py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary shadow-2xs"
               />
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-slate-400 font-medium">Status:</span>
+              <span className="text-[11px] text-muted-foreground font-medium">Status:</span>
               {(['all', 'active', 'inactive'] as const).map((s) => (
                 <button
                   key={s}
                   onClick={() => setSubStatusFilter(s)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-bold capitalize transition ${subStatusFilter === s
-                      ? 'bg-[#2855C5] text-white'
-                      : 'border border-slate-800 bg-[#121d2f] text-slate-400 hover:text-white'
+                      ? 'bg-primary text-white shadow-2xs'
+                      : 'border border-border bg-white text-muted-foreground hover:text-foreground hover:bg-neutral-50'
                     }`}
                 >
                   {s}
@@ -589,30 +589,30 @@ export function CategoriesManager() {
 
           {/* Subcategories Table */}
           {loadingSubs ? (
-            <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-12 text-center text-xs text-slate-400 font-mono tracking-widest uppercase">
+            <div className="rounded-2xl border border-border bg-white p-12 text-center text-xs text-muted-foreground font-mono tracking-widest uppercase shadow-xs">
               Loading subcategories...
             </div>
           ) : filteredSubcategories.length === 0 ? (
-            <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-12 text-center">
-              <Layers size={36} className="mx-auto text-slate-600 mb-3" />
-              <p className="text-sm font-bold text-white">No subcategories found</p>
-              <p className="mt-1 text-xs text-slate-400">
+            <div className="rounded-2xl border border-border bg-white p-12 text-center shadow-xs">
+              <Layers size={36} className="mx-auto text-muted-foreground mb-3" />
+              <p className="text-sm font-bold text-foreground">No subcategories found</p>
+              <p className="mt-1 text-xs text-muted-foreground">
                 {subSearch ? 'Try a different search query' : 'Create the first subcategory under this category'}
               </p>
               {!subSearch && (
                 <button
                   onClick={openCreateSubcategory}
-                  className="mt-4 rounded-xl bg-[#2855C5] px-4 py-2 text-xs font-bold text-white"
+                  className="mt-4 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-primary-hover transition"
                 >
                   + Add Subcategory
                 </button>
               )}
             </div>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-slate-800 bg-[#121d2f]">
+            <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-xs">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="border-b border-slate-800 bg-slate-900/60 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <thead className="border-b border-border bg-neutral-50/80 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                     <tr>
                       <th className="py-3 px-4 w-12 text-center">Order</th>
                       <th className="py-3 px-4">Subcategory Name (EN / AR)</th>
@@ -621,23 +621,23 @@ export function CategoriesManager() {
                       <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800">
+                  <tbody className="divide-y divide-border">
                     {filteredSubcategories.map((sub) => (
-                      <tr key={sub._id} className="hover:bg-slate-800/30 transition">
-                        <td className="py-3 px-4 text-center font-bold text-slate-400">
+                      <tr key={sub._id} className="hover:bg-neutral-50/60 transition">
+                        <td className="py-3 px-4 text-center font-bold text-muted-foreground">
                           {sub.sortOrder}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-white">{sub.name.en}</span>
-                            <span className="text-slate-500 font-mono">/</span>
-                            <span className="text-slate-300 font-semibold" dir="rtl">
+                            <span className="font-bold text-foreground">{sub.name.en}</span>
+                            <span className="text-muted-foreground font-mono">/</span>
+                            <span className="text-muted-foreground font-semibold" dir="rtl">
                               {sub.name.ar}
                             </span>
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          <code className="rounded bg-slate-800 px-2 py-0.5 text-[11px] font-mono text-amber-300">
+                          <code className="rounded bg-neutral-100 border border-border px-2 py-0.5 text-[11px] font-mono text-foreground font-semibold">
                             {sub.slug}
                           </code>
                         </td>
@@ -645,8 +645,8 @@ export function CategoriesManager() {
                           <button
                             onClick={() => handleToggleSubcategoryStatus(sub)}
                             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition ${sub.isActive
-                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-400 hover:border-rose-500/30'
-                                : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-emerald-500/20 hover:text-emerald-400'
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200'
+                                : 'bg-neutral-100 text-muted-foreground border border-border hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
                               }`}
                             title="Click to toggle status"
                           >
@@ -665,14 +665,14 @@ export function CategoriesManager() {
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               onClick={() => openEditSubcategory(sub)}
-                              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+                              className="rounded-lg p-1.5 text-muted-foreground hover:bg-neutral-100 hover:text-foreground transition"
                               title="Edit Subcategory"
                             >
                               <Edit2 size={13} />
                             </button>
                             <button
                               onClick={() => handleDeleteSubcategory(sub)}
-                              className="rounded-lg p-1.5 text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 transition"
+                              className="rounded-lg p-1.5 text-rose-600 hover:bg-rose-50 transition"
                               title="Delete Subcategory (Safety enforced)"
                             >
                               <Trash2 size={13} />
@@ -692,40 +692,40 @@ export function CategoriesManager() {
         <div className="space-y-6">
           {/* Quick Metrics Bar */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <div className="rounded-2xl border border-border bg-white p-5 shadow-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Total Categories
               </span>
-              <p className="mt-2 text-3xl font-black text-white">{categories.length}</p>
-              <p className="mt-1 text-xs text-slate-400">Bilingual taxonomy groups</p>
+              <p className="mt-2 text-3xl font-black text-foreground">{categories.length}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Bilingual taxonomy groups</p>
             </div>
 
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5 shadow-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
                 Active MVP Categories
               </span>
-              <p className="mt-2 text-3xl font-black text-emerald-300">{activeCategoriesCount}</p>
-              <p className="mt-1 text-xs text-emerald-200/70">Visible to public & experts (9 MVP limit)</p>
+              <p className="mt-2 text-3xl font-black text-emerald-900">{activeCategoriesCount}</p>
+              <p className="mt-1 text-xs text-emerald-700/80">Visible to public & experts (9 MVP limit)</p>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <div className="rounded-2xl border border-border bg-white p-5 shadow-xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Active Subcategories
               </span>
-              <p className="mt-2 text-3xl font-black text-white">{totalActiveSubcategoriesCount}</p>
-              <p className="mt-1 text-xs text-slate-400">Across 9 MVP disciplines</p>
+              <p className="mt-2 text-3xl font-black text-foreground">{totalActiveSubcategoriesCount}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Across 9 MVP disciplines</p>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-5 flex flex-col justify-between">
+            <div className="rounded-2xl border border-border bg-white p-5 flex flex-col justify-between shadow-xs">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   Taxonomy Engine
                 </span>
-                <p className="mt-1 text-xs text-slate-300 font-semibold">Reduced-Risk MVP Scope</p>
+                <p className="mt-1 text-xs text-foreground font-semibold">Reduced-Risk MVP Scope</p>
               </div>
               <button
                 onClick={openCreateCategory}
-                className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-[#2855C5] py-2 text-xs font-bold text-white shadow-sm hover:bg-[#2855C5]/90 transition"
+                className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-primary py-2 text-xs font-bold text-white shadow-xs hover:bg-primary-hover transition"
               >
                 <Plus size={15} /> Add Category
               </button>
@@ -735,25 +735,25 @@ export function CategoriesManager() {
           {/* Action Header & Filters */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md">
-              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search categories in English, Arabic, or slug..."
-                className="w-full rounded-xl border border-slate-800 bg-[#121d2f] py-2 pl-9 pr-3 text-xs text-white placeholder:text-slate-500 outline-none focus:border-[#2855C5]"
+                className="w-full rounded-xl border border-border bg-white py-2 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary shadow-2xs"
               />
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] text-slate-400 font-medium">Filter:</span>
+              <span className="text-[11px] text-muted-foreground font-medium">Filter:</span>
               {(['all', 'active', 'inactive'] as const).map((s) => (
                 <button
                   key={s}
                   onClick={() => setStatusFilter(s)}
                   className={`rounded-lg px-3 py-1.5 text-xs font-bold capitalize transition ${statusFilter === s
-                      ? 'bg-[#2855C5] text-white'
-                      : 'border border-slate-800 bg-[#121d2f] text-slate-400 hover:text-white'
+                      ? 'bg-primary text-white shadow-2xs'
+                      : 'border border-border bg-white text-muted-foreground hover:text-foreground hover:bg-neutral-50'
                     }`}
                 >
                   {s}
@@ -762,7 +762,7 @@ export function CategoriesManager() {
 
               <button
                 onClick={loadCategories}
-                className="grid size-8 place-items-center rounded-lg border border-slate-800 bg-[#121d2f] text-slate-400 hover:text-white"
+                className="grid size-8 place-items-center rounded-lg border border-border bg-white text-muted-foreground hover:text-foreground hover:bg-neutral-50 shadow-2xs"
                 title="Refresh categories"
               >
                 <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
@@ -772,22 +772,22 @@ export function CategoriesManager() {
 
           {/* Categories Table */}
           {loading ? (
-            <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-16 text-center text-xs font-mono uppercase tracking-widest text-slate-400">
+            <div className="rounded-2xl border border-border bg-white p-16 text-center text-xs font-mono uppercase tracking-widest text-muted-foreground shadow-xs">
               Loading Categories Taxonomy...
             </div>
           ) : filteredCategories.length === 0 ? (
-            <div className="rounded-2xl border border-slate-800 bg-[#121d2f] p-12 text-center">
-              <FolderTree size={36} className="mx-auto text-slate-600 mb-3" />
-              <p className="text-base font-bold text-white">No categories found</p>
-              <p className="mt-1 text-xs text-slate-400">
+            <div className="rounded-2xl border border-border bg-white p-12 text-center shadow-xs">
+              <FolderTree size={36} className="mx-auto text-muted-foreground mb-3" />
+              <p className="text-base font-bold text-foreground">No categories found</p>
+              <p className="mt-1 text-xs text-muted-foreground">
                 {search ? 'Try clearing your search query' : 'No categories configured in database.'}
               </p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-slate-800 bg-[#121d2f]">
+            <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-xs">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="border-b border-slate-800 bg-slate-900/60 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <thead className="border-b border-border bg-neutral-50/80 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                     <tr>
                       <th className="py-3.5 px-4 w-12 text-center">Order</th>
                       <th className="py-3.5 px-4">Category (English / Arabic)</th>
@@ -797,49 +797,49 @@ export function CategoriesManager() {
                       <th className="py-3.5 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800">
+                  <tbody className="divide-y divide-border">
                     {filteredCategories.map((cat) => (
-                      <tr key={cat._id} className="hover:bg-slate-800/30 transition group">
-                        <td className="py-4 px-4 text-center font-bold text-slate-400">
+                      <tr key={cat._id} className="hover:bg-neutral-50/60 transition group">
+                        <td className="py-4 px-4 text-center font-bold text-muted-foreground">
                           {cat.sortOrder}
                         </td>
                         <td className="py-4 px-4">
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-white text-sm">{cat.name.en}</span>
-                              <span className="text-slate-500 font-mono">/</span>
-                              <span className="text-slate-300 font-semibold text-sm" dir="rtl">
+                              <span className="font-bold text-foreground text-sm">{cat.name.en}</span>
+                              <span className="text-muted-foreground font-mono">/</span>
+                              <span className="text-muted-foreground font-semibold text-sm" dir="rtl">
                                 {cat.name.ar}
                               </span>
                             </div>
                             {cat.description?.en && (
-                              <p className="mt-1 text-[11px] text-slate-400 max-w-md line-clamp-1">
+                              <p className="mt-1 text-[11px] text-muted-foreground max-w-md line-clamp-1">
                                 {cat.description.en}
                               </p>
                             )}
                           </div>
                         </td>
                         <td className="py-4 px-4">
-                          <code className="rounded bg-slate-800 px-2 py-0.5 text-[11px] font-mono text-amber-300">
+                          <code className="rounded bg-neutral-100 border border-border px-2 py-0.5 text-[11px] font-mono text-foreground font-semibold">
                             {cat.slug}
                           </code>
                         </td>
                         <td className="py-4 px-4">
                           <button
                             onClick={() => setSelectedCategory(cat)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-bold text-slate-300 hover:text-white hover:border-[#2855C5] transition"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-neutral-50 px-3 py-1 text-xs font-bold text-foreground hover:bg-neutral-100 hover:border-primary transition shadow-2xs"
                           >
-                            <Layers size={13} className="text-[#2855C5]" />
+                            <Layers size={13} className="text-primary" />
                             <span>{cat.activeSubcategoriesCount ?? cat.subcategoriesCount ?? 0} active</span>
-                            <ChevronRight size={13} className="text-slate-400" />
+                            <ChevronRight size={13} className="text-muted-foreground" />
                           </button>
                         </td>
                         <td className="py-4 px-4">
                           <button
                             onClick={() => handleToggleCategoryStatus(cat)}
                             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition ${cat.isActive
-                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-rose-500/20 hover:text-rose-400 hover:border-rose-500/30'
-                                : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-emerald-500/20 hover:text-emerald-400'
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200'
+                                : 'bg-neutral-100 text-muted-foreground border border-border hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
                               }`}
                             title="Click to toggle category status"
                           >
@@ -858,20 +858,20 @@ export function CategoriesManager() {
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => setSelectedCategory(cat)}
-                              className="rounded-lg border border-slate-700 px-2.5 py-1 text-[11px] font-bold text-slate-300 hover:text-white hover:border-slate-500 transition"
+                              className="rounded-lg border border-border bg-white px-2.5 py-1 text-[11px] font-bold text-foreground hover:bg-neutral-50 shadow-2xs transition"
                             >
                               Manage Subs
                             </button>
                             <button
                               onClick={() => openEditCategory(cat)}
-                              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+                              className="rounded-lg p-1.5 text-muted-foreground hover:bg-neutral-100 hover:text-foreground transition"
                               title="Edit Category"
                             >
                               <Edit2 size={13} />
                             </button>
                             <button
                               onClick={() => handleDeleteCategory(cat)}
-                              className="rounded-lg p-1.5 text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 transition"
+                              className="rounded-lg p-1.5 text-rose-600 hover:bg-rose-50 transition"
                               title="Delete Category (Safety checks apply)"
                             >
                               <Trash2 size={13} />
@@ -890,20 +890,20 @@ export function CategoriesManager() {
 
       {/* MODAL 1: Create / Edit Category */}
       {categoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-lg rounded-3xl border border-slate-800 bg-[#121d2f] p-6 text-slate-100 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-lg rounded-3xl border border-border bg-white p-6 text-foreground shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-border pb-4">
               <div>
-                <h3 className="text-base font-bold text-white">
+                <h3 className="text-base font-bold text-foreground">
                   {editingCategory ? 'Edit Category' : 'Create New Category'}
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-muted-foreground">
                   Configure English and Arabic names and URL slug (MVP taxonomy enforced).
                 </p>
               </div>
               <button
                 onClick={() => setCategoryModalOpen(false)}
-                className="rounded-full p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                className="rounded-full p-1 text-muted-foreground hover:bg-neutral-100 hover:text-foreground"
               >
                 <X size={18} />
               </button>
@@ -911,7 +911,7 @@ export function CategoriesManager() {
 
             <form onSubmit={handleSaveCategory} className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="text-xs font-bold text-slate-300">
+                <label className="text-xs font-bold text-foreground">
                   Name (English) *
                   <input
                     required
@@ -923,11 +923,11 @@ export function CategoriesManager() {
                       }
                     }}
                     placeholder="e.g. Marketing"
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
+                    className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary shadow-2xs"
                   />
                 </label>
 
-                <label className="text-xs font-bold text-slate-300">
+                <label className="text-xs font-bold text-foreground">
                   Name (Arabic) *
                   <input
                     required
@@ -935,13 +935,13 @@ export function CategoriesManager() {
                     value={catNameAr}
                     onChange={(e) => setCatNameAr(e.target.value)}
                     placeholder="مثال: التسويق"
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
+                    className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary shadow-2xs"
                   />
                 </label>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="text-xs font-bold text-slate-300">
+                <label className="text-xs font-bold text-foreground">
                   Slug (URL Identifier) *
                   <input
                     required
@@ -951,35 +951,35 @@ export function CategoriesManager() {
                       setCatSlugManuallyEdited(true)
                     }}
                     placeholder="e.g. marketing"
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-amber-300 font-mono outline-none focus:border-[#2855C5]"
+                    className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-2 text-xs text-primary font-mono font-semibold outline-none focus:border-primary shadow-2xs"
                   />
                 </label>
 
-                <label className="text-xs font-bold text-slate-300">
+                <label className="text-xs font-bold text-foreground">
                   Sort Order
                   <input
                     type="number"
                     min={1}
                     value={catSortOrder}
                     onChange={(e) => setCatSortOrder(Number(e.target.value))}
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
+                    className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary shadow-2xs"
                   />
                 </label>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="text-xs font-bold text-slate-300">
+                <label className="text-xs font-bold text-foreground">
                   Description (English)
                   <textarea
                     rows={2}
                     value={catDescEn}
                     onChange={(e) => setCatDescEn(e.target.value)}
                     placeholder="Short description..."
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
+                    className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary shadow-2xs"
                   />
                 </label>
 
-                <label className="text-xs font-bold text-slate-300">
+                <label className="text-xs font-bold text-foreground">
                   Description (Arabic)
                   <textarea
                     rows={2}
@@ -987,7 +987,7 @@ export function CategoriesManager() {
                     value={catDescAr}
                     onChange={(e) => setCatDescAr(e.target.value)}
                     placeholder="وصف مختصر..."
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
+                    className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary shadow-2xs"
                   />
                 </label>
               </div>
@@ -998,25 +998,25 @@ export function CategoriesManager() {
                   id="catIsActive"
                   checked={catIsActive}
                   onChange={(e) => setCatIsActive(e.target.checked)}
-                  className="size-4 rounded accent-[#2855C5]"
+                  className="size-4 rounded accent-primary cursor-pointer"
                 />
-                <label htmlFor="catIsActive" className="text-xs font-medium text-slate-300">
+                <label htmlFor="catIsActive" className="text-xs font-medium text-foreground cursor-pointer">
                   Active (Category is visible to public and available for service creation)
                 </label>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+              <div className="flex justify-end gap-3 pt-4 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setCategoryModalOpen(false)}
-                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-bold text-slate-400 hover:text-white"
+                  className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingCategory}
-                  className="rounded-xl bg-[#2855C5] px-5 py-2 text-xs font-bold text-white hover:bg-[#2855C5]/90 disabled:opacity-50"
+                  className="rounded-xl bg-primary px-5 py-2 text-xs font-bold text-white hover:bg-primary-hover shadow-xs disabled:opacity-50"
                 >
                   {savingCategory ? 'Saving...' : editingCategory ? 'Save Changes' : 'Create Category'}
                 </button>
@@ -1028,20 +1028,20 @@ export function CategoriesManager() {
 
       {/* MODAL 2: Create / Edit Subcategory */}
       {subcategoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-lg rounded-3xl border border-slate-800 bg-[#121d2f] p-6 text-slate-100 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-lg rounded-3xl border border-border bg-white p-6 text-foreground shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-border pb-4">
               <div>
-                <h3 className="text-base font-bold text-white">
+                <h3 className="text-base font-bold text-foreground">
                   {editingSubcategory ? 'Edit Subcategory' : 'Add New Subcategory'}
                 </h3>
-                <p className="text-xs text-slate-400">
-                  Belongs to: <span className="font-bold text-white">{selectedCategory?.name.en}</span>
+                <p className="text-xs text-muted-foreground">
+                  Belongs to: <span className="font-bold text-foreground">{selectedCategory?.name.en}</span>
                 </p>
               </div>
               <button
                 onClick={() => setSubcategoryModalOpen(false)}
-                className="rounded-full p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                className="rounded-full p-1 text-muted-foreground hover:bg-neutral-100 hover:text-foreground"
               >
                 <X size={18} />
               </button>
@@ -1049,12 +1049,12 @@ export function CategoriesManager() {
 
             <form onSubmit={handleSaveSubcategory} className="space-y-4">
               {/* Parent Category Selection */}
-              <label className="text-xs font-bold text-slate-300 block">
+              <label className="text-xs font-bold text-foreground block">
                 Parent Category *
                 <select
                   value={subParentCatId}
                   onChange={(e) => setSubParentCatId(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
+                  className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary shadow-2xs"
                 >
                   {categories.map((c) => (
                     <option key={c._id} value={c._id}>
@@ -1065,7 +1065,7 @@ export function CategoriesManager() {
               </label>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="text-xs font-bold text-slate-300">
+                <label className="text-xs font-bold text-foreground">
                   Name (English) *
                   <input
                     required
@@ -1077,11 +1077,11 @@ export function CategoriesManager() {
                       }
                     }}
                     placeholder="e.g. Marketing Strategy"
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
+                    className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary shadow-2xs"
                   />
                 </label>
 
-                <label className="text-xs font-bold text-slate-300">
+                <label className="text-xs font-bold text-foreground">
                   Name (Arabic) *
                   <input
                     required
@@ -1089,13 +1089,13 @@ export function CategoriesManager() {
                     value={subNameAr}
                     onChange={(e) => setSubNameAr(e.target.value)}
                     placeholder="مثال: استراتيجية التسويق"
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
+                    className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary shadow-2xs"
                   />
                 </label>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="text-xs font-bold text-slate-300">
+                <label className="text-xs font-bold text-foreground">
                   Slug (Stable ID) *
                   <input
                     required
@@ -1105,18 +1105,18 @@ export function CategoriesManager() {
                       setSubSlugManuallyEdited(true)
                     }}
                     placeholder="e.g. marketing-strategy"
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-amber-300 font-mono outline-none focus:border-[#2855C5]"
+                    className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-2 text-xs text-primary font-mono font-semibold outline-none focus:border-primary shadow-2xs"
                   />
                 </label>
 
-                <label className="text-xs font-bold text-slate-300">
+                <label className="text-xs font-bold text-foreground">
                   Sort Order
                   <input
                     type="number"
                     min={1}
                     value={subSortOrder}
                     onChange={(e) => setSubSortOrder(Number(e.target.value))}
-                    className="mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2 text-xs text-white outline-none focus:border-[#2855C5]"
+                    className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-2 text-xs text-foreground outline-none focus:border-primary shadow-2xs"
                   />
                 </label>
               </div>
@@ -1127,25 +1127,25 @@ export function CategoriesManager() {
                   id="subIsActive"
                   checked={subIsActive}
                   onChange={(e) => setSubIsActive(e.target.checked)}
-                  className="size-4 rounded accent-[#2855C5]"
+                  className="size-4 rounded accent-primary cursor-pointer"
                 />
-                <label htmlFor="subIsActive" className="text-xs font-medium text-slate-300">
+                <label htmlFor="subIsActive" className="text-xs font-medium text-foreground cursor-pointer">
                   Active (Selectable when parent category is active)
                 </label>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+              <div className="flex justify-end gap-3 pt-4 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setSubcategoryModalOpen(false)}
-                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-bold text-slate-400 hover:text-white"
+                  className="rounded-xl border border-border px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingSubcategory}
-                  className="rounded-xl bg-[#2855C5] px-5 py-2 text-xs font-bold text-white hover:bg-[#2855C5]/90 disabled:opacity-50"
+                  className="rounded-xl bg-primary px-5 py-2 text-xs font-bold text-white hover:bg-primary-hover shadow-xs disabled:opacity-50"
                 >
                   {savingSubcategory ? 'Saving...' : editingSubcategory ? 'Save Changes' : 'Create Subcategory'}
                 </button>
