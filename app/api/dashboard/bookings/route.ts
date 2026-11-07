@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import { getBookingsCollection, toObjectId } from '@/lib/db'
@@ -9,9 +10,10 @@ import {
   getCurrentDateInTimezone,
 } from '@/lib/email/scheduler'
 import { sendTransactionalEmail } from '@/lib/email/mailer'
+import { getBookingRoleLinks } from '@/lib/booking/access'
 import {
   renderBookingConfirmationEmail,
-  renderDayOfReminderEmail,
+  renderBeforeSessionReminderEmail,
   renderMeetLinkUpdatedEmail,
 } from '@/lib/email/templates'
 import {
@@ -99,8 +101,8 @@ export async function GET(request: Request) {
     const formatted = docs.map((b) => ({
       ...b,
       _id: b._id.toString(),
-      expertId: b.expertId.toString(),
-      serviceId: b.serviceId?.toString(),
+      expertId: b.expertId?.toString() || '',
+      serviceId: b.serviceId?.toString() || '',
       googleMeetLink: b.googleMeetLink || '',
       googleCalendarEventLink: b.googleCalendarEventLink || '',
       googleCalendarEventId: b.googleCalendarEventId || '',
@@ -109,7 +111,15 @@ export async function GET(request: Request) {
 
     let calendarStatus = undefined
     if (includeCalendarStatus && auth.session.role === 'admin') {
-      calendarStatus = await getGoogleCalendarConnectionStatus(refreshCalendarStatus)
+      try {
+        calendarStatus = await getGoogleCalendarConnectionStatus(refreshCalendarStatus)
+      } catch (calErr: any) {
+        console.error('[Google Calendar Status Check Failed]:', calErr?.message)
+        calendarStatus = {
+          state: 'not_connected',
+          message: calErr?.message || 'Google Calendar connection check failed',
+        }
+      }
     }
 
     return NextResponse.json(
@@ -205,9 +215,15 @@ export async function PATCH(request: Request) {
     const { expertName, expertEmail } = await resolveExpertContact(existing.expertId)
     const serviceTitle =
       existing.serviceTitle?.en || existing.serviceTitle?.ar || 'Consultation Session'
-    const rescheduleUrl = existing.rescheduleToken
-      ? `${baseUrl}/bookings/${existing._id}?token=${existing.rescheduleToken}`
-      : undefined
+
+    const {
+      clientPageUrl,
+      expertPageUrl,
+      clientJoinUrl,
+      expertJoinUrl,
+    } = await getBookingRoleLinks(baseUrl, existing)
+
+    const rescheduleUrl = clientPageUrl
 
     // Generate / Retry Google Meet link via Google Calendar OAuth for an already-confirmed booking
     if (action === 'generate_meet') {
@@ -363,7 +379,7 @@ export async function PATCH(request: Request) {
         )
       }
 
-      // Send Confirmation Email to Client and Expert with Google Meet link
+      // Send Confirmation Email to Client and Expert (protecting emails from each other; meeting link sent 15m before session)
       try {
         const updatedBooking = {
           ...existing,
@@ -371,53 +387,63 @@ export async function PATCH(request: Request) {
           googleMeetLink: finalMeetLink || undefined,
         }
 
-        // To Client
-        const clientEmailData = renderBookingConfirmationEmail({
-          booking: updatedBooking,
-          expertName,
-          clientName: existing.clientName,
-          serviceTitle,
-          rescheduleUrl,
-          recipientRole: 'client',
-          meetLink: finalMeetLink || undefined,
-        })
-        await sendTransactionalEmail({
-          bookingId: existing._id,
-          emailType: 'booking_confirmed',
-          recipientEmail: existing.clientEmail,
-          recipientName: existing.clientName,
-          recipientRole: 'client',
-          subject: clientEmailData.subject,
-          html: clientEmailData.html,
-          text: clientEmailData.text,
-        })
+        // 1. To Client (shows expert name, does NOT expose expert email or meeting link)
+        const emailPromises: Promise<any>[] = []
+        if (existing.clientEmail) {
+          const clientEmailData = renderBookingConfirmationEmail({
+            booking: updatedBooking,
+            expertName,
+            clientName: existing.clientName,
+            serviceTitle,
+            rescheduleUrl: clientPageUrl,
+            recipientRole: 'client',
+          })
+          emailPromises.push(
+            sendTransactionalEmail({
+              bookingId: existing._id,
+              emailType: 'booking_confirmed',
+              recipientEmail: existing.clientEmail,
+              recipientName: existing.clientName,
+              recipientRole: 'client',
+              subject: clientEmailData.subject,
+              html: clientEmailData.html,
+              text: clientEmailData.text,
+            })
+          )
+        }
 
-        // To Expert
+        // 2. To Expert (shows client name, does NOT expose client email or meeting link)
         if (expertEmail) {
           const expertEmailData = renderBookingConfirmationEmail({
             booking: updatedBooking,
             expertName,
             clientName: existing.clientName,
             serviceTitle,
-            rescheduleUrl,
+            rescheduleUrl: expertPageUrl,
             recipientRole: 'expert',
-            meetLink: finalMeetLink || undefined,
           })
-          await sendTransactionalEmail({
-            bookingId: existing._id,
-            emailType: 'booking_confirmed',
-            recipientEmail: expertEmail,
-            recipientName: expertName,
-            recipientRole: 'expert',
-            subject: expertEmailData.subject,
-            html: expertEmailData.html,
-            text: expertEmailData.text,
-          })
+          emailPromises.push(
+            sendTransactionalEmail({
+              bookingId: existing._id,
+              emailType: 'booking_confirmed',
+              recipientEmail: expertEmail,
+              recipientName: expertName,
+              recipientRole: 'expert',
+              subject: expertEmailData.subject,
+              html: expertEmailData.html,
+              text: expertEmailData.text,
+            })
+          )
         }
 
-        // If the session is on the same day and scheduled time has not passed, send Reminder 1 immediately
+        // Dispatch initial confirmation emails concurrently with timeout guard
+        await Promise.race([
+          Promise.allSettled(emailPromises),
+          new Promise((resolve) => setTimeout(resolve, 8000)),
+        ])
+
+        // 3. If session starts within 15 minutes, send the Before-Session reminder with Meet link immediately
         const timezone = existing.timezone || 'Africa/Cairo'
-        const todayInTz = getCurrentDateInTimezone(timezone)
         const sessionStart =
           updatedBooking.sessionStartAt ||
           computeSessionBounds(
@@ -427,58 +453,73 @@ export async function PATCH(request: Request) {
             timezone,
           ).sessionStartAt
 
+        const msUntilStart = sessionStart.getTime() - now.getTime()
         if (
-          existing.date === todayInTz &&
-          now < sessionStart &&
           finalMeetLink &&
-          !existing.reminders?.dayOfReminderSentAt
+          msUntilStart > 0 &&
+          msUntilStart <= 15 * 60 * 1000 &&
+          !existing.reminders?.beforeSessionReminderSentAt
         ) {
           await bookingsCol.updateOne(
             { _id: bookingObjId },
-            { $set: { 'reminders.dayOfReminderSentAt': now } },
+            { $set: { 'reminders.beforeSessionReminderSentAt': now } },
           )
 
-          const clientRem1 = renderDayOfReminderEmail({
-            booking: updatedBooking,
-            expertName,
-            clientName: existing.clientName,
-            serviceTitle,
-            meetLink: finalMeetLink,
-            rescheduleUrl,
-            recipientRole: 'client',
-          })
-          await sendTransactionalEmail({
-            bookingId: existing._id,
-            emailType: 'reminder_day_of',
-            recipientEmail: existing.clientEmail,
-            recipientName: existing.clientName,
-            recipientRole: 'client',
-            subject: clientRem1.subject,
-            html: clientRem1.html,
-            text: clientRem1.text,
-          })
+          const urgentPromises: Promise<any>[] = []
+          const minutesBefore = Math.max(1, Math.round(msUntilStart / 60000))
 
-          if (expertEmail) {
-            const expertRem1 = renderDayOfReminderEmail({
+          if (existing.clientEmail) {
+            const clientBeforeEmail = renderBeforeSessionReminderEmail({
               booking: updatedBooking,
               expertName,
               clientName: existing.clientName,
               serviceTitle,
-              meetLink: finalMeetLink,
-              rescheduleUrl,
-              recipientRole: 'expert',
+              meetLink: clientJoinUrl,
+              minutesBefore,
+              recipientRole: 'client',
             })
-            await sendTransactionalEmail({
-              bookingId: existing._id,
-              emailType: 'reminder_day_of',
-              recipientEmail: expertEmail,
-              recipientName: expertName,
-              recipientRole: 'expert',
-              subject: expertRem1.subject,
-              html: expertRem1.html,
-              text: expertRem1.text,
-            })
+            urgentPromises.push(
+              sendTransactionalEmail({
+                bookingId: existing._id,
+                emailType: 'reminder_before_session',
+                recipientEmail: existing.clientEmail,
+                recipientName: existing.clientName,
+                recipientRole: 'client',
+                subject: clientBeforeEmail.subject,
+                html: clientBeforeEmail.html,
+                text: clientBeforeEmail.text,
+              })
+            )
           }
+
+          if (expertEmail) {
+            const expertBeforeEmail = renderBeforeSessionReminderEmail({
+              booking: updatedBooking,
+              expertName,
+              clientName: existing.clientName,
+              serviceTitle,
+              meetLink: expertJoinUrl,
+              minutesBefore,
+              recipientRole: 'expert',
+            })
+            urgentPromises.push(
+              sendTransactionalEmail({
+                bookingId: existing._id,
+                emailType: 'reminder_before_session',
+                recipientEmail: expertEmail,
+                recipientName: expertName,
+                recipientRole: 'expert',
+                subject: expertBeforeEmail.subject,
+                html: expertBeforeEmail.html,
+                text: expertBeforeEmail.text,
+              })
+            )
+          }
+
+          await Promise.race([
+            Promise.allSettled(urgentPromises),
+            new Promise((resolve) => setTimeout(resolve, 8000)),
+          ])
         }
       } catch (emailErr) {
         console.error('[Email Notification] Failed to send confirmation email:', emailErr)
@@ -493,7 +534,7 @@ export async function PATCH(request: Request) {
         message: calendarWarning
           ? 'Booking marked confirmed, but Google Meet link could not be generated automatically.'
           : finalMeetLink
-            ? 'Booking confirmed and Google Meet link created & emailed to attendees.'
+            ? 'Booking confirmed and Google Meet link created. Confirmation notifications sent to client and expert.'
             : 'Booking confirmed.',
       })
     } else if (action === 'update_meet_link') {
@@ -664,7 +705,7 @@ export async function DELETE(request: Request) {
       try {
         const body = await request.json()
         id = body.id || body.bookingId
-      } catch {}
+      } catch { }
     }
 
     if (!id) {

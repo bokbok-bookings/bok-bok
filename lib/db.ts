@@ -343,6 +343,40 @@ export interface BookingReminders {
   activeReminderLock?: Date
 }
 
+export interface MeetingJoinRecord {
+  firstJoinedAt: Date
+  lastJoinedAt: Date
+  joinCount: number
+  leftAt?: Date
+  durationSeconds?: number
+  durationMinutes?: number
+  meetDisplayName?: string
+  inMeetingNow?: boolean
+}
+
+export interface GoogleMeetParticipantTelemetry {
+  participantId: string
+  displayName: string
+  userType: 'signed_in' | 'anonymous' | 'phone'
+  matchedRole?: 'client' | 'expert'
+  joinedAt: Date
+  leftAt?: Date
+  durationSeconds: number
+  durationMinutes: number
+  sessionsCount: number
+  isActive: boolean
+}
+
+export interface GoogleMeetTelemetry {
+  meetingCode: string
+  conferenceRecordNames: string[]
+  conferenceStartedAt?: Date
+  conferenceEndedAt?: Date
+  participants: GoogleMeetParticipantTelemetry[]
+  lastSyncedAt: Date
+  syncError?: string
+}
+
 export interface BookingDoc {
   _id?: ObjectId
   id?: string
@@ -380,7 +414,14 @@ export interface BookingDoc {
   googleMeetError?: string
   googleMeetSyncedAt?: Date
   googleMeetUpdatedAt?: Date
-  rescheduleToken?: string
+  rescheduleToken?: string // Client access token for /bookings/[id]?token=...
+  expertAccessToken?: string // Expert access token for /bookings/[id]?token=...
+  meetingJoins?: {
+    client?: MeetingJoinRecord
+    expert?: MeetingJoinRecord
+  }
+  googleMeetTelemetry?: GoogleMeetTelemetry
+  attendanceSource?: 'reports' | 'meet_join_tracking' | 'meet_api_telemetry' | 'admin'
   rescheduleDeadlineHours?: number
   rescheduleCount?: number
   rescheduleHistory?: RescheduleHistoryEntry[]
@@ -585,6 +626,7 @@ export async function ensureDbIndexes(): Promise<void> {
         safeCreateIndex(db.collection('bookings'), { serviceId: 1 }),
         safeCreateIndex(db.collection('bookings'), { reference: 1 }),
         safeCreateIndex(db.collection('bookings'), { rescheduleToken: 1 }, { sparse: true }),
+        safeCreateIndex(db.collection('bookings'), { expertAccessToken: 1 }, { sparse: true }),
         safeCreateIndex(db.collection('bookings'), { attendanceStatus: 1 }),
         safeCreateIndex(db.collection('bookings'), { sessionStartAt: 1, status: 1 }),
         safeCreateIndex(db.collection('email_logs'), { bookingId: 1 }),

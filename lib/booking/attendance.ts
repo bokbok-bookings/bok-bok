@@ -10,6 +10,7 @@ import {
 import { getPlatformMeetingSettings, resolveExpertContact, getAppBaseUrl } from '@/lib/email/scheduler'
 import { sendTransactionalEmail } from '@/lib/email/mailer'
 import { renderAttendanceDisputeAdminEmail } from '@/lib/email/templates'
+import { syncBookingMeetTelemetry } from '@/lib/google-calendar'
 
 export interface AttendanceSubmissionInput {
   bookingId: string | ObjectId
@@ -65,6 +66,115 @@ export function resolveAttendanceStatus(
   }
 
   return 'pending'
+}
+
+/**
+ * Automatically derives attendance from Google Meet REST API telemetry + tracked joins
+ * once the session has ended.
+ *
+ * - Both client & expert joined (and did not immediately drop within <2 min if telemetry duration is known) -> 'completed'
+ * - Reporting window expired, no reports:
+ *     only expert joined                   -> 'client_absent'
+ *     only client joined                   -> 'expert_absent'
+ *
+ * Never overrides manual reports, disputes, or admin resolutions.
+ * Returns the new status when an update was applied, otherwise null.
+ */
+export async function applyJoinTrackingAttendance(
+  booking: BookingDoc,
+  now: Date = new Date(),
+  reportingWindowHours = 24
+): Promise<AttendanceStatus | null> {
+  if (!booking._id || booking.status !== 'confirmed') return null
+  if (booking.deliveryMode === 'IN_PERSON') return null
+  if (booking.attendanceStatus && booking.attendanceStatus !== 'pending') return null
+  if (booking.attendanceDisputeResolution) return null
+
+  const sessionEndAt = booking.sessionEndAt
+  if (!sessionEndAt || now < sessionEndAt) return null
+
+  // Sync latest Google Meet conferenceRecords & participantSessions (join/leave/duration)
+  if (booking.googleMeetLink) {
+    try {
+      await syncBookingMeetTelemetry(booking)
+    } catch {
+      // Fall back to existing meetingJoins if Meet API sync fails
+    }
+  }
+
+  const clientJoin = booking.meetingJoins?.client
+  const expertJoin = booking.meetingJoins?.expert
+  const clientJoined = Boolean(clientJoin?.firstJoinedAt)
+  const expertJoined = Boolean(expertJoin?.firstJoinedAt)
+  const hasReports = Boolean(booking.clientAttendanceReport || booking.expertAttendanceReport)
+  const deadlineExpired =
+    now.getTime() > sessionEndAt.getTime() + reportingWindowHours * 60 * 60 * 1000
+
+  // Minimum call stay threshold (in minutes) when Google Meet API duration is available
+  const minRequiredMinutes = Math.min(
+    5,
+    Math.max(2, Math.floor((booking.durationMinutes || 45) * 0.15))
+  )
+  const clientStayedEnough =
+    clientJoin?.durationMinutes === undefined || clientJoin.durationMinutes >= minRequiredMinutes
+  const expertStayedEnough =
+    expertJoin?.durationMinutes === undefined || expertJoin.durationMinutes >= minRequiredMinutes
+
+  const hasTelemetryDuration =
+    clientJoin?.durationMinutes !== undefined || expertJoin?.durationMinutes !== undefined
+  const source: NonNullable<BookingDoc['attendanceSource']> = hasTelemetryDuration
+    ? 'meet_api_telemetry'
+    : 'meet_join_tracking'
+
+  let newStatus: AttendanceStatus | null = null
+  if (clientJoined && expertJoined && clientStayedEnough && expertStayedEnough) {
+    newStatus = 'completed'
+  } else if (deadlineExpired && !hasReports) {
+    if (expertJoined && expertStayedEnough && (!clientJoined || !clientStayedEnough)) {
+      newStatus = 'client_absent'
+    } else if (clientJoined && clientStayedEnough && (!expertJoined || !expertStayedEnough)) {
+      newStatus = 'expert_absent'
+    }
+  }
+
+  if (!newStatus) return null
+
+  const bookingsCol = await getBookingsCollection()
+  const res = await bookingsCol.updateOne(
+    {
+      _id: booking._id,
+      $or: [{ attendanceStatus: 'pending' }, { attendanceStatus: { $exists: false } }],
+    },
+    {
+      $set: {
+        attendanceStatus: newStatus,
+        attendanceSource: source,
+        updatedAt: now,
+      },
+    }
+  )
+
+  if (res.modifiedCount > 0) {
+    const attendanceLogsCol = await getAttendanceLogsCollection()
+    const clientDurationNote =
+      clientJoin?.durationMinutes !== undefined ? ` (${clientJoin.durationMinutes}m)` : ''
+    const expertDurationNote =
+      expertJoin?.durationMinutes !== undefined ? ` (${expertJoin.durationMinutes}m)` : ''
+    await attendanceLogsCol.insertOne({
+      bookingId: booking._id,
+      userRole: 'admin',
+      attendanceResponse: 'admin_override',
+      previousStatus: booking.attendanceStatus || 'pending',
+      updatedStatus: newStatus,
+      notes: `Auto-resolved from Google Meet telemetry (client joined: ${clientJoined}${clientDurationNote}, expert joined: ${expertJoined}${expertDurationNote})`,
+      submittedAt: now,
+    } as any)
+    booking.attendanceStatus = newStatus
+    booking.attendanceSource = source
+    return newStatus
+  }
+
+  return null
 }
 
 /**
@@ -176,14 +286,18 @@ export async function submitAttendanceReport(
     clientReport = reportDoc
   }
 
-  const updatedStatus = resolveAttendanceStatus(
-    expertReport?.response,
-    clientReport?.response,
-    isDeadlineExpired
-  )
+  // Tracked Google Meet joins count as implicit "attended" evidence for a party
+  // that has not submitted an explicit report yet.
+  const expertEvidence =
+    expertReport?.response ?? (booking.meetingJoins?.expert?.firstJoinedAt ? 'attended' : undefined)
+  const clientEvidence =
+    clientReport?.response ?? (booking.meetingJoins?.client?.firstJoinedAt ? 'attended' : undefined)
+
+  const updatedStatus = resolveAttendanceStatus(expertEvidence, clientEvidence, isDeadlineExpired)
 
   const updateFields: any = {
     attendanceStatus: updatedStatus,
+    attendanceSource: 'reports',
     updatedAt: now,
   }
 
@@ -214,7 +328,7 @@ export async function submitAttendanceReport(
       const { expertName } = await resolveExpertContact(booking.expertId)
       const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'bokbok.bookings@gmail.com'
       const baseUrl = getAppBaseUrl()
-      const adminDisputeUrl = `${baseUrl}/admin?tab=attendance`
+      const adminDisputeUrl = `${baseUrl}/admin/attendance`
       const serviceTitle =
         booking.serviceTitle?.en || booking.serviceTitle?.ar || 'Consultation Session'
 

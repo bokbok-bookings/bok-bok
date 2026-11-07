@@ -1,7 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { computeSessionBounds } from '../lib/email/scheduler'
+import { computeSessionBounds, getCurrentHourInTimezone } from '../lib/email/scheduler'
 import { resolveAttendanceStatus } from '../lib/booking/attendance'
+import { extractGoogleMeetCode, matchParticipantsToRoles } from '../lib/google-calendar'
 import {
   renderBookingConfirmationEmail,
   renderDayOfReminderEmail,
@@ -76,7 +77,7 @@ test('Attendance Verification Matrix: resolveAttendanceStatus', () => {
   assert.equal(resolveAttendanceStatus(undefined, 'attended', true), 'completed')
 })
 
-test('Email Templates: Booking Confirmation renders Google Meet and Reschedule Links', () => {
+test('Email Templates: Booking Confirmation notifies that Google Meet link will be sent 15m before session', () => {
   const mockBooking: BookingDoc = {
     reference: 'BK-7788',
     expertId: null as any,
@@ -97,14 +98,16 @@ test('Email Templates: Booking Confirmation renders Google Meet and Reschedule L
     clientName: 'Sara Ahmed',
     serviceTitle: 'Product Strategy Session',
     rescheduleUrl: 'http://localhost:3000/bookings/123?token=abc',
-    meetLink: 'https://meet.google.com/abc-defg-hij',
     recipientRole: 'client',
   })
 
   assert.ok(subject.includes('Booking Confirmed'))
-  assert.ok(html.includes('https://meet.google.com/abc-defg-hij'))
+  assert.ok(html.includes('15 minutes before the session starts'))
   assert.ok(html.includes('http://localhost:3000/bookings/123?token=abc'))
   assert.ok(text.includes('BK-7788'))
+  // Ensure client/expert emails are NOT exposed in email body
+  assert.equal(html.includes('sara@example.com'), false)
+  assert.equal(text.includes('sara@example.com'), false)
 })
 
 test('Email Templates: Reminder 1 (Day-of) & Reminder 2 (Pre-Session)', () => {
@@ -120,17 +123,25 @@ test('Email Templates: Reminder 1 (Day-of) & Reminder 2 (Pre-Session)', () => {
     createdAt: new Date(),
   }
 
-  // Day-of reminder
+  // Day-of reminder (10:00 AM session day)
   const dayOf = renderDayOfReminderEmail({
     booking: mockBooking,
     expertName: 'Layla Hassan',
     clientName: 'Karim Tarek',
     serviceTitle: 'Growth Strategy',
     meetLink: 'https://meet.google.com/xyz-uvw-rst',
+    rescheduleUrl: 'http://localhost:3000/bookings/456?token=tok123',
     recipientRole: 'client',
   })
   assert.ok(dayOf.subject.includes("Today's Session"))
-  assert.ok(dayOf.html.includes('https://meet.google.com/xyz-uvw-rst'))
+  assert.ok(dayOf.html.includes('15 minutes before the session starts'))
+  assert.ok(dayOf.html.includes('http://localhost:3000/bookings/456?token=tok123'))
+  assert.ok(dayOf.text.includes('http://localhost:3000/bookings/456?token=tok123'))
+  assert.equal(dayOf.html.includes('https://meet.google.com'), false)
+
+  // Verify 10:00 AM Cairo hour calculation (08:00 UTC in standard UTC+2)
+  const tenAmCairo = new Date(Date.UTC(2026, 10, 15, 8, 5, 0))
+  assert.equal(getCurrentHourInTimezone('Africa/Cairo', tenAmCairo), 10)
 
   // 15-min before session reminder
   const beforeSession = renderBeforeSessionReminderEmail({
@@ -144,5 +155,60 @@ test('Email Templates: Reminder 1 (Day-of) & Reminder 2 (Pre-Session)', () => {
   })
   assert.ok(beforeSession.subject.includes('Starting in 15 Minutes'))
   assert.ok(beforeSession.html.includes('Join Google Meet Now'))
+})
+
+test('Google Meet Telemetry: extractGoogleMeetCode & matchParticipantsToRoles', () => {
+  assert.equal(
+    extractGoogleMeetCode('https://meet.google.com/abc-defg-hij?authuser=0'),
+    'abc-defg-hij'
+  )
+  assert.equal(extractGoogleMeetCode('https://example.com/room'), null)
+
+  const clientJoinTime = new Date('2026-11-15T14:00:00Z')
+  const expertJoinTime = new Date('2026-11-15T14:02:00Z')
+
+  const matched = matchParticipantsToRoles({
+    clientName: 'Sara Ahmed',
+    expertName: 'Omar Wagih',
+    clientJoin: {
+      firstJoinedAt: clientJoinTime,
+      lastJoinedAt: clientJoinTime,
+      joinCount: 1,
+    },
+    expertJoin: {
+      firstJoinedAt: expertJoinTime,
+      lastJoinedAt: expertJoinTime,
+      joinCount: 1,
+    },
+    participants: [
+      {
+        participantId: 'conferenceRecords/1/participants/p1',
+        displayName: 'Sara A.',
+        userType: 'signed_in',
+        joinedAt: new Date('2026-11-15T14:00:12Z'),
+        leftAt: new Date('2026-11-15T14:44:12Z'),
+        durationSeconds: 2640,
+        durationMinutes: 44,
+        sessionsCount: 1,
+        isActive: false,
+      },
+      {
+        participantId: 'conferenceRecords/1/participants/p2',
+        displayName: 'Guest User',
+        userType: 'anonymous',
+        joinedAt: new Date('2026-11-15T14:02:08Z'),
+        leftAt: new Date('2026-11-15T14:45:08Z'),
+        durationSeconds: 2580,
+        durationMinutes: 43,
+        sessionsCount: 1,
+        isActive: false,
+      },
+    ],
+  })
+
+  assert.equal(matched[0].matchedRole, 'client')
+  assert.equal(matched[0].durationMinutes, 44)
+  assert.equal(matched[1].matchedRole, 'expert')
+  assert.equal(matched[1].durationMinutes, 43)
 })
 

@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { ObjectId } from 'mongodb'
 import {
   getBookingsCollection,
@@ -8,9 +9,11 @@ import {
   type ExpertDoc,
 } from '@/lib/db'
 import { sendTransactionalEmail, processEmailRetries } from '@/lib/email/mailer'
+import { getBookingRoleLinks } from '@/lib/booking/access'
+import { applyJoinTrackingAttendance } from '@/lib/booking/attendance'
 import {
   renderDayOfReminderEmail,
-  // renderBeforeSessionReminderEmail, // Uncomment with CHECK 3 when upgrading to Vercel Pro
+  renderBeforeSessionReminderEmail,
   renderMissingMeetLinkAlertEmail,
   renderAttendancePromptEmail,
 } from '@/lib/email/templates'
@@ -53,6 +56,23 @@ export function getCurrentDateInTimezone(
     month: '2-digit',
     day: '2-digit',
   }).format(date)
+}
+
+/**
+ * Get the current hour (0-23) in a specific timezone.
+ */
+export function getCurrentHourInTimezone(
+  timeZone = DEFAULT_TIMEZONE,
+  date: Date = new Date()
+): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: 'numeric',
+    hour12: false,
+  }).formatToParts(date)
+  const hourStr = parts.find((p) => p.type === 'hour')?.value || '0'
+  const hour = Number(hourStr)
+  return hour === 24 ? 0 : hour
 }
 
 export interface PlatformMeetingSettings {
@@ -201,16 +221,24 @@ export async function processAutomatedReminders(): Promise<{
     const { expertName, expertEmail } = await resolveExpertContact(booking.expertId)
     const serviceTitle =
       booking.serviceTitle?.en || booking.serviceTitle?.ar || 'Consultation Session'
-    const rescheduleUrl = booking.rescheduleToken
-      ? `${baseUrl}/bookings/${booking._id}?token=${booking.rescheduleToken}`
-      : undefined
+
+    const {
+      clientPageUrl,
+      expertPageUrl,
+      clientJoinUrl,
+      expertJoinUrl,
+    } = await getBookingRoleLinks(baseUrl, booking)
+
+    const rescheduleUrl = clientPageUrl
     const dashboardUrl = `${baseUrl}/dashboard/bookings`
     const meetLink = booking.googleMeetLink?.trim() || ''
 
-    const todayInTimezone = getCurrentDateInTimezone(timezone)
+    const todayInTimezone = getCurrentDateInTimezone(timezone, now)
+    const currentHourInTimezone = getCurrentHourInTimezone(timezone, now)
     const isSessionToday = booking.date === todayInTimezone
     const hasSessionPassed = now >= startAt
     const hasSessionEnded = now >= endAt
+    const msUntilStart = startAt.getTime() - now.getTime()
 
     // ------------------------------------------------------------------------
     // CHECK 1: Missing Google Meet Link Alert (to Expert)
@@ -257,15 +285,18 @@ export async function processAutomatedReminders(): Promise<{
     }
 
     // ------------------------------------------------------------------------
-    // CHECK 2: Reminder 1 (First Reminder of the Day)
+    // CHECK 2: Reminder 1 (Beginning of Session Day - 10:00 AM)
     // ------------------------------------------------------------------------
-    // Sent once on session date to BOTH client and expert.
-    // If online, REQUIRE Google Meet link before sending to client.
+    // Sent once on the session day at/after 10:00 AM (or within 2 hours of an early morning session)
+    // to BOTH client and expert with the Booking Page link + token.
+    const isDayOfReminderWindowOpen =
+      currentHourInTimezone >= 10 || (msUntilStart > 0 && msUntilStart <= 2 * 60 * 60 * 1000)
+
     if (
       isSessionToday &&
       !hasSessionPassed &&
-      !booking.reminders?.dayOfReminderSentAt &&
-      (!isOnline || meetLink) // Prevent sending if meet link is missing
+      isDayOfReminderWindowOpen &&
+      !booking.reminders?.dayOfReminderSentAt
     ) {
       // Atomic lock
       const lock = await bookingsCol.updateOne(
@@ -288,7 +319,7 @@ export async function processAutomatedReminders(): Promise<{
           clientName: booking.clientName,
           serviceTitle,
           meetLink,
-          rescheduleUrl,
+          rescheduleUrl: clientPageUrl,
           recipientRole: 'client',
         })
 
@@ -311,7 +342,7 @@ export async function processAutomatedReminders(): Promise<{
             clientName: booking.clientName,
             serviceTitle,
             meetLink,
-            rescheduleUrl,
+            rescheduleUrl: expertPageUrl,
             recipientRole: 'expert',
           })
 
@@ -333,12 +364,9 @@ export async function processAutomatedReminders(): Promise<{
 
     // ------------------------------------------------------------------------
     // CHECK 3: Reminder 2 (Before the Session - e.g. 15 minutes before)
-    // Commented out while on Vercel Hobby plan (daily cron).
-    // Uncomment when upgrading to Vercel Pro with "*/14 * * * *" in vercel.json.
+    // Sends the Google Meet joining link to client and expert 15 minutes before session
     // ------------------------------------------------------------------------
-    /*
     const reminderIntervalMins = platformSettings.beforeSessionReminderMinutes || 15
-    const msUntilStart = startAt.getTime() - now.getTime()
 
     // Trigger if session starts within the reminder threshold (or up to 1 tick cycle ahead) and has not yet started
     const isWithinBeforeWindow = msUntilStart > 0 && msUntilStart <= (reminderIntervalMins + 14) * 60 * 1000
@@ -362,13 +390,13 @@ export async function processAutomatedReminders(): Promise<{
       )
 
       if (lock.modifiedCount > 0) {
-        // Send to Client
+        // Send to Client (uses tracked join URL so clicking records client attendance)
         const clientEmailData = renderBeforeSessionReminderEmail({
           booking,
           expertName,
           clientName: booking.clientName,
           serviceTitle,
-          meetLink,
+          meetLink: clientJoinUrl,
           minutesBefore: reminderIntervalMins,
           recipientRole: 'client',
         })
@@ -384,14 +412,14 @@ export async function processAutomatedReminders(): Promise<{
           text: clientEmailData.text,
         })
 
-        // Send to Expert
+        // Send to Expert (uses tracked join URL so clicking records expert attendance)
         if (expertEmail) {
           const expertEmailData = renderBeforeSessionReminderEmail({
             booking,
             expertName,
             clientName: booking.clientName,
             serviceTitle,
-            meetLink,
+            meetLink: expertJoinUrl,
             minutesBefore: reminderIntervalMins,
             recipientRole: 'expert',
           })
@@ -411,13 +439,19 @@ export async function processAutomatedReminders(): Promise<{
         beforeSessionReminders++
       }
     }
-    */
 
     // ------------------------------------------------------------------------
-    // CHECK 4: Post-Session Attendance Prompt
+    // CHECK 4: Auto-resolve attendance from Meet join tracking & Post-Session Prompt
     // ------------------------------------------------------------------------
-    // Triggered after session ends, within reporting window (e.g. 24h)
     const reportingHours = platformSettings.attendanceReportingWindowHours || 24
+    if (hasSessionEnded) {
+      try {
+        await applyJoinTrackingAttendance(booking, now, reportingHours)
+      } catch (err) {
+        console.warn('[Scheduler] Join-tracking attendance check failed:', err)
+      }
+    }
+
     const deadlineMs = endAt.getTime() + reportingHours * 60 * 60 * 1000
     const isWithinReportingWindow = now >= endAt && now.getTime() <= deadlineMs
 
@@ -440,10 +474,8 @@ export async function processAutomatedReminders(): Promise<{
       )
 
       if (lock.modifiedCount > 0) {
-        const clientAttendanceUrl = rescheduleUrl
-          ? `${rescheduleUrl}#attendance`
-          : `${baseUrl}/bookings/${booking._id}`
-        const expertAttendanceUrl = `${baseUrl}/dashboard/bookings`
+        const clientAttendanceUrl = `${clientPageUrl}#attendance`
+        const expertAttendanceUrl = `${expertPageUrl}#attendance`
 
         // Send to Client
         const clientPrompt = renderAttendancePromptEmail({

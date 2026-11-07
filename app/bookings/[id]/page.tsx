@@ -42,6 +42,16 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
   const [attendanceNotes, setAttendanceNotes] = useState('')
   const [submittingAttendance, setSubmittingAttendance] = useState(false)
   const [attendanceFeedback, setAttendanceFeedback] = useState<string | null>(null)
+  const [syncingMeet, setSyncingMeet] = useState(false)
+  const [showManualReportOverride, setShowManualReportOverride] = useState(false)
+
+  // Real-time clock to evaluate the 15-minute meeting link access window
+  const [currentTime, setCurrentTime] = useState<number>(() => Date.now())
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(Date.now()), 15000)
+    return () => clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -51,24 +61,53 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
     }
   }, [bookingId])
 
-  const fetchBooking = async (currentToken: string) => {
-    setLoading(true)
-    setError(null)
+  // Automatically sync Google Meet telemetry (join/leave/duration) when user returns to this tab
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible' && bookingId) {
+        const urlToken = new URLSearchParams(window.location.search).get('token') || token
+        fetchBooking(urlToken, { silent: true, syncMeet: true })
+      }
+    }
+    window.addEventListener('focus', handleVisibilityOrFocus)
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus)
+    return () => {
+      window.removeEventListener('focus', handleVisibilityOrFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus)
+    }
+  }, [bookingId, token])
+
+  const fetchBooking = async (
+    currentToken: string,
+    options?: { silent?: boolean; syncMeet?: boolean }
+  ) => {
+    if (!options?.silent) {
+      setLoading(true)
+      setError(null)
+    }
+    if (options?.syncMeet) {
+      setSyncingMeet(true)
+    }
     try {
       const url = new URL(`/api/bookings/${bookingId}`, window.location.origin)
       if (currentToken) url.searchParams.set('token', currentToken)
+      if (options?.syncMeet) url.searchParams.set('syncMeet', '1')
 
       const res = await fetch(url.toString())
       const json = await res.json()
       if (json.success && json.data) {
         setBooking(json.data)
-      } else {
+      } else if (!options?.silent) {
         setError(json.error || (isAr ? 'تعذر تحميل تفاصيل الحجز' : 'Failed to load booking details'))
       }
     } catch (err: any) {
-      setError(err.message || (isAr ? 'خطأ في تحميل الحجز' : 'Error loading booking'))
+      if (!options?.silent) {
+        setError(err.message || (isAr ? 'خطأ في تحميل الحجز' : 'Error loading booking'))
+      }
     } finally {
-      setLoading(false)
+      if (!options?.silent) setLoading(false)
+      if (options?.syncMeet) setSyncingMeet(false)
     }
   }
 
@@ -218,7 +257,23 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
 
   const isOnline = booking.deliveryMode !== 'IN_PERSON'
   const deadlinePassed = !booking.isRescheduleAllowed
-  const sessionPassed = new Date() >= new Date(booking.sessionEndAt || `${booking.date}T${booking.time}`)
+  const sessionPassed = new Date(currentTime) >= new Date(booking.sessionEndAt || `${booking.date}T${booking.time}`)
+
+  // 15-minute access calculation for Google Meet link
+  const sessionStartTime = booking.sessionStartAt
+    ? new Date(booking.sessionStartAt).getTime()
+    : booking.date && booking.time
+      ? new Date(`${booking.date}T${booking.time}`).getTime()
+      : 0
+  const sessionEndTime = booking.sessionEndAt
+    ? new Date(booking.sessionEndAt).getTime()
+    : sessionStartTime + (booking.durationMinutes || 45) * 60000
+
+  const msUntilStart = sessionStartTime - currentTime
+  const isWithin15Minutes = msUntilStart <= 15 * 60 * 1000
+  const isSessionEnded = currentTime > sessionEndTime
+  const isLinkAccessible = isWithin15Minutes && !isSessionEnded && Boolean(booking.googleMeetLink)
+
   const serviceTitle = isAr
     ? booking.serviceTitle?.ar || booking.serviceTitle?.en || 'جلسة استشارية'
     : booking.serviceTitle?.en || booking.serviceTitle?.ar || 'Consultation Session'
@@ -267,12 +322,12 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
             <div className="text-start sm:text-end">
               <span
                 className={`inline-block rounded-full px-3 py-1 text-xs font-bold ${booking.status === 'confirmed'
-                    ? 'bg-emerald-100 text-emerald-800'
-                    : booking.status === 'awaiting_verification'
-                      ? 'bg-amber-100 text-amber-800'
-                      : booking.status === 'rejected'
-                        ? 'bg-rose-100 text-rose-800'
-                        : 'bg-neutral-100 text-neutral-800'
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : booking.status === 'awaiting_verification'
+                    ? 'bg-amber-100 text-amber-800'
+                    : booking.status === 'rejected'
+                      ? 'bg-rose-100 text-rose-800'
+                      : 'bg-neutral-100 text-neutral-800'
                   }`}
               >
                 {booking.status === 'confirmed'
@@ -307,54 +362,99 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
             </div>
             <div className="rounded-2xl border border-border bg-background p-4">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                {isAr ? 'بيانات المستفيد' : 'Client Contact'}
+                {isAr ? 'بيانات المستفيد' : 'Client'}
               </span>
               <p className="text-base font-bold text-primary mt-1 truncate">{booking.clientName}</p>
-              <p className="text-[11px] text-muted-foreground truncate">{booking.clientEmail}</p>
+              <p className="text-[11px] text-muted-foreground truncate">
+                {isAr ? 'حجز مؤكد عبر بوك بوك' : 'Verified Bok Bok Booking'}
+              </p>
             </div>
           </div>
 
           {/* SECTION 1: Google Meet Access */}
           {isOnline && (
             <div className="mt-6 pt-6 border-t border-border">
-              <div className="rounded-2xl bg-teal-50 border border-teal-200 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div
+                className={`rounded-2xl border p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition ${isLinkAccessible
+                  ? 'bg-teal-50 border-teal-200'
+                  : isSessionEnded
+                    ? 'bg-neutral-50 border-neutral-200 opacity-80'
+                    : 'bg-secondary/20 border-accent/30'
+                  }`}
+              >
                 <div className="flex items-start gap-3">
-                  <div className="size-10 rounded-xl bg-teal-700 text-white flex items-center justify-center shrink-0">
+                  <div
+                    className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${isLinkAccessible
+                      ? 'bg-teal-700 text-white'
+                      : isSessionEnded
+                        ? 'bg-neutral-400 text-white'
+                        : 'bg-primary text-white'
+                      }`}
+                  >
                     <Video size={20} />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-teal-900">
+                    <h3
+                      className={`text-sm font-bold ${isLinkAccessible
+                        ? 'text-teal-900'
+                        : isSessionEnded
+                          ? 'text-neutral-700'
+                          : 'text-primary'
+                        }`}
+                    >
                       {isAr ? 'رابط مكالمة جوجل ميت' : 'Google Meet Room Access'}
                     </h3>
-                    {booking.googleMeetLink ? (
-                      <p className="text-xs text-teal-800 mt-0.5">
-                        {isAr
-                          ? 'تم تجهيز رابط الغرفة. انقر للانضمام في التوقيت المحدد.'
-                          : 'Your meeting room is configured. Click the button to join the call at the scheduled time.'}
+                    {isSessionEnded ? (
+                      <p className="text-xs text-neutral-600 mt-0.5">
+                        {isAr ? 'انتهت هذه الجلسة.' : 'This session has concluded.'}
                       </p>
-                    ) : (
+                    ) : isLinkAccessible ? (
+                      <p className="text-xs text-teal-800 mt-0.5 font-medium">
+                        {isAr
+                          ? 'غرفة الاجتماع مفتوحة الآن! انقر للانضمام إلى المكالمة.'
+                          : 'Your meeting room is open now! Click the button to join the call.'}
+                      </p>
+                    ) : booking.status !== 'confirmed' ? (
                       <p className="text-xs text-amber-800 mt-0.5">
                         {isAr
-                          ? 'يقوم الخبير بإعداد رابط الغرفة. ستصلك رسالة فور توفره.'
-                          : 'The expert is preparing the Google Meet room link. You will receive an email as soon as it is posted.'}
+                          ? 'سيتم تفعيل رابط الاجتماع فور اعتماد الحجز وتأكيد الدفع.'
+                          : 'The meeting link will be activated once the booking is verified and confirmed.'}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {isAr
+                          ? 'تم تجهيز رابط الغرفة، وسيكون متاحاً للانضمام قبل موعد الجلسة بـ 15 دقيقة.'
+                          : 'Your meeting room is configured and will become accessible 15 minutes before the session starts.'}
                       </p>
                     )}
                   </div>
                 </div>
 
-                {booking.googleMeetLink ? (
+                {isSessionEnded ? (
+                  <span className="text-xs font-bold text-neutral-600 bg-neutral-200/70 px-3.5 py-1.5 rounded-full shrink-0 text-center select-none">
+                    {isAr ? 'الجلسة منتهية' : 'Session Ended'}
+                  </span>
+                ) : isLinkAccessible ? (
                   <a
-                    href={booking.googleMeetLink}
+                    href={
+                      booking.meetJoinUrl ||
+                      `/api/bookings/${booking._id}/join${token ? `?token=${encodeURIComponent(token)}` : ''
+                      }`
+                    }
                     target="_blank"
                     rel="noreferrer"
+                    onClick={() => {
+                      setTimeout(() => fetchBooking(token), 1500)
+                    }}
                     className="inline-flex items-center justify-center gap-1.5 rounded-full bg-teal-700 px-6 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-teal-800 transition shrink-0"
                   >
-                    {isAr ? 'انضم للمكالمة ↗' : 'Join Google Meet ↗'}
+                    {isAr ? 'انضم للمكالمة الآن ↗' : 'Join Google Meet Now ↗'}
                   </a>
                 ) : (
-                  <span className="text-xs font-bold text-amber-700 bg-amber-100 px-3 py-1.5 rounded-full border border-amber-200 shrink-0 text-center">
-                    {isAr ? 'قيد التجهيز' : 'Link Pending'}
-                  </span>
+                  <div className="inline-flex items-center justify-center gap-1.5 rounded-full bg-secondary/80 border border-accent/40 px-3.5 py-2 text-xs font-bold text-primary shrink-0 select-none">
+                    <Clock size={13} className="text-accent" />
+                    <span>{isAr ? 'يتاح قبل الجلسة بـ 15 دقيقة' : 'Available 15m Before Session'}</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -395,8 +495,8 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
               {rescheduleMessage && (
                 <div
                   className={`rounded-2xl border p-4 text-xs font-semibold ${rescheduleMessage.type === 'success'
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                      : 'border-rose-200 bg-rose-50 text-rose-800'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                    : 'border-rose-200 bg-rose-50 text-rose-800'
                     }`}
                 >
                   {rescheduleMessage.text}
@@ -418,10 +518,10 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
                         disabled={!d.hasSlots}
                         onClick={() => setSelectedDate(d.date)}
                         className={`shrink-0 rounded-2xl p-2.5 text-center transition min-w-[64px] border ${selectedDate === d.date
-                            ? 'bg-accent text-primary border-accent shadow-xs font-bold'
-                            : d.hasSlots
-                              ? 'bg-background text-primary border-border hover:border-primary'
-                              : 'bg-neutral-100 text-neutral-400 border-transparent cursor-not-allowed'
+                          ? 'bg-accent text-primary border-accent shadow-xs font-bold'
+                          : d.hasSlots
+                            ? 'bg-background text-primary border-border hover:border-primary'
+                            : 'bg-neutral-100 text-neutral-400 border-transparent cursor-not-allowed'
                           }`}
                       >
                         <span className="block text-[10px] font-bold uppercase">
@@ -452,10 +552,10 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
                           disabled={!s.available}
                           onClick={() => setSelectedTime(s.time)}
                           className={`rounded-xl py-2 px-2 text-xs font-bold border transition ${selectedTime === s.time
-                              ? 'bg-accent text-primary border-accent shadow-xs'
-                              : s.available
-                                ? 'bg-background text-primary border-border hover:border-accent hover:bg-secondary/30'
-                                : 'bg-neutral-100 text-neutral-400 border-transparent line-through cursor-not-allowed'
+                            ? 'bg-accent text-primary border-accent shadow-xs'
+                            : s.available
+                              ? 'bg-background text-primary border-border hover:border-accent hover:bg-secondary/30'
+                              : 'bg-neutral-100 text-neutral-400 border-transparent line-through cursor-not-allowed'
                             }`}
                         >
                           {formatSlotLabel(s.time)}
@@ -522,14 +622,150 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
 
         {/* SECTION 3: Post-Session Attendance Confirmation */}
         <div id="attendance" className="rounded-3xl border border-border bg-surface p-6 sm:p-8 shadow-xs space-y-6">
-          <div className="border-b border-border pb-4">
-            <h2 className="text-xl font-bold tracking-tight text-primary">
-              {isAr ? 'تأكيد حضور الجلسة' : 'Session Attendance Confirmation'}
-            </h2>
-            <p className="text-xs text-muted-foreground mt-1">
-              {isAr ? 'تتبع متبادل لحضور الجلسات المكتملة.' : 'Mutual presence tracking for completed appointments.'}
-            </p>
+          <div className="border-b border-border pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h2 className="text-xl font-bold tracking-tight text-primary">
+                {isAr ? 'تأكيد حضور الجلسة' : 'Session Attendance Confirmation'}
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                {isAr
+                  ? 'تتبع تلقائي لدخول ومغادرة الاجتماع ومدته عبر Google Meet API مع تأكيد الحضور.'
+                  : 'Automatic Google Meet entry, leave time & duration telemetry with mutual confirmation.'}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {isOnline && booking.googleMeetLink && isWithin15Minutes && (
+                <button
+                  type="button"
+                  disabled={syncingMeet}
+                  onClick={() => fetchBooking(token, { silent: true, syncMeet: true })}
+                  className="rounded-full border border-border bg-background px-3 py-1 text-[11px] font-bold text-primary hover:bg-secondary/60 transition disabled:opacity-50"
+                >
+                  {syncingMeet
+                    ? isAr
+                      ? 'جاري مزامنة بيانات ميت...'
+                      : 'Syncing Meet API...'
+                    : isAr
+                      ? 'تحديث بيانات الدخول والمغادرة ↻'
+                      : 'Sync Meet Entry/Leave ↻'}
+                </button>
+              )}
+              <span
+                className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider ${booking.attendanceStatus === 'completed' ||
+                  (booking.meetingJoins?.client?.firstJoinedAt &&
+                    booking.meetingJoins?.expert?.firstJoinedAt)
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                  : booking.attendanceStatus === 'disputed'
+                    ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                    : 'bg-secondary text-primary border border-accent/30'
+                  }`}
+              >
+                {booking.attendanceStatus === 'completed' ||
+                  (booking.meetingJoins?.client?.firstJoinedAt &&
+                    booking.meetingJoins?.expert?.firstJoinedAt)
+                  ? isAr
+                    ? 'مكتملة (حضر الطرفان)'
+                    : 'Verified · Both Joined'
+                  : booking.attendanceStatus || 'pending'}
+              </span>
+            </div>
           </div>
+
+          {/* Real-Time Meeting Room Entry & Leave Telemetry */}
+          {isOnline && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(['client', 'expert'] as const).map((roleKey) => {
+                const isClientCard = roleKey === 'client'
+                const joinInfo = isClientCard
+                  ? booking.meetingJoins?.client
+                  : booking.meetingJoins?.expert
+                const reportInfo = isClientCard
+                  ? booking.clientAttendanceReport
+                  : booking.expertAttendanceReport
+                const displayName = isClientCard ? booking.clientName : booking.expertName
+                const hasEntered =
+                  Boolean(joinInfo?.firstJoinedAt) || reportInfo?.response === 'attended'
+
+                return (
+                  <div
+                    key={roleKey}
+                    className={`rounded-2xl border p-4 flex items-start justify-between gap-3 ${hasEntered
+                      ? 'border-emerald-200 bg-emerald-50/60'
+                      : 'border-border bg-background'
+                      }`}
+                  >
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {isClientCard
+                          ? isAr
+                            ? 'سجل حضور المستفيد (العميل)'
+                            : 'Client Meeting Telemetry'
+                          : isAr
+                            ? 'سجل حضور الخبير'
+                            : 'Expert Meeting Telemetry'}
+                      </span>
+                      <p className="text-sm font-bold text-primary">{displayName}</p>
+                      {joinInfo?.firstJoinedAt ? (
+                        <div className="space-y-0.5 text-[11px] text-muted-foreground pt-0.5">
+                          <p>
+                            <strong className="text-primary">
+                              {isAr ? 'وقت الدخول:' : 'Entered:'}
+                            </strong>{' '}
+                            {new Date(joinInfo.firstJoinedAt).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </p>
+                          <p>
+                            <strong className="text-primary">
+                              {isAr ? 'وقت المغادرة:' : 'Left:'}
+                            </strong>{' '}
+                            {joinInfo.leftAt ? (
+                              new Date(joinInfo.leftAt).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            ) : joinInfo.inMeetingNow ? (
+                              <span className="text-emerald-700 font-semibold">
+                                {isAr ? 'متواجد في المكالمة الآن' : 'Active in call now'}
+                              </span>
+                            ) : (
+                              <span className="italic">
+                                {isAr
+                                  ? 'بانتظار انتهاء المكالمة / مزامنة Google Meet'
+                                  : 'Pending call end / Meet API sync'}
+                              </span>
+                            )}
+                          </p>
+                          {joinInfo.durationMinutes !== undefined && (
+                            <p>
+                              <strong className="text-primary">
+                                {isAr ? 'مدة التواجد:' : 'Duration in call:'}
+                              </strong>{' '}
+                              {joinInfo.durationMinutes} {isAr ? 'دقيقة' : 'min'}
+                            </p>
+                          )}
+                        </div>
+                      ) : reportInfo?.response === 'attended' ? (
+                        <p className="text-[11px] text-muted-foreground">
+                          {isAr ? 'أكد الحضور يدوياً' : 'Confirmed attendance manually'}
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground">
+                          {isAr ? 'لم يتم تسجيل الدخول بعد' : 'No room entry recorded yet'}
+                        </p>
+                      )}
+                    </div>
+                    {hasEntered ? (
+                      <CheckCircle size={20} className="text-emerald-600 shrink-0 mt-1" />
+                    ) : (
+                      <Clock size={18} className="text-muted-foreground shrink-0 mt-1" />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           {attendanceFeedback && (
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-800">
@@ -537,86 +773,171 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
             </div>
           )}
 
-          {!sessionPassed ? (
-            <div className="rounded-2xl border border-border bg-background p-5 text-center text-xs text-muted-foreground">
-              <Clock size={20} className="mx-auto mb-2 text-muted-foreground" />
-              <p className="font-bold text-primary">{isAr ? 'الجلسة لم تنته بعد' : 'Session has not concluded yet'}</p>
-              <p className="mt-0.5">
-                {isAr ? 'سيتاح تأكيد الحضور فور انتهاء موعد الجلسة المحدد.' : 'Attendance confirmation will unlock immediately after your scheduled session ends.'}
-              </p>
-            </div>
-          ) : booking.clientAttendanceReport ? (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <CheckCircle size={18} className="text-emerald-700" />
-                <p className="text-sm font-bold text-emerald-950">
-                  {isAr ? 'تم تقديم تقرير الحضور بنجاح' : 'You Submitted Your Attendance Report'}
+          {(() => {
+            const isExpertViewer = booking.userRoleInView === 'expert'
+            const myReport = isExpertViewer
+              ? booking.expertAttendanceReport
+              : booking.clientAttendanceReport
+            const bothEnteredMeet = Boolean(
+              booking.meetingJoins?.client?.firstJoinedAt &&
+              booking.meetingJoins?.expert?.firstJoinedAt
+            )
+
+            if (myReport) {
+              return (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle size={18} className="text-emerald-700" />
+                    <p className="text-sm font-bold text-emerald-950">
+                      {isAr ? 'تم تقديم تقرير الحضور بنجاح' : 'You Submitted Your Attendance Report'}
+                    </p>
+                  </div>
+                  <p className="text-xs text-emerald-900">
+                    {isAr ? (
+                      <>
+                        أكدت أن الجلسة{' '}
+                        <strong>
+                          {myReport.response === 'attended' ? 'تمت بنجاح' : 'لم تتم (غياب)'}
+                        </strong>{' '}
+                        في {new Date(myReport.submittedAt).toLocaleDateString()}.
+                      </>
+                    ) : (
+                      <>
+                        You reported <strong>{myReport.response === 'attended' ? 'Attended' : 'Did Not Attend'}</strong> on{' '}
+                        {new Date(myReport.submittedAt).toLocaleString()}.
+                      </>
+                    )}
+                  </p>
+                  <div className="border-t border-emerald-200/80 pt-2 flex items-center justify-between text-xs font-bold text-emerald-950">
+                    <span>{isAr ? 'حالة الحضور المعتمدة:' : 'Verified Attendance Status:'}</span>
+                    <span className="uppercase tracking-wider">{booking.attendanceStatus}</span>
+                  </div>
+                </div>
+              )
+            }
+
+            if ((bothEnteredMeet || booking.attendanceStatus === 'completed') && !showManualReportOverride) {
+              return (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle size={18} className="text-emerald-700" />
+                    <p className="text-sm font-bold text-emerald-950">
+                      {isAr
+                        ? 'تم تسجيل حضور الطرفين في غرفة الاجتماع تلقائياً'
+                        : 'Both Client & Expert Attendance Verified Automatically'}
+                    </p>
+                  </div>
+                  <p className="text-xs text-emerald-900">
+                    {isAr
+                      ? 'تم رصد دخول كل من المستفيد والخبير إلى رابط جوجل ميت الخاص بالجلسة.'
+                      : 'Both the client and the expert entered the Google Meet session room via Bok Bok.'}
+                  </p>
+                  {sessionPassed && booking.isAttendanceReportingOpen && (
+                    <button
+                      type="button"
+                      onClick={() => setShowManualReportOverride(true)}
+                      className="text-[11px] font-bold text-emerald-900 underline hover:text-emerald-700"
+                    >
+                      {isAr
+                        ? 'هل غادر الطرف الآخر مبكراً أو واجهت مشكلة في الجلسة؟ أبلغ هنا'
+                        : 'Did the other party leave early or was the session incomplete? Report an issue'}
+                    </button>
+                  )}
+                </div>
+              )
+            }
+
+            if (!sessionPassed) {
+              return (
+                <div className="rounded-2xl border border-border bg-background p-5 text-center text-xs text-muted-foreground">
+                  <Clock size={20} className="mx-auto mb-2 text-muted-foreground" />
+                  <p className="font-bold text-primary">
+                    {isAr ? 'الجلسة لم تنته بعد' : 'Session has not concluded yet'}
+                  </p>
+                  <p className="mt-0.5">
+                    {isAr
+                      ? 'يتم تسجيل الحضور تلقائياً عند النقر على زر الانضمام للمكالمة، كما يتاح التأكيد اليدوي فور انتهاء وقت الجلسة.'
+                      : 'Attendance is recorded automatically when both parties click "Join Google Meet Now", and manual confirmation unlocks once the session concludes.'}
+                  </p>
+                </div>
+              )
+            }
+
+            if (!booking.isAttendanceReportingOpen) {
+              return (
+                <div className="rounded-2xl border border-border bg-background p-5 text-center text-xs text-muted-foreground">
+                  <p className="font-bold text-primary">
+                    {isAr ? 'أغلقت نافذة تأكيد الحضور' : 'Reporting Window Closed'}
+                  </p>
+                  <p className="mt-0.5">
+                    {isAr
+                      ? 'انتهت فترة الـ 24 ساعة المخصصة لتأكيد حضور هذه الجلسة.'
+                      : 'The 24-hour attendance reporting window for this appointment has expired.'}
+                  </p>
+                </div>
+              )
+            }
+
+            return (
+              <div className="space-y-4">
+                <p className="text-sm font-bold text-primary">
+                  {isAr ? 'هل تمت الجلسة المحددة؟' : 'Did your scheduled session take place?'}
                 </p>
-              </div>
-              <p className="text-xs text-emerald-900">
-                {isAr ? (
-                  <>أكدت أنك <strong>{booking.clientAttendanceReport.response === 'attended' ? 'حضرت' : 'لم تحضر'}</strong> هذه الجلسة في {new Date(booking.clientAttendanceReport.submittedAt).toLocaleDateString()}.</>
-                ) : (
-                  <>You reported that you <strong>{booking.clientAttendanceReport.response === 'attended' ? 'Attended' : 'Did Not Attend'}</strong> this session on {new Date(booking.clientAttendanceReport.submittedAt).toLocaleString()}.</>
-                )}
-              </p>
-              <div className="border-t border-emerald-200/80 pt-2 flex items-center justify-between text-xs font-bold text-emerald-950">
-                <span>{isAr ? 'حالة الحضور المعتمدة:' : 'Verified Attendance Status:'}</span>
-                <span className="uppercase tracking-wider">{booking.attendanceStatus}</span>
-              </div>
-            </div>
-          ) : !booking.isAttendanceReportingOpen ? (
-            <div className="rounded-2xl border border-border bg-background p-5 text-center text-xs text-muted-foreground">
-              <p className="font-bold text-primary">{isAr ? 'أغلقت نافذة تأكيد الحضور' : 'Reporting Window Closed'}</p>
-              <p className="mt-0.5">
-                {isAr ? 'انتهت فترة الـ 24 ساعة المخصصة لتأكيد حضور هذه الجلسة.' : 'The 24-hour attendance reporting window for this appointment has expired.'}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <p className="text-sm font-bold text-primary">
-                {isAr ? 'هل تمت الجلسة المحددة؟' : 'Did your scheduled session take place?'}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {isAr ? 'يرجى تأكيد ما إذا كنت قد التقيت بالخبير عبر رابط جوجل ميت.' : 'Please confirm whether you and the expert attended the Google Meet session.'}
-              </p>
+                <p className="text-xs text-muted-foreground">
+                  {isAr
+                    ? 'يرجى تأكيد ما إذا كنت قد حضرت الجلسة عبر رابط جوجل ميت.'
+                    : 'Please confirm whether the Google Meet session took place.'}
+                </p>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  disabled={submittingAttendance}
-                  onClick={() => handleAttendanceSubmit('attended')}
-                  className="flex items-center justify-center gap-2 rounded-2xl border-2 border-emerald-600 bg-emerald-50 py-4 px-4 text-xs font-bold text-emerald-800 hover:bg-emerald-600 hover:text-white transition disabled:opacity-50"
-                >
-                  <UserCheck size={18} />
-                  <span>{isAr ? 'نعم، حضرت الجلسة' : 'Yes, I Attended Session'}</span>
-                </button>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    disabled={submittingAttendance}
+                    onClick={() => handleAttendanceSubmit('attended')}
+                    className="flex items-center justify-center gap-2 rounded-2xl border-2 border-emerald-600 bg-emerald-50 py-4 px-4 text-xs font-bold text-emerald-800 hover:bg-emerald-600 hover:text-white transition disabled:opacity-50"
+                  >
+                    <UserCheck size={18} />
+                    <span>{isAr ? 'نعم، حضرت الجلسة' : 'Yes, I Attended Session'}</span>
+                  </button>
 
-                <button
-                  type="button"
-                  disabled={submittingAttendance}
-                  onClick={() => handleAttendanceSubmit('absent')}
-                  className="flex items-center justify-center gap-2 rounded-2xl border-2 border-rose-300 bg-rose-50 py-4 px-4 text-xs font-bold text-rose-800 hover:bg-rose-600 hover:text-white transition disabled:opacity-50"
-                >
-                  <XCircle size={18} />
-                  <span>{isAr ? 'لم يحضر الخبير (غياب)' : 'Expert Did Not Attend (No-Show)'}</span>
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    disabled={submittingAttendance}
+                    onClick={() => handleAttendanceSubmit('absent')}
+                    className="flex items-center justify-center gap-2 rounded-2xl border-2 border-rose-300 bg-rose-50 py-4 px-4 text-xs font-bold text-rose-800 hover:bg-rose-600 hover:text-white transition disabled:opacity-50"
+                  >
+                    <XCircle size={18} />
+                    <span>
+                      {isExpertViewer
+                        ? isAr
+                          ? 'لم يحضر المستفيد (غياب)'
+                          : 'Client Did Not Attend (No-Show)'
+                        : isAr
+                          ? 'لم يحضر الخبير (غياب)'
+                          : 'Expert Did Not Attend (No-Show)'}
+                    </span>
+                  </button>
+                </div>
 
-              <div>
-                <label className="block text-xs font-bold text-primary mb-1">
-                  {isAr ? 'ملاحظات أو تعليقات إضافية (اختياري)' : 'Optional Feedback or Notes'}
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder={isAr ? 'شاركنا بأي تفاصيل واجهتها خلال الجلسة...' : 'Share details if you faced technical difficulties or attendance issues...'}
-                  value={attendanceNotes}
-                  onChange={(e) => setAttendanceNotes(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background p-3 text-xs text-foreground outline-none focus:border-accent"
-                />
+                <div>
+                  <label className="block text-xs font-bold text-primary mb-1">
+                    {isAr ? 'ملاحظات أو تعليقات إضافية (اختياري)' : 'Optional Feedback or Notes'}
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder={
+                      isAr
+                        ? 'شاركنا بأي تفاصيل واجهتها خلال الجلسة...'
+                        : 'Share details if you faced technical difficulties or attendance issues...'
+                    }
+                    value={attendanceNotes}
+                    onChange={(e) => setAttendanceNotes(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-background p-3 text-xs text-foreground outline-none focus:border-accent"
+                  />
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
         </div>
       </div>
     </main>

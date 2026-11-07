@@ -25,6 +25,9 @@ export function getTransporter(): Transporter | null {
       user,
       pass,
     },
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000,
   })
 
   return cachedTransporter

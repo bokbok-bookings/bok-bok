@@ -214,27 +214,7 @@ export async function POST(request: Request) {
           const bookingUrl = `${baseUrl}/bookings/${booking._id}?token=${rescheduleToken}`
           const title = verifiedServiceTitle?.en || verifiedServiceTitle?.ar || 'Consultation Session'
 
-          if (clientEmail) {
-            const clientEmailData = renderBookingReceivedEmail({
-              booking,
-              expertName,
-              clientName: clientName.trim(),
-              serviceTitle: title,
-              recipientRole: 'client',
-              bookingUrl,
-            })
-            await sendTransactionalEmail({
-              bookingId: booking._id,
-              emailType: 'booking_received',
-              recipientEmail: clientEmail.trim(),
-              recipientName: clientName.trim(),
-              recipientRole: 'client',
-              subject: clientEmailData.subject,
-              html: clientEmailData.html,
-              text: clientEmailData.text,
-            })
-          }
-
+          // Note: Client is only emailed when the booking is confirmed by admin, not upon initial submission.
           if (expertEmail) {
             const expertEmailData = renderBookingReceivedEmail({
               booking,
@@ -354,27 +334,7 @@ export async function POST(request: Request) {
       const bookingUrl = `${baseUrl}/bookings/${booking._id}?token=${rescheduleToken}`
       const title = verifiedServiceTitle?.en || verifiedServiceTitle?.ar || 'Consultation Session'
 
-      if (clientEmail) {
-        const clientEmailData = renderBookingReceivedEmail({
-          booking,
-          expertName,
-          clientName: clientName.trim(),
-          serviceTitle: title,
-          recipientRole: 'client',
-          bookingUrl,
-        })
-        await sendTransactionalEmail({
-          bookingId: booking._id,
-          emailType: 'booking_received',
-          recipientEmail: clientEmail.trim(),
-          recipientName: clientName.trim(),
-          recipientRole: 'client',
-          subject: clientEmailData.subject,
-          html: clientEmailData.html,
-          text: clientEmailData.text,
-        })
-      }
-
+      // Note: Client is only emailed when the booking is confirmed by admin, not upon initial submission.
       if (expertEmail) {
         const expertEmailData = renderBookingReceivedEmail({
           booking,

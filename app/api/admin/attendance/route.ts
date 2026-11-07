@@ -7,7 +7,8 @@ import {
   type AttendanceStatus,
 } from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
-import { submitAttendanceReport } from '@/lib/booking/attendance'
+import { submitAttendanceReport, applyJoinTrackingAttendance } from '@/lib/booking/attendance'
+import { syncBookingMeetTelemetry } from '@/lib/google-calendar'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,12 +43,25 @@ export async function GET(request: Request) {
         return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 })
       }
 
+      const expertDoc = await expertsCol.findOne({ _id: booking.expertId })
+      const forceSync = searchParams.get('syncMeet') === '1'
+
+      if (booking.googleMeetLink && booking.deliveryMode !== 'IN_PERSON') {
+        try {
+          await syncBookingMeetTelemetry(booking, {
+            force: forceSync,
+            expertName: expertDoc?.name,
+          })
+          await applyJoinTrackingAttendance(booking, new Date())
+        } catch {
+          // ignore
+        }
+      }
+
       const auditLogs = await attendanceLogsCol
         .find({ bookingId: bObjId })
         .sort({ submittedAt: -1 })
         .toArray()
-
-      const expertDoc = await expertsCol.findOne({ _id: booking.expertId })
 
       return NextResponse.json({
         success: true,
@@ -137,6 +151,18 @@ export async function GET(request: Request) {
       .toArray()
     const expertMap = new Map(expertDocs.map((e) => [e._id.toString(), e.name]))
 
+    // Auto-resolve attendance from Meet join tracking for sessions that have ended
+    const now = new Date()
+    for (const b of bookings) {
+      if (b.attendanceStatus === 'pending' || !b.attendanceStatus) {
+        try {
+          await applyJoinTrackingAttendance(b, now)
+        } catch {
+          // ignore
+        }
+      }
+    }
+
     const formattedBookings = bookings.map((b) => ({
       _id: b._id?.toString(),
       reference: b.reference,
@@ -152,6 +178,9 @@ export async function GET(request: Request) {
       googleMeetLink: b.googleMeetLink,
       status: b.status,
       attendanceStatus: b.attendanceStatus || 'pending',
+      attendanceSource: b.attendanceSource,
+      meetingJoins: b.meetingJoins,
+      googleMeetTelemetry: b.googleMeetTelemetry,
       expertAttendanceReport: b.expertAttendanceReport,
       clientAttendanceReport: b.clientAttendanceReport,
       attendanceDisputeResolution: b.attendanceDisputeResolution,

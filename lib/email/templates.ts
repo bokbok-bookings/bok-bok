@@ -221,7 +221,7 @@ export function renderBookingConfirmationEmail(params: CommonEmailParams & {
   recipientRole: 'client' | 'expert'
   meetLink?: string
 }): { subject: string; html: string; text: string } {
-  const { booking, expertName, clientName, serviceTitle, rescheduleUrl, bookingUrl, recipientRole, meetLink } = params
+  const { booking, expertName, clientName, serviceTitle, rescheduleUrl, recipientRole } = params
   const isClient = recipientRole === 'client'
 
   const subject = isClient
@@ -232,18 +232,22 @@ export function renderBookingConfirmationEmail(params: CommonEmailParams & {
     <h2 class="h1">${isClient ? 'Your Consultation is Confirmed!' : 'You Have a Confirmed Session!'}</h2>
     <p class="p">
       ${isClient
-      ? `Hello ${clientName}, your appointment with <strong>${expertName}</strong> has been confirmed. Below are your session details and access information.`
-      : `Hello ${expertName}, a new booking with client <strong>${clientName}</strong> has been confirmed.`}
+      ? `Hello ${clientName}, your appointment with <strong>${expertName}</strong> has been confirmed. Below are your session details.`
+      : `Hello ${expertName}, a new session with client <strong>${clientName}</strong> has been confirmed.`}
     </p>
 
     <div class="highlight-card">
       <div class="meta-row">
         <span class="meta-label">Reference</span>
-        <span class="meta-val">${booking.reference || booking._id?.toString() || '—'}</span>
+        <span class="meta-val">#${booking.reference || booking._id?.toString() || '—'}</span>
       </div>
       <div class="meta-row">
         <span class="meta-label">Service</span>
         <span class="meta-val">${serviceTitle}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">${isClient ? 'Expert' : 'Client'}</span>
+        <span class="meta-val">${isClient ? expertName : clientName}</span>
       </div>
       <div class="meta-row">
         <span class="meta-label">Date</span>
@@ -257,44 +261,51 @@ export function renderBookingConfirmationEmail(params: CommonEmailParams & {
         <span class="meta-label">Duration</span>
         <span class="meta-val">${booking.durationMinutes} minutes</span>
       </div>
-      ${meetLink ? `
-      <div class="meta-row" style="background-color: #e6f4f1; margin: 8px -8px -8px; padding: 10px 8px; border-radius: 8px;">
-        <span class="meta-label" style="color: #00796b;">Google Meet</span>
-        <span class="meta-val"><a href="${meetLink}" target="_blank" style="color: #00796b; font-weight: bold;">${meetLink}</a></span>
-      </div>` : ''}
+      <div class="meta-row">
+        <span class="meta-label">Format</span>
+        <span class="meta-val">Online (Google Meet)</span>
+      </div>
     </div>
 
-    ${meetLink ? `
-      <div style="text-align: center; margin: 24px 0;">
-        <a href="${meetLink}" target="_blank" class="btn btn-meet">Join Google Meet Session</a>
+    <div style="background-color: #FFF6D9; border: 1px solid #FCAD35; border-radius: 12px; padding: 16px 20px; margin: 24px 0;">
+      <div style="font-weight: 700; color: #142D4E; margin-bottom: 6px; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+        <span>📹</span>
+        <span>Where to Find Your Meeting Link</span>
       </div>
-    ` : `
-      <div class="alert-box">
-        <strong>Google Meet Link:</strong> The meeting link is being configured by the expert and will be sent to you prior to the session.
-      </div>
-    `}
+      <p style="margin: 0; font-size: 13px; color: #4a5568; line-height: 1.5;">
+        Your Google Meet joining link will be provided on your <strong>Booking Page</strong> (unlocked <strong>15 minutes before the session starts</strong>) and emailed to you in a reminder at <strong>10:00 AM on your session day</strong> and again <strong>15 minutes before start</strong>.
+      </p>
+    </div>
 
     ${rescheduleUrl ? `
-      <div style="margin: 28px 0 16px; border-top: 1px solid #eeeae4; pt: 20px;">
-        <p class="p" style="font-size: 13px; color: #637084;">
-          Need to reschedule? You can change your appointment time up to ${booking.rescheduleDeadlineHours || 24} hours before the session.
-        </p>
-        <a href="${rescheduleUrl}" target="_blank" class="btn btn-secondary" style="font-size: 12px; padding: 10px 20px;">
-          Manage or Reschedule Booking
+      <div style="text-align: center; margin: 24px 0;">
+        <a href="${rescheduleUrl}" target="_blank" class="btn">
+          Open Booking Page
         </a>
+        <p style="margin: 10px 0 0; font-size: 11px; color: #8b94a1; word-break: break-all;">
+          Booking Link: <a href="${rescheduleUrl}" target="_blank" style="color: #142D4E;">${rescheduleUrl}</a>
+        </p>
+      </div>
+      <div style="margin: 20px 0 8px; border-top: 1px solid #eeeae4; padding-top: 16px;">
+        <p class="p" style="font-size: 12px; color: #637084; margin: 0;">
+          ${isClient
+        ? `Need to reschedule? You can manage your appointment or change your time up to ${booking.rescheduleDeadlineHours || 24} hours before the session via your booking page above.`
+        : `You can view full session details and access the meeting room 15 minutes before start using the booking page link above.`}
+        </p>
       </div>
     ` : ''}
   `
 
   const text = `${isClient ? 'Booking Confirmed!' : 'New Confirmed Booking!'}
 Service: ${serviceTitle}
-Expert: ${expertName}
-Client: ${clientName}
+${isClient ? `Expert: ${expertName}` : `Client: ${clientName}`}
 Date: ${booking.date}
 Time: ${booking.time} (${booking.timezone || 'Africa/Cairo'})
 Duration: ${booking.durationMinutes}m
-${meetLink ? `Google Meet Link: ${meetLink}\n` : ''}
-${rescheduleUrl ? `Reschedule or manage your booking here: ${rescheduleUrl}\n` : ''}
+Format: Online (Google Meet)
+
+Where to Find Your Meeting Link: Your Google Meet joining link will be provided on your Booking Page (unlocked 15 minutes before the session starts) and emailed to you 15 minutes before the session starts.
+${rescheduleUrl ? `\nBooking Page (with access token): ${rescheduleUrl}` : ''}
 Reference: ${booking.reference || ''}`
 
   return {
@@ -426,9 +437,9 @@ Please open your dashboard to add the Google Meet link: ${dashboardUrl}`
  */
 export function renderDayOfReminderEmail(params: CommonEmailParams & {
   recipientRole: 'client' | 'expert'
-  meetLink: string
+  meetLink?: string
 }): { subject: string; html: string; text: string } {
-  const { booking, expertName, clientName, serviceTitle, meetLink, rescheduleUrl, recipientRole } = params
+  const { booking, expertName, clientName, serviceTitle, rescheduleUrl, recipientRole } = params
   const isClient = recipientRole === 'client'
 
   const subject = `Today's Session: ${serviceTitle} at ${booking.time} [${booking.reference || 'BK'}]`
@@ -441,11 +452,15 @@ export function renderDayOfReminderEmail(params: CommonEmailParams & {
 
     <div class="highlight-card">
       <div class="meta-row">
+        <span class="meta-label">Reference</span>
+        <span class="meta-val">#${booking.reference || booking._id?.toString() || '—'}</span>
+      </div>
+      <div class="meta-row">
         <span class="meta-label">Session</span>
         <span class="meta-val">${serviceTitle}</span>
       </div>
       <div class="meta-row">
-        <span class="meta-label">With</span>
+        <span class="meta-label">${isClient ? 'Expert' : 'Client'}</span>
         <span class="meta-val">${isClient ? expertName : clientName}</span>
       </div>
       <div class="meta-row">
@@ -457,33 +472,49 @@ export function renderDayOfReminderEmail(params: CommonEmailParams & {
         <span class="meta-val">${booking.durationMinutes} minutes</span>
       </div>
       <div class="meta-row">
-        <span class="meta-label">Google Meet Link</span>
-        <span class="meta-val"><a href="${meetLink}" target="_blank" style="color: #00796b; font-weight: bold;">${meetLink}</a></span>
+        <span class="meta-label">Format</span>
+        <span class="meta-val">Online (Google Meet)</span>
       </div>
     </div>
 
-    <div style="text-align: center; margin: 24px 0;">
-      <a href="${meetLink}" target="_blank" class="btn btn-meet">Join Google Meet</a>
+    <div style="background-color: #FFF6D9; border: 1px solid #FCAD35; border-radius: 12px; padding: 16px 20px; margin: 24px 0;">
+      <div style="font-weight: 700; color: #142D4E; margin-bottom: 6px; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+        <span>📹</span>
+        <span>Meeting Link Provided on Your Booking Page</span>
+      </div>
+      <p style="margin: 0; font-size: 13px; color: #4a5568; line-height: 1.5;">
+        Your Google Meet joining link will be provided directly on your <strong>Booking Page</strong> below — it unlocks automatically <strong>15 minutes before the session starts</strong>. We will also send you a final reminder email 15 minutes before start.
+      </p>
     </div>
 
     ${rescheduleUrl ? `
-      <p class="p" style="font-size: 12px; color: #8b94a1; text-align: center;">
-        <a href="${rescheduleUrl}" style="color: #14243b; font-weight: 600;">View Session &amp; Reschedule Details</a>
-      </p>
+      <div style="text-align: center; margin: 24px 0;">
+        <a href="${rescheduleUrl}" target="_blank" class="btn">
+          Open Booking Page
+        </a>
+        <p style="margin: 10px 0 0; font-size: 11px; color: #8b94a1; word-break: break-all;">
+          Booking Page Link: <a href="${rescheduleUrl}" target="_blank" style="color: #142D4E;">${rescheduleUrl}</a>
+        </p>
+      </div>
     ` : ''}
   `
 
   const text = `Reminder: Your session is today!
 Service: ${serviceTitle}
+${isClient ? `Expert: ${expertName}` : `Client: ${clientName}`}
 Time: ${booking.time} (${booking.timezone || 'Africa/Cairo'})
-Google Meet Link: ${meetLink}
+Duration: ${booking.durationMinutes}m
+Format: Online (Google Meet)
+
+Google Meet Link: Your meeting link will be provided on your Booking Page below (unlocking 15 minutes before the session starts) and emailed to you 15 minutes before start.
+${rescheduleUrl ? `\nBooking Page (meeting link will be provided here): ${rescheduleUrl}` : ''}
 Reference: ${booking.reference || ''}`
 
   return {
     subject,
     html: emailLayout({
       title: subject,
-      preheader: `Your session is today at ${booking.time}. Google Meet link included.`,
+      preheader: `Your session is today at ${booking.time}. Joining link will be emailed 15 minutes before start.`,
       contentHtml,
     }),
     text,

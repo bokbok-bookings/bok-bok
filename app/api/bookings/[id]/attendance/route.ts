@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getBookingsCollection, toObjectId } from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
 import { submitAttendanceReport } from '@/lib/booking/attendance'
+import { resolveTokenRole } from '@/lib/booking/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,7 +34,7 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     const session = await getSession()
-    const isTokenValid = token && booking.rescheduleToken && token === booking.rescheduleToken
+    const tokenRole = resolveTokenRole(booking, token)
     const isAdmin = session?.role === 'admin'
     const isExpertOwner =
       session?.role === 'expert' &&
@@ -45,13 +46,20 @@ export async function POST(request: Request, context: RouteContext) {
     let callerRole: 'client' | 'expert' | 'admin' | null = null
     let callerUserId: string | undefined = undefined
 
-    if (isAdmin) {
+    // Token identity takes priority so the expert's booking-page link reports as EXPERT
+    if (tokenRole === 'expert') {
+      callerRole = 'expert'
+      callerUserId = session?.userId
+    } else if (tokenRole === 'client') {
+      callerRole = 'client'
+      callerUserId = session?.userId
+    } else if (isAdmin) {
       callerRole = 'admin'
       callerUserId = session?.userId
     } else if (isExpertOwner) {
       callerRole = 'expert'
       callerUserId = session?.userId
-    } else if (isTokenValid || isClientSession) {
+    } else if (isClientSession) {
       callerRole = 'client'
       callerUserId = session?.userId
     }

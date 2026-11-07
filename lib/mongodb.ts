@@ -1,10 +1,9 @@
 import dns from 'dns'
 import { MongoClient, MongoClientOptions } from 'mongodb'
 
-// Ensure Node's DNS resolver can query MongoDB Atlas records if needed and prefers IPv4
+// Prefer IPv4 for Node DNS resolution
 try {
   dns.setDefaultResultOrder('ipv4first')
-  dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1'])
 } catch (_e) {
   // Ignore if not supported in runtime
 }
@@ -13,10 +12,11 @@ const uri = process.env.MONGODB_URI
 
 const options: MongoClientOptions = {
   maxPoolSize: 10,
-  minPoolSize: 1,
-  serverSelectionTimeoutMS: 20000,
-  connectTimeoutMS: 20000,
-  socketTimeoutMS: 45000,
+  minPoolSize: 0,
+  maxIdleTimeMS: 30000,
+  serverSelectionTimeoutMS: 8000,
+  connectTimeoutMS: 8000,
+  socketTimeoutMS: 20000,
   retryWrites: true,
   retryReads: true,
 }

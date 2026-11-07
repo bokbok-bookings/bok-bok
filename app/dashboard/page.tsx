@@ -8,6 +8,7 @@ import {
   getExpertsCollection,
   toObjectId,
 } from '@/lib/db'
+import { computeSessionBounds } from '@/lib/email/scheduler'
 
 export const dynamic = 'force-dynamic'
 
@@ -240,6 +241,23 @@ export default async function DashboardPage() {
             ) : (
               todayBookings.map((b) => {
                 const safeMeet = getSafeHttpsUrl(b.googleMeetLink)
+                const bounds =
+                  b.sessionStartAt && b.sessionEndAt
+                    ? {
+                      sessionStartAt: new Date(b.sessionStartAt),
+                      sessionEndAt: new Date(b.sessionEndAt),
+                    }
+                    : computeSessionBounds(
+                      b.date,
+                      b.time,
+                      b.durationMinutes || 45,
+                      b.timezone || 'Africa/Cairo'
+                    )
+                const msUntilStart = bounds.sessionStartAt.getTime() - now.getTime()
+                const isSessionEnded = now >= bounds.sessionEndAt
+                const isMeetUnlocked =
+                  Boolean(safeMeet) && msUntilStart <= 15 * 60 * 1000 && !isSessionEnded
+
                 return (
                   <div
                     key={b._id.toString()}
@@ -263,10 +281,10 @@ export default async function DashboardPage() {
                           {b.status}
                         </span>
                       </div>
-                      {safeMeet && (
+                      {isMeetUnlocked ? (
                         <div>
                           <a
-                            href={safeMeet}
+                            href={`/api/bookings/${b._id.toString()}/join`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-block rounded-full bg-emerald-600 px-3 py-1 text-[10px] font-bold text-white hover:bg-emerald-700"
@@ -274,7 +292,13 @@ export default async function DashboardPage() {
                             Join Meet ↗
                           </a>
                         </div>
-                      )}
+                      ) : b.status === 'confirmed' && !isSessionEnded ? (
+                        <div>
+                          <span className="inline-block rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-semibold text-amber-900">
+                            🔒 Meet link unlocks 15m before session
+                          </span>
+                        </div>
+                      ) : null}
                       <p className="text-xs font-bold text-[#14243b]">
                         {b.amount ? `${b.amount} ${b.currency || 'EGP'}` : ''}
                       </p>
@@ -373,6 +397,23 @@ export default async function DashboardPage() {
               <tbody className="divide-y divide-[#f4f2ee]">
                 {recentBookings.map((b) => {
                   const safeMeet = getSafeHttpsUrl(b.googleMeetLink)
+                  const bounds =
+                    b.sessionStartAt && b.sessionEndAt
+                      ? {
+                        sessionStartAt: new Date(b.sessionStartAt),
+                        sessionEndAt: new Date(b.sessionEndAt),
+                      }
+                      : computeSessionBounds(
+                        b.date,
+                        b.time,
+                        b.durationMinutes || 45,
+                        b.timezone || 'Africa/Cairo'
+                      )
+                  const msUntilStart = bounds.sessionStartAt.getTime() - now.getTime()
+                  const isSessionEnded = now >= bounds.sessionEndAt
+                  const isMeetUnlocked =
+                    Boolean(safeMeet) && msUntilStart <= 15 * 60 * 1000 && !isSessionEnded
+
                   return (
                     <tr key={b._id.toString()} className="hover:bg-[#faf8f5]">
                       <td className="py-3 font-mono font-bold text-[#14243b]">
@@ -380,7 +421,6 @@ export default async function DashboardPage() {
                       </td>
                       <td className="py-3">
                         <p className="font-bold text-[#14243b]">{b.clientName}</p>
-                        <p className="text-[11px] text-[#8b94a1]">{b.clientEmail}</p>
                       </td>
                       <td className="py-3 font-medium text-[#637084]">
                         {b.date} at {b.time}
@@ -404,17 +444,19 @@ export default async function DashboardPage() {
                         </span>
                       </td>
                       <td className="py-3">
-                        {safeMeet ? (
+                        {isMeetUnlocked ? (
                           <a
-                            href={safeMeet}
+                            href={`/api/bookings/${b._id.toString()}/join`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-block rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700"
                           >
                             Join Meet ↗
                           </a>
-                        ) : b.status === 'confirmed' ? (
-                          <span className="text-[10px] font-bold text-amber-700">Pending Sync</span>
+                        ) : b.status === 'confirmed' && !isSessionEnded ? (
+                          <span className="text-[10px] font-semibold text-amber-800">
+                            🔒 Unlocks 15m before session
+                          </span>
                         ) : (
                           <span className="text-[11px] text-[#8b94a1]">—</span>
                         )}

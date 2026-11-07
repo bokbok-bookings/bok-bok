@@ -4,8 +4,9 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { BrandLogo } from '@/components/brand/logo'
-import { Menu, X, Globe2 } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import { useLanguage } from '@/lib/i18n/language-context'
+import { LanguageSwitcher } from './language-switcher'
 
 // Routes where the standard public marketing navbar must NOT appear
 const HIDDEN_PATH_PREFIXES = [
@@ -20,7 +21,7 @@ const HIDDEN_PATH_PREFIXES = [
 export function SiteHeader() {
   const pathname = usePathname() || ''
   const [mobileOpen, setMobileOpen] = useState(false)
-  const { isAr, toggleLanguage, t, localeHref } = useLanguage()
+  const { t, localeHref } = useLanguage()
 
   // Normalize path for hidden checks (remove /ar prefix if present)
   const normalizedPath = pathname.replace(/^\/ar/, '') || '/'
@@ -75,16 +76,8 @@ export function SiteHeader() {
 
         {/* Desktop Right CTAs */}
         <div className="hidden items-center gap-3 sm:flex">
-          {/* Real Language Switcher */}
-          <button
-            type="button"
-            onClick={toggleLanguage}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-[12px] font-bold text-primary hover:border-accent hover:bg-secondary/40 transition shadow-2xs"
-            aria-label="Switch Language"
-          >
-            <Globe2 size={14} className="text-primary" />
-            <span>{isAr ? 'English' : 'العربية'}</span>
-          </button>
+          {/* Language Switcher */}
+          <LanguageSwitcher />
 
           <Link
             href={localeHref('/login')}
@@ -102,15 +95,7 @@ export function SiteHeader() {
 
         {/* Mobile Menu Button & Language Switcher */}
         <div className="flex items-center gap-2 lg:hidden">
-          <button
-            type="button"
-            onClick={toggleLanguage}
-            className="inline-flex items-center gap-1 rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-bold text-primary hover:bg-secondary/40"
-            aria-label="Switch Language"
-          >
-            <Globe2 size={13} />
-            <span>{isAr ? 'EN' : 'عربي'}</span>
-          </button>
+          <LanguageSwitcher compact />
           <button
             type="button"
             aria-label="Toggle navigation"

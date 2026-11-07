@@ -55,7 +55,7 @@ function renderHtmlPage(params: {
         <div class="icon">${iconChar}</div>
         <h1>${escapeHtml(params.heading)}</h1>
         ${params.bodyHtml}
-        <a href="/admin?tab=bookings" class="btn">Back to Admin Bookings</a>
+        <a href="/admin/bookings" class="btn">Back to Admin Bookings</a>
       </div>
     </body>
     </html>`,

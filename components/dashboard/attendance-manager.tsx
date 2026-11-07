@@ -135,15 +135,20 @@ export function AttendanceManager() {
     loadSettings()
   }, [])
 
-  const handleInspect = async (b: BookingAttendanceItem) => {
+  const handleInspect = async (b: BookingAttendanceItem, forceSyncMeet = false) => {
     setInspectBooking(b)
     setResolveStatus(b.attendanceStatus === 'disputed' ? 'completed' : b.attendanceStatus)
-    setResolveNotes('')
+    if (!forceSyncMeet) setResolveNotes('')
     setLoadingAudit(true)
     try {
-      const res = await fetch(`/api/admin/attendance?bookingId=${b._id}`)
+      const res = await fetch(
+        `/api/admin/attendance?bookingId=${b._id}${forceSyncMeet ? '&syncMeet=1' : ''}`
+      )
       const json = await res.json()
       if (json.success && json.data) {
+        if (json.data.booking) {
+          setInspectBooking(json.data.booking)
+        }
         setAuditLogs(json.data.auditLogs || [])
       }
     } catch (err) {
@@ -319,11 +324,10 @@ export function AttendanceManager() {
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
-              className={`rounded-full px-3 py-1.5 text-xs font-bold transition capitalize ${
-                statusFilter === st
-                  ? 'bg-primary text-white shadow-2xs'
-                  : 'bg-neutral-100 text-muted-foreground border border-border hover:text-foreground hover:bg-neutral-200'
-              }`}
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition capitalize ${statusFilter === st
+                ? 'bg-primary text-white shadow-2xs'
+                : 'bg-neutral-100 text-muted-foreground border border-border hover:text-foreground hover:bg-neutral-200'
+                }`}
             >
               {st.replace('_', ' ')}
             </button>
@@ -389,14 +393,39 @@ export function AttendanceManager() {
                   <td className="py-3 px-4">
                     {b.expertAttendanceReport ? (
                       <span
-                        className={`font-semibold ${
-                          b.expertAttendanceReport.response === 'attended'
-                            ? 'text-emerald-700'
-                            : 'text-rose-700'
-                        }`}
+                        className={`font-semibold ${b.expertAttendanceReport.response === 'attended'
+                          ? 'text-emerald-700'
+                          : 'text-rose-700'
+                          }`}
                       >
-                        {b.expertAttendanceReport.response === 'attended' ? '✓ Attended' : '✕ Marked Absent'}
+                        {b.expertAttendanceReport.response === 'attended'
+                          ? '✓ Attended'
+                          : '✕ Marked Absent'}
                       </span>
+                    ) : (b as any).meetingJoins?.expert?.firstJoinedAt ? (
+                      <div className="text-[11px] font-semibold text-emerald-700">
+                        <div>
+                          ✓ In:{' '}
+                          {new Date((b as any).meetingJoins.expert.firstJoinedAt).toLocaleTimeString(
+                            [],
+                            { hour: '2-digit', minute: '2-digit' }
+                          )}
+                          {(b as any).meetingJoins.expert.leftAt && (
+                            <>
+                              {' · Out: '}
+                              {new Date((b as any).meetingJoins.expert.leftAt).toLocaleTimeString(
+                                [],
+                                { hour: '2-digit', minute: '2-digit' }
+                              )}
+                            </>
+                          )}
+                        </div>
+                        {(b as any).meetingJoins.expert.durationMinutes !== undefined && (
+                          <span className="text-[10px] text-muted-foreground">
+                            Duration: {(b as any).meetingJoins.expert.durationMinutes}m
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-muted-foreground">Not submitted</span>
                     )}
@@ -404,29 +433,53 @@ export function AttendanceManager() {
                   <td className="py-3 px-4">
                     {b.clientAttendanceReport ? (
                       <span
-                        className={`font-semibold ${
-                          b.clientAttendanceReport.response === 'attended'
-                            ? 'text-emerald-700'
-                            : 'text-rose-700'
-                        }`}
+                        className={`font-semibold ${b.clientAttendanceReport.response === 'attended'
+                          ? 'text-emerald-700'
+                          : 'text-rose-700'
+                          }`}
                       >
-                        {b.clientAttendanceReport.response === 'attended' ? '✓ Attended' : '✕ Marked Absent'}
+                        {b.clientAttendanceReport.response === 'attended'
+                          ? '✓ Attended'
+                          : '✕ Marked Absent'}
                       </span>
+                    ) : (b as any).meetingJoins?.client?.firstJoinedAt ? (
+                      <div className="text-[11px] font-semibold text-emerald-700">
+                        <div>
+                          ✓ In:{' '}
+                          {new Date((b as any).meetingJoins.client.firstJoinedAt).toLocaleTimeString(
+                            [],
+                            { hour: '2-digit', minute: '2-digit' }
+                          )}
+                          {(b as any).meetingJoins.client.leftAt && (
+                            <>
+                              {' · Out: '}
+                              {new Date((b as any).meetingJoins.client.leftAt).toLocaleTimeString(
+                                [],
+                                { hour: '2-digit', minute: '2-digit' }
+                              )}
+                            </>
+                          )}
+                        </div>
+                        {(b as any).meetingJoins.client.durationMinutes !== undefined && (
+                          <span className="text-[10px] text-muted-foreground">
+                            Duration: {(b as any).meetingJoins.client.durationMinutes}m
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-muted-foreground">Not submitted</span>
                     )}
                   </td>
                   <td className="py-3 px-4">
                     <span
-                      className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
-                        b.attendanceStatus === 'completed'
-                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                          : b.attendanceStatus === 'disputed'
+                      className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${b.attendanceStatus === 'completed'
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                        : b.attendanceStatus === 'disputed'
                           ? 'bg-rose-50 text-rose-800 border border-rose-200'
                           : b.attendanceStatus === 'client_absent' || b.attendanceStatus === 'expert_absent'
-                          ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                          : 'bg-neutral-100 text-muted-foreground border border-border'
-                      }`}
+                            ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                            : 'bg-neutral-100 text-muted-foreground border border-border'
+                        }`}
                     >
                       {b.attendanceStatus}
                     </span>
@@ -459,13 +512,99 @@ export function AttendanceManager() {
                   {inspectBooking.clientName} with {inspectBooking.expertName} on {inspectBooking.date} at {inspectBooking.time}
                 </p>
               </div>
-              <button
-                onClick={() => setInspectBooking(null)}
-                className="size-7 rounded-full bg-neutral-100 border border-border text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-neutral-200"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                {inspectBooking.googleMeetLink && (
+                  <button
+                    type="button"
+                    disabled={loadingAudit}
+                    onClick={() => handleInspect(inspectBooking, true)}
+                    className="rounded-full border border-border bg-neutral-100 px-3 py-1 text-[11px] font-bold text-foreground hover:bg-neutral-200 transition disabled:opacity-50"
+                  >
+                    {loadingAudit ? 'Syncing...' : 'Sync Meet API ↻'}
+                  </button>
+                )}
+                <button
+                  onClick={() => setInspectBooking(null)}
+                  className="size-7 rounded-full bg-neutral-100 border border-border text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-neutral-200"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
+
+            {/* Google Meet Telemetry (Entry, Leave & Duration) */}
+            {inspectBooking.deliveryMode !== 'IN_PERSON' && (
+              <div className="rounded-2xl border border-border bg-neutral-50/70 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Google Meet Room Telemetry (Entry · Leave · Duration)
+                  </span>
+                  {(inspectBooking as any).googleMeetTelemetry?.lastSyncedAt && (
+                    <span className="text-[10px] text-muted-foreground">
+                      Synced:{' '}
+                      {new Date(
+                        (inspectBooking as any).googleMeetTelemetry.lastSyncedAt
+                      ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
+                </div>
+
+                {(inspectBooking as any).googleMeetTelemetry?.syncError && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-[11px] text-amber-900">
+                    {(inspectBooking as any).googleMeetTelemetry.syncError}{' '}
+                    <a
+                      href="/api/auth/google/connect"
+                      className="font-bold underline hover:text-amber-700"
+                    >
+                      Reconnect Google Account
+                    </a>
+                  </div>
+                )}
+
+                <div className="grid gap-3 sm:grid-cols-2 text-xs">
+                  {(['expert', 'client'] as const).map((role) => {
+                    const j = (inspectBooking as any).meetingJoins?.[role]
+                    const label = role === 'expert' ? `Expert (${inspectBooking.expertName})` : `Client (${inspectBooking.clientName})`
+                    return (
+                      <div key={role} className="rounded-xl border border-border bg-white p-3 space-y-1">
+                        <p className="text-[11px] font-bold text-foreground">{label}</p>
+                        {j?.firstJoinedAt ? (
+                          <div className="text-[11px] text-muted-foreground space-y-0.5">
+                            <p>
+                              <strong className="text-foreground">Entered:</strong>{' '}
+                              {new Date(j.firstJoinedAt).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </p>
+                            <p>
+                              <strong className="text-foreground">Left:</strong>{' '}
+                              {j.leftAt
+                                ? new Date(j.leftAt).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })
+                                : j.inMeetingNow
+                                  ? 'Active in call now'
+                                  : 'Awaiting call end / Meet sync'}
+                            </p>
+                            {j.durationMinutes !== undefined && (
+                              <p>
+                                <strong className="text-foreground">Duration:</strong>{' '}
+                                {j.durationMinutes} min ({j.joinCount || 1} session
+                                {(j.joinCount || 1) > 1 ? 's' : ''})
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-muted-foreground">No room entry recorded</p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Reports Side-by-Side */}
             <div className="grid gap-3 sm:grid-cols-2">

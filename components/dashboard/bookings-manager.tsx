@@ -380,20 +380,20 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
           prev.map((b) =>
             b._id === editingBooking._id
               ? {
-                  ...b,
-                  clientName: editClientName.trim(),
-                  clientEmail: editClientEmail.trim().toLowerCase(),
-                  clientPhone: editClientPhone.trim(),
-                  date: editDate,
-                  time: editTime,
-                  durationMinutes: Number(editDuration) || 30,
-                  amount: Number(editAmount) || 0,
-                  currency: editCurrency,
-                  status: editStatus,
-                  paymentStatus: editPaymentStatus,
-                  googleMeetLink: editMeetLink.trim(),
-                  adminNotes: editAdminNotes.trim(),
-                }
+                ...b,
+                clientName: editClientName.trim(),
+                clientEmail: editClientEmail.trim().toLowerCase(),
+                clientPhone: editClientPhone.trim(),
+                date: editDate,
+                time: editTime,
+                durationMinutes: Number(editDuration) || 30,
+                amount: Number(editAmount) || 0,
+                currency: editCurrency,
+                status: editStatus,
+                paymentStatus: editPaymentStatus,
+                googleMeetLink: editMeetLink.trim(),
+                adminNotes: editAdminNotes.trim(),
+              }
               : b,
           ),
         )
@@ -456,18 +456,16 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
       {/* Admin Google Calendar & Meet Connection Health Banner */}
       {isAdmin && calendarStatus && (
         <div
-          className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-            calendarStatus.state === 'connected'
+          className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${calendarStatus.state === 'connected'
               ? 'border-emerald-500/30 bg-emerald-50 text-emerald-950'
               : 'border-amber-500/40 bg-amber-50 text-amber-950'
-          }`}
+            }`}
         >
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <span
-                className={`inline-block size-2.5 rounded-full ${
-                  calendarStatus.state === 'connected' ? 'bg-emerald-600' : 'bg-amber-600'
-                }`}
+                className={`inline-block size-2.5 rounded-full ${calendarStatus.state === 'connected' ? 'bg-emerald-600' : 'bg-amber-600'
+                  }`}
               />
               <p className="text-xs font-extrabold uppercase tracking-wider">
                 {calendarStatus.state === 'connected'
@@ -495,11 +493,10 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
             )}
             <a
               href="/api/auth/google/connect"
-              className={`rounded-full px-4 py-2 text-xs font-bold transition ${
-                calendarStatus.state === 'connected'
+              className={`rounded-full px-4 py-2 text-xs font-bold transition ${calendarStatus.state === 'connected'
                   ? 'border border-emerald-700/30 bg-white text-emerald-900 hover:bg-emerald-100'
                   : 'bg-[#14243b] text-white hover:bg-[#2855C5] shadow-sm'
-              }`}
+                }`}
             >
               {calendarStatus.state === 'connected'
                 ? 'Reconnect Account'
@@ -512,13 +509,12 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
       {/* Action Feedback Banner */}
       {feedback && (
         <div
-          className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-semibold ${
-            feedback.type === 'success'
+          className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-semibold ${feedback.type === 'success'
               ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
               : feedback.type === 'warning'
                 ? 'border-amber-400 bg-amber-50 text-amber-950'
                 : 'border-rose-300 bg-rose-50 text-rose-900'
-          }`}
+            }`}
         >
           <div className="space-y-1">
             <p>{feedback.text}</p>
@@ -560,9 +556,8 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-[#eeeae4] pb-5">
         <div>
           <h2
-            className={`text-2xl font-bold tracking-tight ${
-              isAdmin ? 'text-white' : 'text-[#14243b]'
-            }`}
+            className={`text-2xl font-bold tracking-tight ${isAdmin ? 'text-white' : 'text-[#14243b]'
+              }`}
           >
             Bookings &amp; Meetings
           </h2>
@@ -577,33 +572,30 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
           <button
             type="button"
             onClick={() => setStatusFilter('awaiting_verification')}
-            className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${
-              statusFilter === 'awaiting_verification'
+            className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${statusFilter === 'awaiting_verification'
                 ? 'bg-[#14243b] text-white'
                 : 'text-[#637084] hover:text-[#14243b]'
-            }`}
+              }`}
           >
             Awaiting Verification
           </button>
           <button
             type="button"
             onClick={() => setStatusFilter('confirmed')}
-            className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${
-              statusFilter === 'confirmed'
+            className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${statusFilter === 'confirmed'
                 ? 'bg-[#14243b] text-white'
                 : 'text-[#637084] hover:text-[#14243b]'
-            }`}
+              }`}
           >
             Confirmed
           </button>
           <button
             type="button"
             onClick={() => setStatusFilter('all')}
-            className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${
-              statusFilter === 'all'
+            className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${statusFilter === 'all'
                 ? 'bg-[#14243b] text-white'
                 : 'text-[#637084] hover:text-[#14243b]'
-            }`}
+              }`}
           >
             All Bookings
           </button>
@@ -647,10 +639,16 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                 const hasSafeMeetLink = isSafeHttpsUrl(b.googleMeetLink)
                 const hasSafeCalLink = isSafeHttpsUrl(b.googleCalendarEventLink)
                 const hasSafeReceiptUrl = isSafeReceiptImageUrl(b.paymentReceiptUrl)
+                const sessionStart = b.sessionStartAt
+                  ? new Date(b.sessionStartAt)
+                  : new Date(`${b.date}T${b.time}`)
                 const sessionEnd = b.sessionEndAt
                   ? new Date(b.sessionEndAt)
-                  : new Date(`${b.date}T${b.time}`)
+                  : new Date(sessionStart.getTime() + (b.durationMinutes || 45) * 60 * 1000)
                 const sessionEnded = now >= sessionEnd
+                const msUntilStart = sessionStart.getTime() - now.getTime()
+                const isMeetUnlockedForExpert =
+                  isAdmin || (msUntilStart <= 15 * 60 * 1000 && !sessionEnded)
 
                 return (
                   <tr key={b._id} className="hover:bg-[#faf8f5]/60">
@@ -659,9 +657,13 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                     </td>
                     <td className="py-3.5 px-4">
                       <p className="font-bold text-[#14243b]">{b.clientName}</p>
-                      <p className="text-[11px] text-[#8b94a1]">{b.clientEmail}</p>
-                      {b.clientPhone && (
-                        <p className="text-[10px] text-[#637084]">{b.clientPhone}</p>
+                      {isAdmin && (
+                        <>
+                          <p className="text-[11px] text-[#8b94a1]">{b.clientEmail}</p>
+                          {b.clientPhone && (
+                            <p className="text-[10px] text-[#637084]">{b.clientPhone}</p>
+                          )}
+                        </>
                       )}
                     </td>
                     <td className="py-3.5 px-4 font-medium text-[#14243b]">
@@ -678,45 +680,55 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                     <td className="py-3.5 px-4">
                       {isOnline ? (
                         hasSafeMeetLink ? (
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <a
-                              href={b.googleMeetLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700"
-                              title={b.googleMeetLink}
-                            >
-                              <Video size={11} />
-                              <span>Join Meet ↗</span>
-                            </a>
-                            <button
-                              type="button"
-                              onClick={() => handleCopyMeet(b._id, b.googleMeetLink!)}
-                              className="rounded-full border border-[#dedbd5] bg-[#faf8f5] px-2 py-0.5 text-[10px] font-bold text-[#14243b] hover:bg-[#eeeae4]"
-                            >
-                              {copiedId === b._id ? 'Copied ✓' : 'Copy'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setMeetModalBooking(b)
-                                setNewMeetLink(b.googleMeetLink || '')
-                              }}
-                              className="text-[10px] text-[#8b94a1] hover:text-[#14243b] underline font-bold"
-                            >
-                              Edit
-                            </button>
-                            {hasSafeCalLink && (
+                          isMeetUnlockedForExpert ? (
+                            <div className="flex flex-wrap items-center gap-1.5">
                               <a
-                                href={b.googleCalendarEventLink}
+                                href={isAdmin ? b.googleMeetLink : `/api/bookings/${b._id}/join`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-[10px] font-semibold text-[#2855C5] hover:underline"
+                                className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700"
+                                title={isAdmin ? b.googleMeetLink : 'Join Google Meet'}
                               >
-                                Calendar ↗
+                                <Video size={11} />
+                                <span>Join Meet ↗</span>
                               </a>
-                            )}
-                          </div>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyMeet(b._id, b.googleMeetLink!)}
+                                className="rounded-full border border-[#dedbd5] bg-[#faf8f5] px-2 py-0.5 text-[10px] font-bold text-[#14243b] hover:bg-[#eeeae4]"
+                              >
+                                {copiedId === b._id ? 'Copied ✓' : 'Copy'}
+                              </button>
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setMeetModalBooking(b)
+                                    setNewMeetLink(b.googleMeetLink || '')
+                                  }}
+                                  className="text-[10px] text-[#8b94a1] hover:text-[#14243b] underline font-bold"
+                                >
+                                  Edit
+                                </button>
+                              )}
+                              {isAdmin && hasSafeCalLink && (
+                                <a
+                                  href={b.googleCalendarEventLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] font-semibold text-[#2855C5] hover:underline"
+                                >
+                                  Calendar ↗
+                                </a>
+                              )}
+                            </div>
+                          ) : sessionEnded ? (
+                            <span className="text-[10px] text-[#8b94a1]">Session ended</span>
+                          ) : (
+                            <span className="inline-block rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold text-amber-900">
+                              🔒 Unlocks 15m before session
+                            </span>
+                          )
                         ) : isConfirmed ? (
                           <div className="space-y-1">
                             <div className="flex flex-wrap items-center gap-1.5">
@@ -833,17 +845,16 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                     {/* Booking Status Column */}
                     <td className="py-3.5 px-4">
                       <span
-                        className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                          b.status === 'confirmed'
+                        className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${b.status === 'confirmed'
                             ? 'bg-emerald-100 text-emerald-800'
                             : ['awaiting_verification', 'pending', 'awaiting_payment'].includes(
-                                  b.status,
-                                )
+                              b.status,
+                            )
                               ? 'bg-amber-100 text-amber-800'
                               : b.status === 'rejected'
                                 ? 'bg-red-100 text-red-800'
                                 : 'bg-neutral-100 text-neutral-700'
-                        }`}
+                          }`}
                       >
                         {b.status}
                       </span>
@@ -873,31 +884,31 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                         {['awaiting_verification', 'pending', 'awaiting_payment'].includes(
                           b.status,
                         ) && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setApprovalMeetLink(b.googleMeetLink || '')
-                                setApprovalBooking(b)
-                              }}
-                              disabled={isRowLoading}
-                              className="rounded-full bg-[#14243b] px-3 py-1 text-[10px] font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setDeclineNotes('')
-                                setActionModal({ booking: b, action: 'reject' })
-                              }}
-                              disabled={isRowLoading}
-                              className="rounded-full px-2 py-1 text-[10px] font-bold text-red-600 hover:bg-red-50 disabled:opacity-50"
-                            >
-                              Decline
-                            </button>
-                          </>
-                        )}
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setApprovalMeetLink(b.googleMeetLink || '')
+                                  setApprovalBooking(b)
+                                }}
+                                disabled={isRowLoading}
+                                className="rounded-full bg-[#14243b] px-3 py-1 text-[10px] font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDeclineNotes('')
+                                  setActionModal({ booking: b, action: 'reject' })
+                                }}
+                                disabled={isRowLoading}
+                                className="rounded-full px-2 py-1 text-[10px] font-bold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                              >
+                                Decline
+                              </button>
+                            </>
+                          )}
                         {isAdmin && (
                           <>
                             <button
@@ -1203,11 +1214,10 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
               <button
                 type="submit"
                 disabled={submittingAttendance}
-                className={`rounded-full px-5 py-2 text-xs font-bold text-white disabled:opacity-50 ${
-                  attendanceModal.response === 'attended'
+                className={`rounded-full px-5 py-2 text-xs font-bold text-white disabled:opacity-50 ${attendanceModal.response === 'attended'
                     ? 'bg-emerald-600 hover:bg-emerald-700'
                     : 'bg-rose-600 hover:bg-rose-700'
-                }`}
+                  }`}
               >
                 {submittingAttendance ? 'Saving...' : 'Submit Attendance'}
               </button>

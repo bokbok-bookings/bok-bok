@@ -11,6 +11,7 @@ import {
 } from '@/lib/data/categories'
 import { AvailabilityManager } from '@/components/dashboard/availability-manager'
 import { CloudinaryUploadWidget } from '@/components/ui/cloudinary-upload-widget'
+import { LanguageSwitcher } from '@/components/layout/language-switcher'
 import { useLanguage } from '@/lib/i18n/language-context'
 import {
   Lock,
@@ -20,7 +21,6 @@ import {
   Building2,
   UserCheck,
   CreditCard,
-  Globe,
   Sparkles,
 } from 'lucide-react'
 
@@ -37,7 +37,7 @@ interface CertificateItem {
 
 export default function OnboardingPage() {
   const router = useRouter()
-  const { isAr, dir, toggleLanguage } = useLanguage()
+  const { isAr, dir } = useLanguage()
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [loading, setLoading] = useState(true)
   const [expertId, setExpertId] = useState<string>('')
@@ -423,10 +423,10 @@ export default function OnboardingPage() {
           suggestedCategory:
             showSuggestCategory && (suggestedCategoryName.trim() || suggestedSubcategoryName.trim())
               ? {
-                  categoryName: suggestedCategoryName.trim(),
-                  subcategoryName: suggestedSubcategoryName.trim(),
-                  notes: suggestedCategoryNotes.trim(),
-                }
+                categoryName: suggestedCategoryName.trim(),
+                subcategoryName: suggestedSubcategoryName.trim(),
+                notes: suggestedCategoryNotes.trim(),
+              }
               : null,
           bio,
           about,
@@ -546,14 +546,7 @@ export default function OnboardingPage() {
             subtitle={isAr ? 'إعداد الحساب' : 'Onboarding'}
           />
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={toggleLanguage}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 py-1.5 text-xs font-bold text-primary hover:border-primary transition"
-            >
-              <Globe size={13} className="text-accent" />
-              {isAr ? 'English' : 'العربية'}
-            </button>
+            <LanguageSwitcher />
             <span className="text-xs font-bold text-muted-foreground">
               {isAr ? `الخطوة ${step} من 3` : `Step ${step} of 3`}
             </span>
@@ -569,14 +562,12 @@ export default function OnboardingPage() {
             return (
               <div key={title} className="text-center">
                 <div
-                  className={`h-1.5 rounded-full transition ${
-                    isDone || isCurrent ? 'bg-accent' : 'bg-border'
-                  }`}
+                  className={`h-1.5 rounded-full transition ${isDone || isCurrent ? 'bg-accent' : 'bg-border'
+                    }`}
                 />
                 <p
-                  className={`mt-2 text-[11px] font-bold truncate ${
-                    isCurrent ? 'text-primary' : 'text-muted-foreground'
-                  }`}
+                  className={`mt-2 text-[11px] font-bold truncate ${isCurrent ? 'text-primary' : 'text-muted-foreground'
+                    }`}
                 >
                   {title}
                 </p>
@@ -675,11 +666,10 @@ export default function OnboardingPage() {
                 <button
                   type="button"
                   onClick={() => setAccountType('expert')}
-                  className={`flex items-start gap-3 rounded-2xl border p-4 text-start transition ${
-                    accountType === 'expert'
+                  className={`flex items-start gap-3 rounded-2xl border p-4 text-start transition ${accountType === 'expert'
                       ? 'border-primary bg-primary text-white shadow-xs'
                       : 'border-border bg-surface text-foreground hover:border-primary'
-                  }`}
+                    }`}
                 >
                   <UserCheck
                     size={18}
@@ -694,9 +684,8 @@ export default function OnboardingPage() {
                       {isAr ? 'خبير فردي' : 'Individual Expert'}
                     </p>
                     <p
-                      className={`text-[11px] mt-0.5 ${
-                        accountType === 'expert' ? 'text-white/80' : 'text-muted-foreground'
-                      }`}
+                      className={`text-[11px] mt-0.5 ${accountType === 'expert' ? 'text-white/80' : 'text-muted-foreground'
+                        }`}
                     >
                       {isAr
                         ? 'التوثيق بالبطاقة الشخصية أو جواز السفر'
@@ -708,11 +697,10 @@ export default function OnboardingPage() {
                 <button
                   type="button"
                   onClick={() => setAccountType('organization')}
-                  className={`flex items-start gap-3 rounded-2xl border p-4 text-start transition ${
-                    accountType === 'organization'
+                  className={`flex items-start gap-3 rounded-2xl border p-4 text-start transition ${accountType === 'organization'
                       ? 'border-primary bg-primary text-white shadow-xs'
                       : 'border-border bg-surface text-foreground hover:border-primary'
-                  }`}
+                    }`}
                 >
                   <Building2
                     size={18}
@@ -727,9 +715,8 @@ export default function OnboardingPage() {
                       {isAr ? 'مؤسسة / شركة' : 'Organization'}
                     </p>
                     <p
-                      className={`text-[11px] mt-0.5 ${
-                        accountType === 'organization' ? 'text-white/80' : 'text-muted-foreground'
-                      }`}
+                      className={`text-[11px] mt-0.5 ${accountType === 'organization' ? 'text-white/80' : 'text-muted-foreground'
+                        }`}
                     >
                       {isAr
                         ? 'التوثيق بالسجل التجاري والرقم الضريبي'
@@ -1153,22 +1140,20 @@ export default function OnboardingPage() {
                   <button
                     type="button"
                     onClick={() => setPreferredPayoutMethod('instapay')}
-                    className={`rounded-xl border px-4 py-2.5 text-xs font-bold transition text-start ${
-                      preferredPayoutMethod === 'instapay'
+                    className={`rounded-xl border px-4 py-2.5 text-xs font-bold transition text-start ${preferredPayoutMethod === 'instapay'
                         ? 'border-primary bg-primary text-white'
                         : 'border-border bg-surface text-foreground hover:border-primary'
-                    }`}
+                      }`}
                   >
                     {isAr ? '⚡ إنستاباي (InstaPay)' : '⚡ InstaPay (Preferred)'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setPreferredPayoutMethod('bank_account')}
-                    className={`rounded-xl border px-4 py-2.5 text-xs font-bold transition text-start ${
-                      preferredPayoutMethod === 'bank_account'
+                    className={`rounded-xl border px-4 py-2.5 text-xs font-bold transition text-start ${preferredPayoutMethod === 'bank_account'
                         ? 'border-primary bg-primary text-white'
                         : 'border-border bg-surface text-foreground hover:border-primary'
-                    }`}
+                      }`}
                   >
                     {isAr ? '🏦 تحويل لحساب بنكي' : '🏦 Bank Account Transfer'}
                   </button>
@@ -1274,11 +1259,10 @@ export default function OnboardingPage() {
                       key={cat.slug}
                       type="button"
                       onClick={() => toggleCategory(cat.slug)}
-                      className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition ${
-                        isSelected
+                      className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition ${isSelected
                           ? 'bg-primary text-white shadow-sm'
                           : 'border border-border bg-surface text-muted-foreground hover:border-primary'
-                      }`}
+                        }`}
                     >
                       {catTitle} {isSelected ? '✓' : '+'}
                     </button>
@@ -1318,11 +1302,10 @@ export default function OnboardingPage() {
                               key={sub.slug}
                               type="button"
                               onClick={() => toggleSubcategory(selCat.categorySlug, sub.slug)}
-                              className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${
-                                isSubSelected
+                              className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${isSubSelected
                                   ? 'bg-accent text-primary font-bold'
                                   : 'border border-border bg-surface text-muted-foreground hover:border-primary'
-                              }`}
+                                }`}
                             >
                               {subTitle}
                             </button>
@@ -1727,13 +1710,13 @@ export default function OnboardingPage() {
                   <strong
                     className={
                       (commercialRegisterNumber || commercialRegisterUrl) &&
-                      (taxNumber || taxIdDocumentUrl)
+                        (taxNumber || taxIdDocumentUrl)
                         ? 'text-emerald-700'
                         : 'text-destructive'
                     }
                   >
                     {(commercialRegisterNumber || commercialRegisterUrl) &&
-                    (taxNumber || taxIdDocumentUrl)
+                      (taxNumber || taxIdDocumentUrl)
                       ? isAr
                         ? '✓ مكتمل'
                         : '✓ Provided'

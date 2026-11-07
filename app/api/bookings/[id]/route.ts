@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { getBookingsCollection, getServicesCollection, toObjectId } from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
 import { resolveExpertContact, computeSessionBounds } from '@/lib/email/scheduler'
+import { resolveTokenRole } from '@/lib/booking/access'
+import { applyJoinTrackingAttendance } from '@/lib/booking/attendance'
+import { syncBookingMeetTelemetry } from '@/lib/google-calendar'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,14 +31,18 @@ export async function GET(request: Request, context: RouteContext) {
       return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 })
     }
 
-    // Authorization check: either valid token, or logged-in client/expert/admin
+    // Authorization check: either valid token (client or expert), or logged-in client/expert/admin
     const session = await getSession()
-    const isTokenAuthorized = token && booking.rescheduleToken && token === booking.rescheduleToken
+    const tokenRole = resolveTokenRole(booking, token)
+    const isTokenAuthorized = Boolean(tokenRole)
     const isAdmin = session?.role === 'admin'
     const isExpertOwner =
-      session?.role === 'expert' &&
-      session?.expertId &&
-      session.expertId === booking.expertId.toString()
+      tokenRole === 'expert' ||
+      Boolean(
+        session?.role === 'expert' &&
+        session?.expertId &&
+        session.expertId === booking.expertId.toString()
+      )
     const isClientOwner =
       session?.userId && booking.clientId && session.userId === booking.clientId.toString()
 
@@ -73,6 +80,34 @@ export async function GET(request: Request, context: RouteContext) {
     const reportingDeadlineAt = new Date(endAt.getTime() + 24 * 60 * 60 * 1000)
     const isAttendanceReportingOpen = now >= endAt && now <= reportingDeadlineAt
 
+    // Sync Google Meet conferenceRecords & participantSessions (join, leave, duration)
+    // once the 15-minute pre-session window opens or when explicitly requested (?syncMeet=1)
+    const forceSyncMeet = searchParams.get('syncMeet') === '1'
+    const meetUnlockAt = new Date(startAt.getTime() - 15 * 60 * 1000)
+    if (
+      booking.status === 'confirmed' &&
+      booking.deliveryMode !== 'IN_PERSON' &&
+      booking.googleMeetLink &&
+      (forceSyncMeet || now >= meetUnlockAt)
+    ) {
+      try {
+        await syncBookingMeetTelemetry(booking, { force: forceSyncMeet, expertName })
+      } catch (err) {
+        console.warn('Google Meet telemetry sync failed:', err)
+      }
+    }
+
+    // Auto-resolve attendance from tracked Google Meet joins/telemetry once the session has ended
+    if (!booking.sessionEndAt) booking.sessionEndAt = endAt
+    try {
+      await applyJoinTrackingAttendance(booking, now)
+    } catch (err) {
+      console.warn('Join-tracking attendance resolution failed:', err)
+    }
+
+    const userRoleInView = tokenRole ?? (isAdmin ? 'admin' : isExpertOwner ? 'expert' : 'client')
+    const viewerToken = token && tokenRole ? token : undefined
+
     return NextResponse.json({
       success: true,
       data: {
@@ -84,8 +119,7 @@ export async function GET(request: Request, context: RouteContext) {
         expertRole: expertDoc?.role,
         expertImage: expertDoc?.image || expertDoc?.avatarUrl,
         clientName: booking.clientName,
-        clientEmail: booking.clientEmail,
-        clientPhone: booking.clientPhone,
+        ...(isAdmin ? { clientEmail: booking.clientEmail, clientPhone: booking.clientPhone } : {}),
         date: booking.date,
         time: booking.time,
         durationMinutes: booking.durationMinutes,
@@ -102,11 +136,19 @@ export async function GET(request: Request, context: RouteContext) {
         rescheduleDeadlineAt,
         isRescheduleAllowed,
         attendanceStatus: booking.attendanceStatus || 'pending',
+        attendanceSource: booking.attendanceSource,
         isAttendanceReportingOpen,
         expertAttendanceReport: booking.expertAttendanceReport,
         clientAttendanceReport: booking.clientAttendanceReport,
+        meetingJoins: {
+          client: booking.meetingJoins?.client || null,
+          expert: booking.meetingJoins?.expert || null,
+        },
+        googleMeetTelemetry: booking.googleMeetTelemetry || null,
+        meetJoinUrl: `/api/bookings/${booking._id?.toString()}/join${viewerToken ? `?token=${encodeURIComponent(viewerToken)}` : ''
+          }`,
         rescheduleHistory: booking.rescheduleHistory || [],
-        userRoleInView: isAdmin ? 'admin' : isExpertOwner ? 'expert' : 'client',
+        userRoleInView,
       },
     })
   } catch (error: any) {

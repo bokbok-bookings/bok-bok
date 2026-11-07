@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { BrandLogo } from '@/components/brand/logo'
 import { ShieldCheck } from 'lucide-react'
 import { useLanguage } from '@/lib/i18n/language-context'
+import { LanguageSwitcher } from './language-switcher'
 
 // Routes where the standard public footer must NOT appear
 const HIDDEN_PATH_PREFIXES = [
@@ -142,12 +143,14 @@ export function SiteFooter() {
         {/* Bottom Bar */}
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-6 text-xs text-muted-foreground sm:flex-row">
           <p>© {currentYear} Bok Bok. {t.footer.allRightsReserved}</p>
-          <div className="flex items-center gap-6 text-xs font-medium">
+          <div className="flex flex-wrap items-center gap-4 text-xs font-medium">
             <span>{t.footer.tagline}</span>
             <span>•</span>
             <Link href={localeHref('/how-it-works')} className="hover:text-primary transition-colors">
               {t.footer.guidelines}
             </Link>
+            <span>•</span>
+            <LanguageSwitcher dropUp />
           </div>
         </div>
       </div>
