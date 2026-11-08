@@ -294,6 +294,16 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                 {displayTitle}
               </h1>
 
+              {service.thumbnailUrl && (
+                <div className="mt-6 overflow-hidden rounded-3xl border border-border bg-surface shadow-xs aspect-[16/9] max-h-80 w-full">
+                  <img
+                    src={service.thumbnailUrl}
+                    alt={displayTitle}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              )}
+
               {/* Quick Info Grid */}
               <div className="mt-6 flex flex-wrap items-center gap-4 sm:gap-6 text-xs text-muted-foreground border-y border-border py-4 min-w-0">
                 {isEvent ? (

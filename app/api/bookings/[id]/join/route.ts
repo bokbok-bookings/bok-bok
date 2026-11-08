@@ -7,6 +7,7 @@ import {
   MEET_UNLOCK_MINUTES_BEFORE,
   MEET_GRACE_MINUTES_AFTER_END,
 } from '@/lib/booking/access'
+import { ensureBookingMeetDirectEntry } from '@/lib/google-calendar'
 
 export const dynamic = 'force-dynamic'
 
@@ -113,6 +114,14 @@ export async function GET(request: Request, context: RouteContext) {
         $inc: { [`${prefix}.joinCount`]: 1 },
       } as any
     )
+  }
+
+  // Ensure Google Meet space is set to OPEN & both Client/Expert are invited attendees
+  // so neither is prompted with "Ask to join" when landing on meet.google.com
+  try {
+    await ensureBookingMeetDirectEntry(booking)
+  } catch (err) {
+    console.warn('[Join Redirect] Failed to ensure direct Meet entry:', err)
   }
 
   return NextResponse.redirect(meetLink!)

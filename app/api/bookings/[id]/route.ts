@@ -4,7 +4,7 @@ import { getSession } from '@/lib/auth/session'
 import { resolveExpertContact, computeSessionBounds } from '@/lib/email/scheduler'
 import { resolveTokenRole } from '@/lib/booking/access'
 import { applyJoinTrackingAttendance } from '@/lib/booking/attendance'
-import { syncBookingMeetTelemetry } from '@/lib/google-calendar'
+import { syncBookingMeetTelemetry, ensureBookingMeetDirectEntry } from '@/lib/google-calendar'
 
 export const dynamic = 'force-dynamic'
 
@@ -90,6 +90,13 @@ export async function GET(request: Request, context: RouteContext) {
       booking.googleMeetLink &&
       (forceSyncMeet || now >= meetUnlockAt)
     ) {
+      if (now >= meetUnlockAt && now <= endAt) {
+        try {
+          await ensureBookingMeetDirectEntry(booking)
+        } catch (err) {
+          console.warn('Google Meet direct entry setup failed:', err)
+        }
+      }
       try {
         await syncBookingMeetTelemetry(booking, { force: forceSyncMeet, expertName })
       } catch (err) {

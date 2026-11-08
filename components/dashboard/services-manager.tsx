@@ -16,13 +16,15 @@ import {
   offeringTypeToModel,
   getOfferingType,
 } from '@/lib/services/service-types'
-import { Share2, Check, ShieldAlert, Users } from 'lucide-react'
+import { Share2, Check, ShieldAlert, Users, Image as ImageIcon, Trash2 } from 'lucide-react'
+import { CloudinaryUploadWidget } from '@/components/ui/cloudinary-upload-widget'
 
 export interface ServiceItem {
   _id: string
   expertId: string
   title: { en: string; ar: string }
   description: { en: string; ar: string }
+  thumbnailUrl?: string
   intendedAudience?: { en: string; ar: string }
   adultsOnly?: boolean
   minimumAge?: number
@@ -58,10 +60,10 @@ export interface ServiceItem {
   isStructuredVocationalProgramme?: boolean
   requiresLicensingReview?: boolean
   licensingReviewStatus?:
-    | 'not_required'
-    | 'pending_licensing_review'
-    | 'licensing_approved'
-    | 'licensing_rejected'
+  | 'not_required'
+  | 'pending_licensing_review'
+  | 'licensing_approved'
+  | 'licensing_rejected'
   licensingReviewReason?: string
   adminReviewNote?: string
 }
@@ -98,6 +100,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
   const [titleAr, setTitleAr] = useState('')
   const [descEn, setDescEn] = useState('')
   const [descAr, setDescAr] = useState('')
+  const [thumbnailUrl, setThumbnailUrl] = useState('')
   const [audienceEn, setAudienceEn] = useState('Professionals, founders, and learners')
   const [audienceAr, setAudienceAr] = useState('المهنيون ورواد الأعمال والمتعلمون')
   const [adultsOnly, setAdultsOnly] = useState(true)
@@ -191,6 +194,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
     setTitleAr('')
     setDescEn('')
     setDescAr('')
+    setThumbnailUrl('')
     setAudienceEn('Professionals, founders, and learners')
     setAudienceAr('المهنيون ورواد الأعمال والمتعلمون')
     setAdultsOnly(true)
@@ -236,6 +240,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
     setTitleAr(s.title.ar)
     setDescEn(s.description.en)
     setDescAr(s.description.ar)
+    setThumbnailUrl(s.thumbnailUrl || '')
     setAudienceEn(s.intendedAudience?.en || 'Professionals, founders, and learners')
     setAudienceAr(s.intendedAudience?.ar || 'المهنيون ورواد الأعمال والمتعلمون')
     setAdultsOnly(s.adultsOnly !== false)
@@ -287,6 +292,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
         deliveryMode: offeringType === 'WEBINAR' ? 'ONLINE' : deliveryMode,
         title: { en: titleEn, ar: titleAr },
         description: { en: descEn, ar: descAr },
+        thumbnailUrl: thumbnailUrl.trim() || '',
         intendedAudience: { en: audienceEn, ar: audienceAr },
         adultsOnly: true,
         minimumAge: 18,
@@ -420,32 +426,77 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
             return (
               <div
                 key={s._id}
-                className={`flex flex-col justify-between rounded-3xl border bg-white p-6 shadow-sm transition ${
-                  s.isActive && s.approvalStatus === 'approved'
+                className={`group flex flex-col justify-between overflow-hidden rounded-3xl border bg-white shadow-sm transition hover:shadow-md ${s.isActive && s.approvalStatus === 'approved'
                     ? 'border-[#E8E2D8]'
                     : 'border-amber-300/70 bg-[#FFFDF9]'
-                }`}
+                  }`}
               >
                 <div>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="rounded-full bg-[#E8EFFF] px-2.5 py-0.5 text-[10px] font-black text-[#2855C5] uppercase tracking-wider">
+                  {/* Service Thumbnail Banner */}
+                  <div className="relative h-44 w-full overflow-hidden bg-gradient-to-br from-[#101F49] via-[#1b3374] to-[#2855C5]">
+                    {s.thumbnailUrl ? (
+                      <img
+                        src={s.thumbnailUrl}
+                        alt={s.title.en}
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full flex-col items-center justify-center p-6 text-center text-white/90">
+                        <div className="rounded-2xl bg-white/10 p-3 backdrop-blur-xs border border-white/15 mb-2">
+                          <ImageIcon size={22} className="text-[#F8C15C]" />
+                        </div>
+                        <span className="text-[11px] font-bold tracking-wider uppercase text-white/80">
+                          {catLabel}
+                        </span>
+                      </div>
+                    )}
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
+
+                    {/* Top-left floating badges */}
+                    <div className="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-1.5">
+                      <span className="rounded-full bg-white/95 backdrop-blur-xs px-2.5 py-1 text-[10px] font-black text-[#2855C5] uppercase tracking-wider shadow-xs">
                         {kind.replace('_', ' ')}
                       </span>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {s.approvalStatus === 'pending' && (
+                          <span className="rounded-full bg-amber-50/95 border border-amber-300 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 shadow-xs">
+                            Pending Review
+                          </span>
+                        )}
+                        {s.approvalStatus === 'approved' && (
+                          <span className="rounded-full bg-emerald-50/95 border border-emerald-300 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800 shadow-xs">
+                            Published
+                          </span>
+                        )}
+                        {s.approvalStatus === 'rejected' && (
+                          <span className="rounded-full bg-rose-50/95 border border-rose-300 px-2.5 py-0.5 text-[10px] font-bold text-rose-800 shadow-xs">
+                            Rejected
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
-                      {s.approvalStatus === 'pending' && (
-                        <span className="rounded-full bg-amber-50 border border-amber-300 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                          Pending Admin Review
-                        </span>
-                      )}
-                      {s.approvalStatus === 'approved' && (
-                        <span className="rounded-full bg-emerald-50 border border-emerald-300 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                          Published
-                        </span>
-                      )}
-                      {s.approvalStatus === 'rejected' && (
-                        <span className="rounded-full bg-rose-50 border border-rose-300 px-2 py-0.5 text-[10px] font-bold text-rose-800">
-                          Rejected
+                    {/* Bottom overlay info on thumbnail */}
+                    <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2">
+                      <span className="rounded-full bg-black/55 backdrop-blur-xs border border-white/15 px-2.5 py-1 text-[10px] font-bold text-white">
+                        {s.event ? `${s.event.date} · ${s.event.capacity} seats` : `${s.durationMinutes} min`}
+                      </span>
+                      <div className="rounded-2xl bg-white/95 backdrop-blur-xs px-3 py-1 text-right shadow-sm">
+                        <p className="text-sm font-black text-[#101F49] leading-tight">{s.pricing?.prices?.EGP ?? 0} EGP</p>
+                        <p className="text-[9px] font-semibold text-[#637084]">
+                          ${s.pricing?.prices?.USD ?? 0} / {s.pricing?.prices?.SAR ?? 0} SAR
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card Body */}
+                  <div className="p-5 sm:p-6 pb-0">
+                    <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold text-[#637084]">
+                      <span className="rounded-md bg-[#f4f2ee] px-2 py-0.5">{catLabel}</span>
+                      {subLabel && (
+                        <span className="rounded-md bg-[#FFF9EE] border border-[#E8E2D8] px-2 py-0.5 text-[#101F49]">
+                          {subLabel}
                         </span>
                       )}
                       {s.requiresLicensingReview && (
@@ -462,60 +513,41 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                           Needs MVP Category Mapping
                         </span>
                       )}
-                      <span className="rounded-full bg-[#f4f2ee] px-2 py-0.5 text-[10px] font-bold text-[#637084]">
-                        {s.event ? `${s.event.date} · ${s.event.capacity} seats` : `${s.durationMinutes} min`}
-                      </span>
                     </div>
 
-                    <div className="text-right shrink-0">
-                      <p className="text-base font-black text-[#101F49]">{s.pricing?.prices?.EGP ?? 0} EGP</p>
-                      <p className="text-[10px] text-[#8b94a1]">
-                        ${s.pricing?.prices?.USD ?? 0} / {s.pricing?.prices?.SAR ?? 0} SAR
+                    <h3 className="mt-3 text-base font-bold text-[#101F49] leading-snug">{s.title.en}</h3>
+                    <p className="text-xs font-medium text-[#8b94a1] mt-0.5" dir="rtl">
+                      {s.title.ar}
+                    </p>
+
+                    {s.description?.en && (
+                      <p className="mt-2.5 text-xs leading-5 text-[#637084] line-clamp-2">{s.description.en}</p>
+                    )}
+
+                    {s.intendedAudience?.en && (
+                      <p className="mt-2 flex items-center gap-1 text-[11px] text-[#637084]">
+                        <Users size={12} className="text-[#2855C5]" />
+                        <span>
+                          Audience: <strong>{s.intendedAudience.en}</strong>
+                        </span>
                       </p>
-                    </div>
-                  </div>
+                    )}
 
-                  <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold text-[#637084]">
-                    <span className="rounded-md bg-[#f4f2ee] px-2 py-0.5">{catLabel}</span>
-                    {subLabel && (
-                      <span className="rounded-md bg-[#FFF9EE] border border-[#E8E2D8] px-2 py-0.5 text-[#101F49]">
-                        {subLabel}
-                      </span>
+                    {s.adminReviewNote && (
+                      <p className="mt-2 rounded-xl bg-amber-50 border border-amber-200 p-2 text-[11px] text-amber-900">
+                        <strong>Admin Review Note:</strong> {s.adminReviewNote}
+                      </p>
+                    )}
+
+                    {s.rejectionReason && (
+                      <p className="mt-2 rounded-xl bg-rose-50 border border-rose-200 p-2 text-[11px] text-rose-800">
+                        <strong>Rejection Reason:</strong> {s.rejectionReason}
+                      </p>
                     )}
                   </div>
-
-                  <h3 className="mt-3 text-base font-bold text-[#101F49] leading-snug">{s.title.en}</h3>
-                  <p className="text-xs font-medium text-[#8b94a1] mt-0.5" dir="rtl">
-                    {s.title.ar}
-                  </p>
-
-                  {s.description?.en && (
-                    <p className="mt-2.5 text-xs leading-5 text-[#637084] line-clamp-2">{s.description.en}</p>
-                  )}
-
-                  {s.intendedAudience?.en && (
-                    <p className="mt-2 flex items-center gap-1 text-[11px] text-[#637084]">
-                      <Users size={12} className="text-[#2855C5]" />
-                      <span>
-                        Audience: <strong>{s.intendedAudience.en}</strong>
-                      </span>
-                    </p>
-                  )}
-
-                  {s.adminReviewNote && (
-                    <p className="mt-2 rounded-xl bg-amber-50 border border-amber-200 p-2 text-[11px] text-amber-900">
-                      <strong>Admin Review Note:</strong> {s.adminReviewNote}
-                    </p>
-                  )}
-
-                  {s.rejectionReason && (
-                    <p className="mt-2 rounded-xl bg-rose-50 border border-rose-200 p-2 text-[11px] text-rose-800">
-                      <strong>Rejection Reason:</strong> {s.rejectionReason}
-                    </p>
-                  )}
                 </div>
 
-                <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-[#f4f2ee] pt-4">
+                <div className="p-5 sm:p-6 pt-4 mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#f4f2ee]">
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleCopyLink(s)}
@@ -611,11 +643,10 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                       key={t.id}
                       type="button"
                       onClick={() => setOfferingType(t.id as OfferingType)}
-                      className={`rounded-2xl border p-3 text-left transition ${
-                        offeringType === t.id
+                      className={`rounded-2xl border p-3 text-left transition ${offeringType === t.id
                           ? 'border-[#2855C5] bg-[#E8EFFF] text-[#2855C5]'
                           : 'border-[#E8E2D8] bg-white text-[#101F49] hover:border-[#101F49]'
-                      }`}
+                        }`}
                     >
                       <span className="block text-xs font-bold">{t.label}</span>
                       <span className="block text-[10px] text-[#8b94a1] mt-0.5">{t.hint}</span>
@@ -640,11 +671,10 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                         key={m.id}
                         type="button"
                         onClick={() => setDeliveryMode(m.id as DeliveryMode)}
-                        className={`rounded-xl border px-3 py-2 text-xs font-bold transition ${
-                          deliveryMode === m.id
+                        className={`rounded-xl border px-3 py-2 text-xs font-bold transition ${deliveryMode === m.id
                             ? 'border-[#101F49] bg-[#101F49] text-white'
                             : 'border-[#E8E2D8] bg-white text-[#637084] hover:text-[#101F49]'
-                        }`}
+                          }`}
                       >
                         {m.label}
                       </button>
@@ -736,6 +766,51 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                     className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                   />
                 </label>
+              </div>
+
+              {/* Service Thumbnail Upload */}
+              <div className="rounded-2xl border border-[#E8E2D8] bg-[#FFFDF9] p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-[#101F49]">
+                      Service Card Thumbnail
+                    </label>
+                    <p className="text-[11px] text-[#637084] mt-0.5">
+                      Upload a 16:9 cover image (recommended 1280×720px) to stand out on service cards.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CloudinaryUploadWidget
+                      onSuccess={(res) => setThumbnailUrl(res.secureUrl || res.url)}
+                      folder="bokbok/service_thumbnails"
+                      fallbackType="service_thumbnail"
+                      cropping={true}
+                      croppingAspectRatio={16 / 9}
+                      buttonText={thumbnailUrl ? 'Change Thumbnail' : 'Upload Thumbnail'}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#2855C5] px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#101F49]"
+                    />
+                    {thumbnailUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setThumbnailUrl('')}
+                        className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100"
+                      >
+                        <Trash2 size={13} />
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {thumbnailUrl && (
+                  <div className="mt-3 relative h-40 w-full sm:w-72 overflow-hidden rounded-2xl border border-[#E8E2D8] bg-[#101F49]">
+                    <img
+                      src={thumbnailUrl}
+                      alt="Service thumbnail preview"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Clear Activity Descriptions (Required in EN & AR) */}

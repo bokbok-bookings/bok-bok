@@ -240,11 +240,10 @@ export async function getGoogleCalendarConnectionStatus(
       calendarEmail: calRes.data.id || calendarId,
       updatedAt: updatedAtStr,
       hasMeetTelemetryScope,
-      message: `Connected to Google Calendar (${calRes.data.id || calendarId}). Google Meet links are generated automatically on confirmation.${
-        hasMeetTelemetryScope
+      message: `Connected to Google Calendar (${calRes.data.id || calendarId}). Google Meet links are generated automatically on confirmation.${hasMeetTelemetryScope
           ? ' Google Meet telemetry (join/leave times) is enabled.'
           : ' Reconnect once to grant Google Meet leave-time telemetry scope.'
-      }`,
+        }`,
     }
     cachedStatus = { checkedAt: Date.now(), result }
     return result
@@ -279,12 +278,256 @@ export interface CalendarEventResult {
   eventId: string
   eventLink: string
   meetLink: string
+  spaceName?: string
+}
+
+/**
+ * Configures a Google Meet space so that the Expert and Client can enter
+ * directly without knocking ("Ask to join"):
+ * 1. Sets space config `accessType = 'OPEN'` and `entryPointAccess = 'ALL'`
+ * 2. Adds the Expert and Client emails to `spaces.members` (users with a role in
+ *    the space can join without knocking even before the organizer joins).
+ */
+export async function configureMeetSpaceOpenAccess(params: {
+  meetLinkOrCode: string
+  spaceName?: string
+  clientEmail?: string
+  expertEmail?: string
+}): Promise<string | undefined> {
+  const meetingCode = extractGoogleMeetCode(params.meetLinkOrCode) || params.meetLinkOrCode
+  if (!meetingCode) return undefined
+
+  try {
+    const meet = await getOAuthMeetClient()
+    let spaceName = params.spaceName
+
+    if (!spaceName) {
+      const spaceRes = await Promise.race([
+        meet.spaces.get({ name: `spaces/${meetingCode}` }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Google Meet spaces.get timed out (5s)')), 5000),
+        ),
+      ])
+      spaceName = spaceRes.data.name || undefined
+    }
+
+    if (!spaceName) return undefined
+
+    // 1. Patch space accessType to TRUSTED (so only invited Client & Expert enter directly
+    // without Google Meet showing the "This meeting is open to anyone" warning)
+    try {
+      await Promise.race([
+        meet.spaces.patch({
+          name: spaceName,
+          updateMask: 'config.accessType,config.entryPointAccess,config.moderation',
+          requestBody: {
+            config: {
+              accessType: 'TRUSTED',
+              entryPointAccess: 'ALL',
+              moderation: 'OFF',
+            },
+          },
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Google Meet spaces.patch timed out (5s)')), 5000),
+        ),
+      ])
+    } catch {
+      // Fallback without moderation field if restricted by account tier
+      try {
+        await meet.spaces.patch({
+          name: spaceName,
+          updateMask: 'config.accessType,config.entryPointAccess',
+          requestBody: {
+            config: {
+              accessType: 'TRUSTED',
+              entryPointAccess: 'ALL',
+            },
+          },
+        })
+      } catch (patchErr: any) {
+        console.warn('[Google Meet] Could not patch space accessType to TRUSTED:', patchErr?.message)
+      }
+    }
+
+    // 2. Register Expert (COHOST) and Client as space members so they bypass knocking
+    const memberCandidates: Array<{ email: string; preferredRole: string }> = []
+    if (params.expertEmail?.trim()) {
+      memberCandidates.push({ email: params.expertEmail.trim(), preferredRole: 'COHOST' })
+    }
+    if (
+      params.clientEmail?.trim() &&
+      params.clientEmail.trim().toLowerCase() !== params.expertEmail?.trim().toLowerCase()
+    ) {
+      memberCandidates.push({ email: params.clientEmail.trim(), preferredRole: 'COHOST' })
+    }
+
+    for (const candidate of memberCandidates) {
+      try {
+        await meet.spaces.members.create({
+          parent: spaceName,
+          requestBody: {
+            email: candidate.email,
+            role: candidate.preferredRole,
+          },
+        })
+      } catch {
+        try {
+          await meet.spaces.members.create({
+            parent: spaceName,
+            requestBody: {
+              email: candidate.email,
+              role: 'ROLE_UNSPECIFIED',
+            },
+          })
+        } catch {
+          // Ignore 409 ALREADY_EXISTS or unsupported member role on consumer accounts
+        }
+      }
+    }
+
+    return spaceName
+  } catch (err: any) {
+    console.warn('[Google Meet] configureMeetSpaceOpenAccess warning:', err?.message)
+    return undefined
+  }
+}
+
+/**
+ * Ensures both Expert and Client can enter the Google Meet room immediately
+ * without "Ask to join" once the 15-minute pre-session window opens:
+ * 1. Configures the Meet Space as `OPEN` + adds space members via Google Meet REST API
+ * 2. Adds Expert and Client to the Google Calendar event `attendees` with
+ *    `sendUpdates: 'none'` (no Google emails) and `guestsCanSeeOtherGuests: false`
+ *    (emails remain hidden from each other) so Google Meet recognizes their accounts as invited.
+ */
+export async function ensureBookingMeetDirectEntry(
+  bookingOrId: string | BookingDoc,
+  options?: { force?: boolean },
+): Promise<void> {
+  const bookingsCol = await getBookingsCollection()
+  let booking: BookingDoc | null = null
+
+  if (typeof bookingOrId === 'string') {
+    try {
+      booking = await bookingsCol.findOne({ _id: toObjectId(bookingOrId) })
+    } catch {
+      booking = await bookingsCol.findOne({ reference: bookingOrId })
+    }
+  } else {
+    booking = bookingOrId
+  }
+
+  if (!booking || !booking._id || !booking.googleMeetLink) return
+  if (booking.deliveryMode === 'IN_PERSON') return
+
+  // Skip if already configured within the last 10 minutes unless forced
+  const now = new Date()
+  if (
+    !options?.force &&
+    booking.meetDirectAccessConfiguredAt &&
+    now.getTime() - new Date(booking.meetDirectAccessConfiguredAt).getTime() < 10 * 60 * 1000
+  ) {
+    return
+  }
+
+  // Resolve expert email
+  let expertEmail: string | undefined
+  let expertName = 'BokBok Expert'
+  if (booking.expertId) {
+    try {
+      const expertsCol = await getExpertsCollection()
+      const usersCol = await getUsersCollection()
+      const expertDoc = await expertsCol.findOne({ _id: booking.expertId })
+      if (expertDoc) {
+        expertName = expertDoc.name || expertName
+        if (expertDoc.userId) {
+          const u = await usersCol.findOne({ _id: expertDoc.userId })
+          if (u?.email) expertEmail = u.email
+        }
+        if (!expertEmail) {
+          const uByExp = await usersCol.findOne({ expertId: expertDoc._id })
+          if (uByExp?.email) expertEmail = uByExp.email
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 1. Configure Meet Space as OPEN + add members
+  const spaceName = await configureMeetSpaceOpenAccess({
+    meetLinkOrCode: booking.googleMeetLink,
+    spaceName: booking.googleMeetSpaceName,
+    clientEmail: booking.clientEmail,
+    expertEmail,
+  })
+
+  // 2. Patch Calendar event attendees silently (sendUpdates: 'none', guestsCanSeeOtherGuests: false)
+  // so Google Meet admits both Google accounts directly without knocking
+  if (booking.googleCalendarEventId) {
+    try {
+      const calendar = await getOAuthCalendarClient()
+      const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary'
+      const attendees: Array<{ email: string; displayName?: string; responseStatus: string }> = []
+      if (booking.clientEmail?.trim()) {
+        attendees.push({
+          email: booking.clientEmail.trim(),
+          displayName: booking.clientName || 'Client',
+          responseStatus: 'accepted',
+        })
+      }
+      if (
+        expertEmail?.trim() &&
+        expertEmail.trim().toLowerCase() !== booking.clientEmail?.trim().toLowerCase()
+      ) {
+        attendees.push({
+          email: expertEmail.trim(),
+          displayName: expertName,
+          responseStatus: 'accepted',
+        })
+      }
+
+      if (attendees.length > 0) {
+        await Promise.race([
+          calendar.events.patch({
+            calendarId,
+            eventId: booking.googleCalendarEventId,
+            sendUpdates: 'none',
+            requestBody: {
+              guestsCanSeeOtherGuests: false,
+              guestsCanInviteOthers: false,
+              guestsCanModify: false,
+              attendees,
+            },
+          }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Google Calendar attendees patch timed out (5s)')), 5000),
+          ),
+        ])
+      }
+    } catch (err: any) {
+      console.warn('[Google Calendar] Failed to patch silent attendees for direct Meet entry:', err?.message)
+    }
+  }
+
+  await bookingsCol.updateOne(
+    { _id: booking._id },
+    {
+      $set: {
+        ...(spaceName ? { googleMeetSpaceName: spaceName } : {}),
+        meetDirectAccessConfiguredAt: now,
+      },
+    },
+  )
+  if (spaceName) booking.googleMeetSpaceName = spaceName
+  booking.meetDirectAccessConfiguredAt = now
 }
 
 /**
  * Creates Google Calendar event with auto Google Meet link.
- * Does NOT invite attendees or send calendar notifications; the event serves
- * strictly as a meeting room on BokBok's central account to generate the Google Meet URL.
+ * Does NOT invite attendees on the calendar prior to the 15-min window or send calendar notifications;
+ * immediately configures the Google Meet space for OPEN direct entry.
  */
 export async function createCalendarEvent(
   input: CalendarEventInput,
@@ -316,17 +559,20 @@ export async function createCalendarEvent(
           timeZone: 'Africa/Cairo',
         },
         attendees: [],
+        guestsCanSeeOtherGuests: false,
+        guestsCanInviteOthers: false,
+        guestsCanModify: false,
         ...(shouldCreateMeet
           ? {
-              conferenceData: {
-                createRequest: {
-                  requestId: `bokbok-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                  conferenceSolutionKey: {
-                    type: 'hangoutsMeet',
-                  },
+            conferenceData: {
+              createRequest: {
+                requestId: `bokbok-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                conferenceSolutionKey: {
+                  type: 'hangoutsMeet',
                 },
               },
-            }
+            },
+          }
           : {}),
         reminders: {
           useDefault: false,
@@ -355,10 +601,20 @@ export async function createCalendarEvent(
       )
     }
 
+    let spaceName: string | undefined
+    if (meetLink) {
+      spaceName = await configureMeetSpaceOpenAccess({
+        meetLinkOrCode: meetLink,
+        clientEmail: input.clientEmail,
+        expertEmail: input.expertEmail,
+      })
+    }
+
     return {
       eventId: eventData.id || '',
       eventLink: eventData.htmlLink || '',
       meetLink,
+      spaceName,
     }
   } catch (err: any) {
     if (isTokenAuthError(err)) {
@@ -398,6 +654,11 @@ export async function updateCalendarEvent(
           dateTime: endDateTime,
           timeZone: 'Africa/Cairo',
         },
+        // Reset attendees until the new 15-minute pre-session window opens
+        attendees: [],
+        guestsCanSeeOtherGuests: false,
+        guestsCanInviteOthers: false,
+        guestsCanModify: false,
       },
     })
   } catch (error: any) {
@@ -516,6 +777,7 @@ export async function confirmBookingAndCreateCalendar(
       googleCalendarEventId: calendarResult.eventId,
       googleCalendarEventLink: calendarResult.eventLink,
       googleMeetLink: calendarResult.meetLink,
+      ...(calendarResult.spaceName ? { googleMeetSpaceName: calendarResult.spaceName } : {}),
       googleMeetSyncedAt: now,
       googleMeetUpdatedAt: now,
       updatedAt: now,

@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Edit2, Trash2, RefreshCw } from 'lucide-react'
+import { Edit2, Trash2, RefreshCw, Image as ImageIcon } from 'lucide-react'
+import { CloudinaryUploadWidget } from '@/components/ui/cloudinary-upload-widget'
 
 interface ServiceItem {
   _id: string
@@ -15,6 +16,7 @@ interface ServiceItem {
   slug?: string
   title: { en: string; ar: string }
   description: { en: string; ar: string }
+  thumbnailUrl?: string
   intendedAudience?: { en: string; ar: string }
   adultsOnly?: boolean
   minimumAge?: number
@@ -77,6 +79,7 @@ export default function AdminServicesPage() {
   const [editServiceTitleAr, setEditServiceTitleAr] = useState('')
   const [editServiceDescEn, setEditServiceDescEn] = useState('')
   const [editServiceDescAr, setEditServiceDescAr] = useState('')
+  const [editServiceThumbnailUrl, setEditServiceThumbnailUrl] = useState('')
   const [editServicePrice, setEditServicePrice] = useState(0)
   const [editServiceDuration, setEditServiceDuration] = useState(30)
   const [editServiceKind, setEditServiceKind] = useState<'CONSULTATION' | 'GENERAL_SERVICE'>(
@@ -158,6 +161,7 @@ export default function AdminServicesPage() {
     setEditServiceTitleAr(srv.title?.ar || '')
     setEditServiceDescEn(srv.description?.en || '')
     setEditServiceDescAr(srv.description?.ar || '')
+    setEditServiceThumbnailUrl(srv.thumbnailUrl || '')
     const baseCur = srv.pricing?.baseCurrency || 'EGP'
     setEditServicePrice(srv.pricing?.prices?.[baseCur] ?? srv.pricing?.prices?.EGP ?? 0)
     setEditServiceDuration(srv.durationMinutes || 30)
@@ -183,6 +187,7 @@ export default function AdminServicesPage() {
           updates: {
             title: { en: editServiceTitleEn.trim(), ar: editServiceTitleAr.trim() },
             description: { en: editServiceDescEn.trim(), ar: editServiceDescAr.trim() },
+            thumbnailUrl: editServiceThumbnailUrl.trim() || null,
             priceNumber: Number(editServicePrice) || 0,
             durationMinutes: Number(editServiceDuration) || 30,
             serviceKind: editServiceKind,
@@ -201,6 +206,7 @@ export default function AdminServicesPage() {
                 ...s,
                 title: { en: editServiceTitleEn.trim(), ar: editServiceTitleAr.trim() },
                 description: { en: editServiceDescEn.trim(), ar: editServiceDescAr.trim() },
+                thumbnailUrl: editServiceThumbnailUrl.trim() || undefined,
                 durationMinutes: Number(editServiceDuration) || 30,
                 serviceKind: editServiceKind,
                 bookingType: editServiceBookingType,
@@ -293,8 +299,8 @@ export default function AdminServicesPage() {
                 type="button"
                 onClick={() => setStatusFilter(tab.id as any)}
                 className={`rounded-full px-3 py-1 text-xs font-bold transition ${statusFilter === tab.id
-                    ? 'bg-[#14243b] text-white'
-                    : 'text-[#637084] hover:text-[#14243b]'
+                  ? 'bg-[#14243b] text-white'
+                  : 'text-[#637084] hover:text-[#14243b]'
                   }`}
               >
                 {tab.label}
@@ -356,139 +362,155 @@ export default function AdminServicesPage() {
               <div
                 key={srv._id}
                 className={`rounded-2xl border bg-white p-5 sm:p-6 space-y-3 shadow-xs ${srv.approvalStatus === 'pending'
-                    ? 'border-amber-300 bg-amber-50/20'
-                    : srv.approvalStatus === 'rejected'
-                      ? 'border-rose-200 bg-rose-50/10'
-                      : 'border-[#e7e2da]'
+                  ? 'border-amber-300 bg-amber-50/20'
+                  : srv.approvalStatus === 'rejected'
+                    ? 'border-rose-200 bg-rose-50/10'
+                    : 'border-[#e7e2da]'
                   }`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                  <div className="space-y-1.5 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-bold text-foreground">{srv.title.en}</h3>
-                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${typeColor}`}>
-                        {typeLabel}
-                      </span>
-                      <span className="rounded-full bg-neutral-100 border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                        {dMode === 'ONLINE'
-                          ? '🌐 Online'
-                          : dMode === 'IN_PERSON'
-                            ? '📍 In-Person'
-                            : '🔄 Hybrid'}
-                      </span>
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${srv.approvalStatus === 'pending'
+                  <div className="flex flex-col sm:flex-row items-start gap-4 flex-1">
+                    <div className="relative h-24 w-40 shrink-0 overflow-hidden rounded-xl border border-[#e7e2da] bg-gradient-to-br from-[#101F49] via-[#1c3575] to-[#2855C5]">
+                      {srv.thumbnailUrl ? (
+                        <img
+                          src={srv.thumbnailUrl}
+                          alt={srv.title.en}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full flex-col items-center justify-center text-white/75">
+                          <ImageIcon size={18} className="text-[#F8C15C] mb-1" />
+                          <span className="text-[9px] font-bold uppercase tracking-wider">No Thumbnail</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1.5 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-base font-bold text-foreground">{srv.title.en}</h3>
+                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${typeColor}`}>
+                          {typeLabel}
+                        </span>
+                        <span className="rounded-full bg-neutral-100 border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          {dMode === 'ONLINE'
+                            ? '🌐 Online'
+                            : dMode === 'IN_PERSON'
+                              ? '📍 In-Person'
+                              : '🔄 Hybrid'}
+                        </span>
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${srv.approvalStatus === 'pending'
                             ? 'bg-amber-50 text-amber-800 border border-amber-200'
                             : srv.approvalStatus === 'approved'
                               ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                               : 'bg-rose-50 text-rose-800 border border-rose-200'
-                          }`}
-                      >
-                        {srv.approvalStatus === 'pending'
-                          ? 'Pending Admin Review'
-                          : srv.approvalStatus || 'pending'}
-                      </span>
-                      {!srv.isActive && (
-                        <span className="rounded-full bg-neutral-100 border border-border px-2.5 py-0.5 text-[10px] font-bold text-muted-foreground">
-                          Unpublished / Inactive
-                        </span>
-                      )}
-                      {srv.requiresLicensingReview && (
-                        <span className="rounded-full bg-purple-50 border border-purple-200 px-2.5 py-0.5 text-[10px] font-bold text-purple-800">
-                          {srv.licensingReviewStatus === 'licensing_approved'
-                            ? '✓ Licensing Review Approved'
-                            : srv.licensingReviewStatus === 'licensing_rejected'
-                              ? '✕ Licensing Review Rejected'
-                              : '⚠ Separate Licensing Review Required'}
-                        </span>
-                      )}
-                      {srv.isMvpTaxonomyValid === false && (
-                        <span className="rounded-full bg-rose-50 border border-rose-200 px-2.5 py-0.5 text-[10px] font-bold text-rose-700">
-                          ⚠ Outside Approved MVP Taxonomy
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground font-medium" dir="rtl">
-                      {srv.title.ar}
-                    </p>
-
-                    <p className="text-xs text-muted-foreground pt-1">
-                      Expert: <strong className="text-foreground">{srv.expertName}</strong> • Category:{' '}
-                      <strong className="text-primary">
-                        {srv.categoryLabel || srv.categorySlug || 'None'} /{' '}
-                        {srv.subcategoryLabel || srv.subcategorySlug || 'None'}
-                      </strong>
-                      {bType === 'APPOINTMENT' ? (
-                        <>
-                          {' '}
-                          • {srv.durationMinutes} min session{' '}
-                          {srv.breakAfterMinutes ? `(${srv.breakAfterMinutes}m break)` : ''}
-                        </>
-                      ) : (
-                        <>
-                          {' '}
-                          • {srv.event?.date || srv.event?.startDate || 'Date TBD'} •{' '}
-                          {srv.event?.registeredCount || srv.event?.enrolledCount || 0} /{' '}
-                          {srv.event?.capacity || 0} seats booked
-                        </>
-                      )}
-                    </p>
-
-                    {srv.intendedAudience?.en && (
-                      <p className="text-xs text-muted-foreground">
-                        Intended Audience:{' '}
-                        <strong className="text-foreground">{srv.intendedAudience.en}</strong>
-                        {srv.intendedAudience.ar ? ` (${srv.intendedAudience.ar})` : ''}
-                      </p>
-                    )}
-
-                    {srv.adminReviewNote && (
-                      <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-                        <strong>Review Scope Note:</strong> {srv.adminReviewNote}
-                      </p>
-                    )}
-
-                    {srv.excludedPolicyViolation && (
-                      <p className="text-xs text-rose-900 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-1.5">
-                        <strong>Excluded Service Alert:</strong> {srv.excludedPolicyViolation}
-                      </p>
-                    )}
-
-                    <p className="text-xs font-mono text-muted-foreground font-semibold">
-                      Pricing: {srv.pricing?.prices?.EGP ?? 0} EGP • ${srv.pricing?.prices?.USD ?? 0} •{' '}
-                      {srv.pricing?.prices?.SAR ?? 0} SAR
-                    </p>
-
-                    {srv.description?.en && (
-                      <p className="text-xs text-muted-foreground pt-1 max-w-2xl">
-                        {srv.description.en}
-                      </p>
-                    )}
-
-                    {srv.rejectionReason && (
-                      <p className="text-xs text-rose-700 pt-1">
-                        <strong>Rejection reason:</strong> {srv.rejectionReason}
-                      </p>
-                    )}
-
-                    <div className="pt-2 flex flex-wrap items-center gap-4">
-                      <Link
-                        href={`/dashboard?expertId=${srv.expertId}`}
-                        target="_blank"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-                      >
-                        Edit / Reassign in Expert Workspace ↗
-                      </Link>
-                      {srv.isActive && srv.approvalStatus === 'approved' && (
-                        <a
-                          href={`/services/${srv.slug || srv._id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 hover:underline"
+                            }`}
                         >
-                          Open Public Shareable Page ↗
-                        </a>
+                          {srv.approvalStatus === 'pending'
+                            ? 'Pending Admin Review'
+                            : srv.approvalStatus || 'pending'}
+                        </span>
+                        {!srv.isActive && (
+                          <span className="rounded-full bg-neutral-100 border border-border px-2.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+                            Unpublished / Inactive
+                          </span>
+                        )}
+                        {srv.requiresLicensingReview && (
+                          <span className="rounded-full bg-purple-50 border border-purple-200 px-2.5 py-0.5 text-[10px] font-bold text-purple-800">
+                            {srv.licensingReviewStatus === 'licensing_approved'
+                              ? '✓ Licensing Review Approved'
+                              : srv.licensingReviewStatus === 'licensing_rejected'
+                                ? '✕ Licensing Review Rejected'
+                                : '⚠ Separate Licensing Review Required'}
+                          </span>
+                        )}
+                        {srv.isMvpTaxonomyValid === false && (
+                          <span className="rounded-full bg-rose-50 border border-rose-200 px-2.5 py-0.5 text-[10px] font-bold text-rose-700">
+                            ⚠ Outside Approved MVP Taxonomy
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground font-medium" dir="rtl">
+                        {srv.title.ar}
+                      </p>
+
+                      <p className="text-xs text-muted-foreground pt-1">
+                        Expert: <strong className="text-foreground">{srv.expertName}</strong> • Category:{' '}
+                        <strong className="text-primary">
+                          {srv.categoryLabel || srv.categorySlug || 'None'} /{' '}
+                          {srv.subcategoryLabel || srv.subcategorySlug || 'None'}
+                        </strong>
+                        {bType === 'APPOINTMENT' ? (
+                          <>
+                            {' '}
+                            • {srv.durationMinutes} min session{' '}
+                            {srv.breakAfterMinutes ? `(${srv.breakAfterMinutes}m break)` : ''}
+                          </>
+                        ) : (
+                          <>
+                            {' '}
+                            • {srv.event?.date || srv.event?.startDate || 'Date TBD'} •{' '}
+                            {srv.event?.registeredCount || srv.event?.enrolledCount || 0} /{' '}
+                            {srv.event?.capacity || 0} seats booked
+                          </>
+                        )}
+                      </p>
+
+                      {srv.intendedAudience?.en && (
+                        <p className="text-xs text-muted-foreground">
+                          Intended Audience:{' '}
+                          <strong className="text-foreground">{srv.intendedAudience.en}</strong>
+                          {srv.intendedAudience.ar ? ` (${srv.intendedAudience.ar})` : ''}
+                        </p>
                       )}
+
+                      {srv.adminReviewNote && (
+                        <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                          <strong>Review Scope Note:</strong> {srv.adminReviewNote}
+                        </p>
+                      )}
+
+                      {srv.excludedPolicyViolation && (
+                        <p className="text-xs text-rose-900 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-1.5">
+                          <strong>Excluded Service Alert:</strong> {srv.excludedPolicyViolation}
+                        </p>
+                      )}
+
+                      <p className="text-xs font-mono text-muted-foreground font-semibold">
+                        Pricing: {srv.pricing?.prices?.EGP ?? 0} EGP • ${srv.pricing?.prices?.USD ?? 0} •{' '}
+                        {srv.pricing?.prices?.SAR ?? 0} SAR
+                      </p>
+
+                      {srv.description?.en && (
+                        <p className="text-xs text-muted-foreground pt-1 max-w-2xl">
+                          {srv.description.en}
+                        </p>
+                      )}
+
+                      {srv.rejectionReason && (
+                        <p className="text-xs text-rose-700 pt-1">
+                          <strong>Rejection reason:</strong> {srv.rejectionReason}
+                        </p>
+                      )}
+
+                      <div className="pt-2 flex flex-wrap items-center gap-4">
+                        <Link
+                          href={`/dashboard?expertId=${srv.expertId}`}
+                          target="_blank"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                        >
+                          Edit / Reassign in Expert Workspace ↗
+                        </Link>
+                        {srv.isActive && srv.approvalStatus === 'approved' && (
+                          <a
+                            href={`/services/${srv.slug || srv._id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 hover:underline"
+                          >
+                            Open Public Shareable Page ↗
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -604,6 +626,44 @@ export default function AdminServicesPage() {
                   className="mt-1 w-full rounded-xl border border-border bg-white px-3 py-2 text-xs text-foreground outline-none focus:border-primary shadow-2xs"
                 />
               </label>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-neutral-50/70 p-3.5">
+              <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <span className="block text-xs font-bold text-foreground">Service Card Thumbnail</span>
+                  <span className="text-[11px] text-muted-foreground">16:9 cover image displayed on service cards</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CloudinaryUploadWidget
+                    onSuccess={(res) => setEditServiceThumbnailUrl(res.secureUrl || res.url)}
+                    folder="bokbok/service_thumbnails"
+                    fallbackType="service_thumbnail"
+                    cropping={true}
+                    croppingAspectRatio={16 / 9}
+                    buttonText={editServiceThumbnailUrl ? 'Change Thumbnail' : 'Upload Thumbnail'}
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-primary-hover"
+                  />
+                  {editServiceThumbnailUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setEditServiceThumbnailUrl('')}
+                      className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100"
+                    >
+                      <Trash2 size={12} /> Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+              {editServiceThumbnailUrl && (
+                <div className="mt-3 relative h-32 w-56 overflow-hidden rounded-xl border border-border bg-[#101F49]">
+                  <img
+                    src={editServiceThumbnailUrl}
+                    alt="Thumbnail preview"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">

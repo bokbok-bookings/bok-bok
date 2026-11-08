@@ -5,7 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { withBokBok } from '@/components/brand/bok-bok'
-import { Search, Clock, Calendar, Users, ShieldCheck } from 'lucide-react'
+import { Search, Clock, Calendar, Users, ShieldCheck, Sparkles } from 'lucide-react'
 import { CATEGORIES, getCategoryLabel, getSubcategoryLabel } from '@/lib/data/categories'
 import { useLanguage } from '@/lib/i18n/language-context'
 
@@ -14,6 +14,7 @@ export interface CatalogItem {
   slug?: string
   title: { en: string; ar: string }
   description: { en: string; ar: string }
+  thumbnailUrl?: string
   intendedAudience?: { en: string; ar: string }
   categorySlug?: string
   subcategorySlug?: string
@@ -224,11 +225,10 @@ function CatalogListingContent({ view, title, subtitle }: CatalogListingProps) {
                   setSelectedCategory('All')
                   setSelectedSubcategory('All')
                 }}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${
-                  selectedCategory === 'All'
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${selectedCategory === 'All'
                     ? 'bg-secondary border border-accent text-primary shadow-xs ring-1 ring-accent/30'
                     : 'bg-surface border border-border text-foreground hover:bg-secondary/40 hover:border-accent/40 font-medium'
-                }`}
+                  }`}
               >
                 {selectedCategory === 'All' && (
                   <span className="size-1.5 rounded-full bg-accent shrink-0" />
@@ -253,11 +253,10 @@ function CatalogListingContent({ view, title, subtitle }: CatalogListingProps) {
                       setSelectedCategory(cat.slug)
                       setSelectedSubcategory('All')
                     }}
-                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${
-                      isSelected
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${isSelected
                         ? 'bg-secondary border border-accent text-primary shadow-xs ring-1 ring-accent/30'
                         : 'bg-surface border border-border text-foreground hover:bg-secondary/40 hover:border-accent/40 font-medium'
-                    }`}
+                      }`}
                   >
                     {isSelected && (
                       <span className="size-1.5 rounded-full bg-accent shrink-0" />
@@ -293,11 +292,10 @@ function CatalogListingContent({ view, title, subtitle }: CatalogListingProps) {
                 <button
                   type="button"
                   onClick={() => setSelectedSubcategory('All')}
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-all ${
-                    selectedSubcategory === 'All'
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-all ${selectedSubcategory === 'All'
                       ? 'bg-accent text-primary shadow-xs'
                       : 'bg-surface border border-border text-foreground hover:bg-secondary/40 hover:border-accent/40 font-medium'
-                  }`}
+                    }`}
                 >
                   {isAr ? 'الكل' : 'All'}
                 </button>
@@ -313,11 +311,10 @@ function CatalogListingContent({ view, title, subtitle }: CatalogListingProps) {
                       key={sub.slug}
                       type="button"
                       onClick={() => setSelectedSubcategory(sub.slug)}
-                      className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-all ${
-                        isSubSelected
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-all ${isSubSelected
                           ? 'bg-accent text-primary shadow-xs'
                           : 'bg-surface border border-border text-foreground hover:bg-secondary/40 hover:border-accent/40 font-medium'
-                      }`}
+                        }`}
                     >
                       {subLabel}
                     </button>
@@ -352,76 +349,119 @@ function CatalogListingContent({ view, title, subtitle }: CatalogListingProps) {
                 return (
                   <div
                     key={item._id}
-                    className="group flex flex-col justify-between rounded-3xl border border-border bg-surface p-6 shadow-xs transition hover:-translate-y-1 hover:border-accent/60 hover:shadow-md"
+                    className="group flex flex-col justify-between overflow-hidden rounded-3xl border border-border bg-surface shadow-xs transition hover:-translate-y-1 hover:border-accent/60 hover:shadow-md"
                   >
                     <div>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="rounded-full bg-surface border border-border px-2.5 py-0.5 text-[10px] font-bold text-primary">
-                            {catLabel}
-                          </span>
-                          {subLabel && (
-                            <span className="rounded-full bg-secondary text-primary px-2.5 py-0.5 text-[10px] font-bold">
-                              {subLabel}
+                      {/* Service Card Thumbnail */}
+                      <Link
+                        href={localeHref(`/services/${item.slug || item._id}`)}
+                        className="relative block h-48 w-full overflow-hidden bg-gradient-to-br from-[#101F49] via-[#1c3575] to-[#2855C5]"
+                      >
+                        {item.thumbnailUrl ? (
+                          <img
+                            src={item.thumbnailUrl}
+                            alt={titleText}
+                            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full flex-col items-center justify-center p-6 text-center">
+                            <div className="mb-2.5 flex size-12 items-center justify-center rounded-2xl border border-white/15 bg-white/10 backdrop-blur-xs">
+                              <Sparkles size={22} className="text-[#F8C15C]" />
+                            </div>
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-white/85">
+                              {catLabel}
                             </span>
-                          )}
+                          </div>
+                        )}
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
+
+                        {/* Top Floating Category & Subcategory Badges */}
+                        <div className="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="rounded-full bg-white/95 backdrop-blur-xs px-2.5 py-1 text-[10px] font-bold text-[#101F49] shadow-xs">
+                              {catLabel}
+                            </span>
+                            {subLabel && (
+                              <span className="rounded-full bg-[#F8C15C]/95 backdrop-blur-xs text-[#101F49] px-2.5 py-1 text-[10px] font-bold shadow-xs">
+                                {subLabel}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <span className="text-sm font-black text-primary shrink-0">
-                          {item.pricing?.prices?.[item.pricing?.baseCurrency || 'EGP'] ?? 0}{' '}
-                          {item.pricing?.baseCurrency || 'EGP'}
-                        </span>
+
+                        {/* Bottom Floating Duration/Date & Price Pill */}
+                        <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-black/55 backdrop-blur-xs border border-white/15 px-2.5 py-1 text-[10px] font-bold text-white">
+                            {item.event ? (
+                              <>
+                                <Calendar size={11} /> {item.event.date}
+                              </>
+                            ) : (
+                              <>
+                                <Clock size={11} /> {item.durationMinutes} {t.catalog.duration}
+                              </>
+                            )}
+                          </span>
+
+                          <span className="rounded-2xl bg-white/95 backdrop-blur-xs px-3 py-1 text-xs font-black text-[#101F49] shadow-sm shrink-0">
+                            {item.pricing?.prices?.[item.pricing?.baseCurrency || 'EGP'] ?? 0}{' '}
+                            {item.pricing?.baseCurrency || 'EGP'}
+                          </span>
+                        </div>
+                      </Link>
+
+                      {/* Card Body */}
+                      <div className="p-5 sm:p-6 pb-0">
+                        <Link href={localeHref(`/services/${item.slug || item._id}`)}>
+                          <h3 className="text-base font-bold text-primary leading-snug group-hover:text-accent-hover transition line-clamp-2">
+                            {titleText}
+                          </h3>
+                        </Link>
+
+                        {descText && (
+                          <p className="mt-2 text-xs leading-relaxed text-muted-foreground line-clamp-2">
+                            {descText}
+                          </p>
+                        )}
+
+                        {audienceText && (
+                          <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <Users size={12} className="text-primary shrink-0" />
+                            <span className="truncate">
+                              {isAr ? 'الفئة المستهدفة: ' : 'Audience: '}
+                              <strong className="text-primary">{audienceText}</strong>
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Event or Duration info */}
+                        {item.event ? (
+                          <div className="mt-4 rounded-xl bg-secondary/80 border border-accent/30 p-2.5 text-[11px] text-primary space-y-1">
+                            <div className="flex items-center justify-between text-primary/80">
+                              <span className="font-semibold">
+                                {item.event.startTime} - {item.event.endTime}
+                              </span>
+                              <span className="font-bold">
+                                {item.event.capacity - (item.event.registeredCount || 0)}{' '}
+                                {isAr ? 'أماكن متبقية' : 'spots left'}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-3.5 flex items-center justify-between text-[11px] text-muted-foreground">
+                            <span className="flex items-center gap-1.5">
+                              <Clock size={13} />
+                              {item.durationMinutes} {t.catalog.duration}
+                            </span>
+                            <span className="rounded-full bg-secondary text-primary px-2 py-0.5 text-[10px] font-bold">
+                              {isAr ? 'معتمد' : 'Verified'}
+                            </span>
+                          </div>
+                        )}
                       </div>
-
-                      <h3 className="mt-3.5 text-base font-bold text-primary leading-snug group-hover:text-primary transition">
-                        {titleText}
-                      </h3>
-
-                      {descText && (
-                        <p className="mt-2 text-xs leading-relaxed text-muted-foreground line-clamp-2">
-                          {descText}
-                        </p>
-                      )}
-
-                      {audienceText && (
-                        <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                          <Users size={12} className="text-primary shrink-0" />
-                          <span className="truncate">
-                            {isAr ? 'الفئة المستهدفة: ' : 'Audience: '}
-                            <strong className="text-primary">{audienceText}</strong>
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Event or Duration info */}
-                      {item.event ? (
-                        <div className="mt-4 rounded-xl bg-secondary/80 border border-accent/30 p-2.5 text-[11px] text-primary space-y-1">
-                          <div className="flex items-center gap-1.5 font-bold">
-                            <Calendar size={13} /> {item.event.date}
-                          </div>
-                          <div className="flex items-center justify-between text-primary/80">
-                            <span>
-                              {item.event.startTime} - {item.event.endTime}
-                            </span>
-                            <span>
-                              {item.event.capacity - (item.event.registeredCount || 0)}{' '}
-                              {isAr ? 'أماكن متبقية' : 'spots left'}
-                            </span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mt-4 flex items-center justify-between text-[11px] text-muted-foreground">
-                          <span className="flex items-center gap-1.5">
-                            <Clock size={13} />
-                            {item.durationMinutes} {t.catalog.duration}
-                          </span>
-                          <span className="rounded-full bg-secondary text-primary px-2 py-0.5 text-[10px] font-bold">
-                            {isAr ? 'معتمد' : 'Verified'}
-                          </span>
-                        </div>
-                      )}
                     </div>
 
-                    <div className="mt-6 border-t border-border pt-4">
+                    <div className="p-5 sm:p-6 pt-4 mt-4 border-t border-border">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className="relative size-7 overflow-hidden rounded-full bg-secondary">

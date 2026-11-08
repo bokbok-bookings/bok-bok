@@ -255,6 +255,7 @@ export async function PATCH(request: Request) {
         if (updates.isActive !== undefined) updateDoc.isActive = Boolean(updates.isActive)
         if (updates.categorySlug) updateDoc.categorySlug = updates.categorySlug
         if (updates.subcategorySlug) updateDoc.subcategorySlug = updates.subcategorySlug
+        if (updates.thumbnailUrl !== undefined) updateDoc.thumbnailUrl = updates.thumbnailUrl || null
       }
     } else {
       return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 })

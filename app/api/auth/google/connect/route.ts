@@ -45,6 +45,7 @@ export async function GET(request: Request) {
     'https://www.googleapis.com/auth/calendar.events',
     'https://www.googleapis.com/auth/meetings.space.created',
     'https://www.googleapis.com/auth/meetings.space.readonly',
+    'https://www.googleapis.com/auth/meetings.space.settings',
   ]
 
   const authUrl = oauth2Client.generateAuthUrl({

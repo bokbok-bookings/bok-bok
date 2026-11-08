@@ -153,6 +153,7 @@ export async function POST(request: Request) {
       slug: candidateSlug,
       title: sanitizedTitle,
       description: sanitizedDescription,
+      ...(validation.value.thumbnailUrl ? { thumbnailUrl: validation.value.thumbnailUrl } : {}),
       intendedAudience: validation.value.intendedAudience,
       adultsOnly: true,
       minimumAge: 18,
@@ -270,6 +271,7 @@ export async function PUT(request: Request) {
       updatedAt: new Date(),
       title: sanitizedTitle,
       description: sanitizedDescription,
+      ...(validation.value.thumbnailUrl ? { thumbnailUrl: validation.value.thumbnailUrl } : {}),
       intendedAudience: validation.value.intendedAudience,
       adultsOnly: true,
       minimumAge: 18,
@@ -315,6 +317,9 @@ export async function PUT(request: Request) {
     if (validation.value.event) {
       updateDoc.event = validation.value.event
     }
+    if (validation.value.thumbnailUrl) {
+      updateDoc.thumbnailUrl = validation.value.thumbnailUrl
+    }
 
     if (body.isActive !== undefined) updateDoc.isActive = Boolean(body.isActive)
     if (body.isMostBooked !== undefined) updateDoc.isMostBooked = Boolean(body.isMostBooked)
@@ -335,6 +340,7 @@ export async function PUT(request: Request) {
     if (validation.unset.includes('event')) unsets.event = ''
     if (validation.unset.includes('serviceKind')) unsets.serviceKind = ''
     if (validation.unset.includes('location')) unsets.location = ''
+    if (validation.unset.includes('thumbnailUrl')) unsets.thumbnailUrl = ''
 
     const updateOps: any = { $set: updateDoc }
     if (Object.keys(unsets).length > 0) {

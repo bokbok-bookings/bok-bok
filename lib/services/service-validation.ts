@@ -55,6 +55,7 @@ export type LicensingReviewStatus =
 
 export interface NormalizedService {
   slug?: string
+  thumbnailUrl?: string
   title: LocalizedValue
   description: LocalizedValue
   intendedAudience: LocalizedValue
@@ -84,7 +85,7 @@ export interface ServiceValidationResult {
   warnings?: string[]
   value?: NormalizedService
   /** fields that are irrelevant for the resulting booking type and must be removed */
-  unset: Array<'event' | 'serviceKind' | 'location'>
+  unset: Array<'event' | 'serviceKind' | 'location' | 'thumbnailUrl'>
 }
 
 export interface ServiceValidationOptions {
@@ -585,6 +586,15 @@ export function validateServiceInput(
   const rawSlug = pick('slug')
   const slug = rawSlug ? slugify(rawSlug) : undefined
 
+  const rawThumbnail = input.thumbnailUrl !== undefined ? input.thumbnailUrl : existing.thumbnailUrl
+  const thumbnailUrl = str(rawThumbnail)
+  if (input.thumbnailUrl === '' || input.thumbnailUrl === null) {
+    unset.push('thumbnailUrl')
+  } else if (thumbnailUrl && !isHttpUrl(thumbnailUrl) && !thumbnailUrl.startsWith('/')) {
+    errors.push('Service thumbnail must be a valid image URL')
+    return { ok: false, errors, warnings, unset }
+  }
+
   const value: NormalizedService = {
     title,
     description,
@@ -605,6 +615,7 @@ export function validateServiceInput(
     hasVerifiedAccreditationAuthorization,
     ...(licensingReviewReason ? { licensingReviewReason } : {}),
     ...(slug ? { slug } : {}),
+    ...(thumbnailUrl ? { thumbnailUrl } : {}),
     ...(serviceKind ? { serviceKind } : {}),
     ...(location ? { location } : {}),
     ...(event ? { event } : {}),

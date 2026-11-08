@@ -19,6 +19,7 @@ interface ServiceItem {
   slug?: string
   title: { en: string; ar: string }
   description: { en: string; ar: string }
+  thumbnailUrl?: string
   intendedAudience?: { en: string; ar: string }
   categorySlug?: string
   subcategorySlug?: string
@@ -408,53 +409,71 @@ export default function ExpertProfile({ params }: PageProps) {
                         <div
                           key={s._id}
                           onClick={() => setSelectedService(s)}
-                          className={`cursor-pointer rounded-2xl border p-4 transition min-w-0 w-full flex flex-col justify-between ${isSelected
-                            ? 'border-primary bg-primary text-white shadow-md'
+                          className={`group cursor-pointer overflow-hidden rounded-2xl border transition min-w-0 w-full flex flex-col justify-between ${isSelected
+                            ? 'border-primary bg-primary text-white shadow-md ring-2 ring-accent/60'
                             : 'border-border bg-surface text-foreground hover:border-primary'
                             }`}
                         >
                           <div>
-                            <div className="flex items-start justify-between gap-2 min-w-0">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span
-                                    className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${isSelected
-                                      ? 'bg-white/20 text-white'
-                                      : 'bg-secondary text-primary'
-                                      }`}
-                                  >
+                            {/* Service Thumbnail Header */}
+                            <div className="relative h-36 w-full overflow-hidden bg-gradient-to-br from-[#101F49] via-[#1c3575] to-[#2855C5]">
+                              {s.thumbnailUrl ? (
+                                <img
+                                  src={s.thumbnailUrl}
+                                  alt={displayTitle}
+                                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full flex-col items-center justify-center p-4 text-center">
+                                  <span className="rounded-xl border border-white/15 bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#F8C15C] backdrop-blur-xs">
+                                    {typeLabel}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
+
+                              {/* Floating Badges Top */}
+                              <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1.5 flex-wrap">
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  <span className="inline-block rounded-full bg-white/95 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary shadow-xs">
                                     {typeLabel}
                                   </span>
                                   {subLabel && (
-                                    <span
-                                      className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-bold ${isSelected
-                                        ? 'bg-accent text-primary'
-                                        : 'bg-secondary text-primary'
-                                        }`}
-                                    >
+                                    <span className="inline-block rounded-full bg-accent/95 px-2 py-0.5 text-[9px] font-bold text-primary shadow-xs">
                                       {subLabel}
                                     </span>
                                   )}
                                 </div>
-                                <h3 className="mt-1.5 text-sm font-bold leading-snug break-words">
-                                  {displayTitle}
-                                </h3>
                               </div>
-                              <span className="text-sm font-black whitespace-nowrap shrink-0 ms-2">
-                                {s.pricing?.prices?.EGP ?? profile.priceNumber} {isAr ? 'ج.م' : 'EGP'}
-                              </span>
+
+                              {/* Price Pill Bottom Right */}
+                              <div className="absolute bottom-2.5 right-2.5 left-2.5 flex items-end justify-between gap-2">
+                                <span className="rounded-full bg-black/55 backdrop-blur-xs border border-white/15 px-2 py-0.5 text-[10px] font-bold text-white">
+                                  {isAr ? `${s.durationMinutes} دقيقة` : `${s.durationMinutes} min`}
+                                </span>
+                                <span className="rounded-xl bg-white/95 backdrop-blur-xs px-2.5 py-1 text-xs font-black text-primary whitespace-nowrap shadow-xs">
+                                  {s.pricing?.prices?.EGP ?? profile.priceNumber} {isAr ? 'ج.م' : 'EGP'}
+                                </span>
+                              </div>
                             </div>
-                            {displayDesc && (
-                              <p
-                                className={`mt-2 text-xs line-clamp-2 leading-relaxed break-words ${isSelected ? 'text-white/80' : 'text-muted-foreground'
-                                  }`}
-                              >
-                                {displayDesc}
-                              </p>
-                            )}
+
+                            {/* Card Body */}
+                            <div className="p-4 pb-0">
+                              <h3 className="text-sm font-bold leading-snug break-words">
+                                {displayTitle}
+                              </h3>
+                              {displayDesc && (
+                                <p
+                                  className={`mt-1.5 text-xs line-clamp-2 leading-relaxed break-words ${isSelected ? 'text-white/80' : 'text-muted-foreground'
+                                    }`}
+                                >
+                                  {displayDesc}
+                                </p>
+                              )}
+                            </div>
                           </div>
                           <div
-                            className={`mt-3 pt-2.5 border-t text-[10px] font-semibold flex items-center justify-between ${isSelected ? 'border-white/15 text-white/60' : 'border-border text-muted-foreground'
+                            className={`p-4 pt-2.5 mt-3 border-t text-[10px] font-semibold flex items-center justify-between ${isSelected ? 'border-white/15 text-white/60' : 'border-border text-muted-foreground'
                               }`}
                           >
                             <span>

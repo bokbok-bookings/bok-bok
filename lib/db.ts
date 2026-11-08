@@ -167,6 +167,8 @@ export interface ExpertDoc {
   googleCalendarEventId?: string
   googleCalendarEventLink?: string
   googleMeetLink?: string
+  googleMeetSpaceName?: string
+  meetDirectAccessConfiguredAt?: Date
   googleMeetError?: string
   googleMeetSyncedAt?: Date
   defaultGoogleMeetLink?: string
@@ -211,6 +213,7 @@ export interface ServiceDoc {
   _id: ObjectId
   expertId: ObjectId // Native BSON ObjectId!
   slug?: string // Unique URL-friendly slug (e.g. 'product-strategy-roadmap-deep-dive')
+  thumbnailUrl?: string
   title: LocalizedText
   description: LocalizedText
   intendedAudience?: LocalizedText
@@ -411,6 +414,8 @@ export interface BookingDoc {
   googleCalendarEventId?: string
   googleCalendarEventLink?: string
   googleMeetLink?: string
+  googleMeetSpaceName?: string
+  meetDirectAccessConfiguredAt?: Date
   googleMeetError?: string
   googleMeetSyncedAt?: Date
   googleMeetUpdatedAt?: Date

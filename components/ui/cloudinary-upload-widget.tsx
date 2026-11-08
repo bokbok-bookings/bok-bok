@@ -29,7 +29,7 @@ export interface CloudinaryUploadWidgetProps {
   className?: string
   disabled?: boolean
   children?: React.ReactNode
-  fallbackType?: 'avatar' | 'receipt' | 'id_document' | 'certificate' | 'general'
+  fallbackType?: 'avatar' | 'receipt' | 'id_document' | 'certificate' | 'service_thumbnail' | 'general'
   allowPdf?: boolean
 }
 
@@ -295,7 +295,7 @@ export function CloudinaryUploadWidget({
     setIsDragging(false)
     try {
       e.currentTarget.releasePointerCapture(e.pointerId)
-    } catch {}
+    } catch { }
   }
 
   // Mouse wheel zoom
@@ -450,9 +450,8 @@ export function CloudinaryUploadWidget({
             onPointerCancel={handlePointerUp}
             onWheel={handleWheel}
             style={{ width: VIEWPORT_SIZE, height: VIEWPORT_SIZE, touchAction: 'none' }}
-            className={`relative overflow-hidden rounded-2xl bg-neutral-950 select-none shadow-inner border border-neutral-800 ${
-              isDragging ? 'cursor-grabbing' : 'cursor-grab'
-            }`}
+            className={`relative overflow-hidden rounded-2xl bg-neutral-950 select-none shadow-inner border border-neutral-800 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'
+              }`}
           >
             {/* Main Interactive Canvas */}
             <canvas
@@ -688,8 +687,8 @@ export function CloudinaryUploadWidget({
           cropping
             ? 'image/jpeg,image/png,image/webp,image/gif,image/heic,image/avif'
             : allowPdf
-            ? 'image/*,application/pdf'
-            : 'image/*'
+              ? 'image/*,application/pdf'
+              : 'image/*'
         }
         className="hidden"
         onChange={handleFileChange}

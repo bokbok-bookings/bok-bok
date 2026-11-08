@@ -71,6 +71,10 @@ export async function POST(request: Request) {
       folder = 'bokbok/avatars'
       maxWidth = 800
       maxHeight = 800
+    } else if (type === 'service_thumbnail') {
+      folder = 'bokbok/service_thumbnails'
+      maxWidth = 1280
+      maxHeight = 800
     } else if (type === 'id_document') {
       folder = 'bokbok/national_ids'
       maxWidth = 1800

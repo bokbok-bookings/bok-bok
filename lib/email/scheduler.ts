@@ -11,6 +11,7 @@ import {
 import { sendTransactionalEmail, processEmailRetries } from '@/lib/email/mailer'
 import { getBookingRoleLinks } from '@/lib/booking/access'
 import { applyJoinTrackingAttendance } from '@/lib/booking/attendance'
+import { ensureBookingMeetDirectEntry } from '@/lib/google-calendar'
 import {
   renderDayOfReminderEmail,
   renderBeforeSessionReminderEmail,
@@ -390,6 +391,16 @@ export async function processAutomatedReminders(): Promise<{
       )
 
       if (lock.modifiedCount > 0) {
+        // Ensure the Google Meet room is set to OPEN and both Client & Expert are authorized
+        // so neither is prompted with "Ask to join" when the 15-min window opens
+        if (isOnline && meetLink) {
+          try {
+            await ensureBookingMeetDirectEntry(booking)
+          } catch (err) {
+            console.warn('[Scheduler] Failed to configure direct Meet entry:', err)
+          }
+        }
+
         // Send to Client (uses tracked join URL so clicking records client attendance)
         const clientEmailData = renderBeforeSessionReminderEmail({
           booking,
