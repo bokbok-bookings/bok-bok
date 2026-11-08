@@ -19,6 +19,8 @@ export interface CloudinaryUploadSuccess {
 export interface CloudinaryUploadWidgetProps {
   onSuccess: (result: CloudinaryUploadSuccess) => void
   onError?: (error: any) => void
+  onUploadStart?: () => void
+  onUploadingChange?: (uploading: boolean) => void
   folder?: string
   cropping?: boolean
   croppingAspectRatio?: number
@@ -39,6 +41,8 @@ const OUTPUT_SIZE = 600
 export function CloudinaryUploadWidget({
   onSuccess,
   onError,
+  onUploadStart,
+  onUploadingChange,
   folder = 'bokbok/uploads',
   cropping = false,
   croppingAspectRatio = 1,
@@ -235,6 +239,8 @@ export function CloudinaryUploadWidget({
 
     // Direct Upload Workflow (cropping === false)
     setIsUploading(true)
+    onUploadStart?.()
+    onUploadingChange?.(true)
     try {
       const formData = new FormData()
       formData.append('file', file)
@@ -266,6 +272,7 @@ export function CloudinaryUploadWidget({
       alert(err.message || 'Error uploading file')
     } finally {
       setIsUploading(false)
+      onUploadingChange?.(false)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
@@ -335,6 +342,8 @@ export function CloudinaryUploadWidget({
 
     setIsSavingCrop(true)
     setCropError(null)
+    onUploadStart?.()
+    onUploadingChange?.(true)
 
     try {
       const exportCanvas = document.createElement('canvas')
@@ -402,6 +411,7 @@ export function CloudinaryUploadWidget({
       onError?.(err)
     } finally {
       setIsSavingCrop(false)
+      onUploadingChange?.(false)
     }
   }
 

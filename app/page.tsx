@@ -6,16 +6,9 @@ import { useState, useEffect, useRef } from 'react'
 import { BrandLogo } from '@/components/brand/logo'
 import {
   ArrowRight,
-  BriefcaseBusiness,
   Check,
   ChevronLeft,
   ChevronRight,
-  Compass,
-  Globe2,
-  GraduationCap,
-  Megaphone,
-  Palette,
-  Plane,
   Search,
   ShieldCheck,
   Star,
@@ -26,7 +19,7 @@ import { VisionSection } from '@/components/home/vision-section'
 const fallbackCategories = [
   {
     slug: 'marketing',
-    icon: Megaphone,
+    image: '/categories/marketing.png',
     name: 'Marketing',
     nameAr: 'التسويق',
     description: 'Strategy, content, SEO, branding & campaign reviews',
@@ -35,7 +28,7 @@ const fallbackCategories = [
   },
   {
     slug: 'business-entrepreneurship',
-    icon: BriefcaseBusiness,
+    image: '/categories/business-entrepreneurship.png',
     name: 'Business & Entrepreneurship',
     nameAr: 'الأعمال وريادة الأعمال',
     description: 'Business planning, startup mentoring & sales strategy',
@@ -44,7 +37,7 @@ const fallbackCategories = [
   },
   {
     slug: 'technology-it',
-    icon: Compass,
+    image: '/categories/technology-it.png',
     name: 'Technology & IT',
     nameAr: 'التكنولوجيا وتقنية المعلومات',
     description: 'Web, mobile, AI, data, architecture & code reviews',
@@ -53,7 +46,7 @@ const fallbackCategories = [
   },
   {
     slug: 'career-professional-development',
-    icon: GraduationCap,
+    image: '/categories/career-professional-development.png',
     name: 'Career & Professional Development',
     nameAr: 'التطوير المهني والوظيفي',
     description: 'CV review, interview prep, career planning & leadership',
@@ -62,7 +55,7 @@ const fallbackCategories = [
   },
   {
     slug: 'design-creative',
-    icon: Palette,
+    image: '/categories/design-creative.png',
     name: 'Design & Creative',
     nameAr: 'التصميم والإبداع',
     description: 'UI/UX, visual identity, illustration, video & styling',
@@ -71,7 +64,7 @@ const fallbackCategories = [
   },
   {
     slug: 'languages-communication',
-    icon: Globe2,
+    image: '/categories/languages-communication.png',
     name: 'Languages & Communication',
     nameAr: 'اللغات والتواصل',
     description: 'Conversation practice, business & presentation skills',
@@ -80,7 +73,7 @@ const fallbackCategories = [
   },
   {
     slug: 'personal-skills-lifestyle',
-    icon: Check,
+    image: '/categories/personal-skills-lifestyle.png',
     name: 'Personal Skills & Lifestyle',
     nameAr: 'المهارات الشخصية وأسلوب الحياة',
     description: 'Time management, productivity & goal setting',
@@ -89,7 +82,7 @@ const fallbackCategories = [
   },
   {
     slug: 'hobbies-skills',
-    icon: Palette,
+    image: '/categories/hobbies-skills.png',
     name: 'Hobbies & Skills',
     nameAr: 'الهوايات والمهارات',
     description: 'Drawing, creative writing, music & photography basics',
@@ -98,7 +91,7 @@ const fallbackCategories = [
   },
   {
     slug: 'travel',
-    icon: Plane,
+    image: '/categories/travel.png',
     name: 'Travel',
     nameAr: 'السفر والترحال',
     description: 'Destination info, preparation & travel guidance',
@@ -197,20 +190,9 @@ export default function Page() {
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          const iconLookup: Record<string, any> = {
-            marketing: Megaphone,
-            'business-entrepreneurship': BriefcaseBusiness,
-            'technology-it': Compass,
-            'career-professional-development': GraduationCap,
-            'design-creative': Palette,
-            'languages-communication': Globe2,
-            'personal-skills-lifestyle': Check,
-            'hobbies-skills': Palette,
-            travel: Plane,
-          }
           const formatted = json.data.map((c: any) => ({
             slug: c.slug,
-            icon: iconLookup[c.slug] || Compass,
+            image: `/categories/${c.slug}.png`,
             name: c.name?.en || c.title?.en,
             nameAr: c.name?.ar || c.title?.ar,
             description: c.description?.en || 'Guidance from top experts in this field',
@@ -375,51 +357,56 @@ export default function Page() {
               const targetSlug = c.slug || c.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
               const displayName = isAr ? c.nameAr || c.name : c.name
               const displayDesc = isAr ? c.descriptionAr || c.description : c.description
-              const Icon = c.icon
+              const imageSrc = c.image || `/categories/${targetSlug}.png`
 
               return (
                 <Link
                   key={targetSlug}
                   href={localeHref(`/explore?category=${encodeURIComponent(targetSlug)}`)}
-                  className="group relative flex flex-col justify-between overflow-hidden rounded-2xl sm:rounded-3xl border border-border bg-surface p-4 sm:p-7 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-accent hover:bg-linear-to-b hover:from-white hover:to-secondary/20 w-[calc(50%-6px)] min-w-[calc(50%-6px)] max-w-[calc(50%-6px)] shrink-0 snap-start sm:w-auto sm:min-w-0 sm:max-w-none sm:shrink"
+                  className="group relative flex flex-col justify-between overflow-hidden rounded-2xl sm:rounded-3xl border border-border bg-surface p-4 sm:p-7 min-h-[300px] sm:min-h-[350px] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-accent hover:bg-linear-to-b hover:from-white hover:to-secondary/20 w-[calc(50%-6px)] min-w-[calc(50%-6px)] max-w-[calc(50%-6px)] shrink-0 snap-start sm:w-auto sm:min-w-0 sm:max-w-none sm:shrink"
                 >
                   {/* Subtle decorative hover glow */}
                   <div className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-accent/15 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100" />
 
                   <div>
-                    {/* Top Bar: Icon */}
-                    <div className="flex items-center justify-between">
-                      <span className="grid size-10 sm:size-12 place-items-center rounded-xl sm:rounded-2xl bg-secondary border border-accent/25 text-primary transition-all duration-300 group-hover:bg-accent group-hover:scale-105 group-hover:shadow-xs">
-                        <Icon size={19} className="transition-transform duration-300 group-hover:rotate-3 sm:hidden" />
-                        <Icon size={22} className="transition-transform duration-300 group-hover:rotate-3 hidden sm:block" />
-                      </span>
+                    {/* Centered Category Image */}
+                    <div className="flex items-center justify-center pt-1 pb-1">
+                      <div className="relative size-20 sm:size-28 overflow-hidden rounded-2xl sm:rounded-3xl border border-accent/25 bg-secondary/40 shadow-xs transition-all duration-300 group-hover:scale-105 group-hover:border-accent group-hover:shadow-md">
+                        <Image
+                          src={imageSrc}
+                          alt={displayName}
+                          fill
+                          sizes="(max-width: 640px) 80px, 112px"
+                          className="object-cover transition-transform duration-500 group-hover:scale-110"
+                        />
+                      </div>
                     </div>
 
                     {/* Title & Animated Arrow */}
-                    <h3 className="mt-3.5 sm:mt-5 text-sm sm:text-lg font-bold text-foreground transition-colors group-hover:text-primary flex items-center justify-between">
-                      <span className="line-clamp-1">{displayName}</span>
+                    <h3 className="mt-3.5 sm:mt-4 text-sm sm:text-lg font-bold text-foreground transition-colors group-hover:text-primary flex items-center justify-center gap-1.5 text-center leading-snug">
+                      <span>{displayName}</span>
                       <ArrowRight
-                        size={18}
-                        className={`text-primary opacity-0 transition-all duration-300 group-hover:opacity-100 shrink-0 hidden sm:block ${isAr
-                          ? 'rotate-180 translate-x-2 group-hover:translate-x-0'
-                          : '-translate-x-2 group-hover:translate-x-0'
+                        size={16}
+                        className={`text-primary opacity-0 transition-all duration-300 group-hover:opacity-100 shrink-0 hidden sm:inline-block ${isAr
+                          ? 'rotate-180 translate-x-1 group-hover:translate-x-0'
+                          : '-translate-x-1 group-hover:translate-x-0'
                           }`}
                       />
                     </h3>
 
-                    {/* Description */}
-                    <p className="mt-1.5 sm:mt-2 text-[11px] sm:text-xs leading-snug sm:leading-relaxed text-muted-foreground line-clamp-2 min-h-7 sm:min-h-9">
+                    {/* Description - fully shown without truncation */}
+                    <p className="mt-2 text-center text-[11px] sm:text-xs leading-relaxed text-muted-foreground">
                       {displayDesc}
                     </p>
                   </div>
 
                   {/* Bottom Footer Row */}
-                  <div className="mt-4 sm:mt-6 flex items-center justify-between border-t border-border pt-3 sm:pt-4">
-                    <span className="inline-flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-[11px] font-bold text-muted-foreground transition-colors group-hover:text-primary truncate">
-                      <span className="size-1.5 rounded-full bg-accent shrink-0" />
-                      <span>{c.subCount ?? 8}</span>
-                      <span className="hidden xs:inline">{t.home.specializations}</span>
-                    </span>
+                  <div className="mt-2 sm:mt-3 flex items-center justify-center w-full border-t border-border pt-3 sm:pt-4">
+                    {/* <span className="inline-flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-[11px] font-bold text-muted-foreground transition-colors group-hover:text-primary truncate">
+                          <span className="size-1.5 rounded-full bg-accent shrink-0" />
+                          <span>{c.subCount ?? 8}</span>
+                          <span className="hidden xs:inline">{t.home.specializations}</span>
+                        </span> */}
                     <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-bold text-primary group-hover:text-accent-hover transition-colors shrink-0">
                       <span className="hidden sm:inline">{t.home.exploreOfferings} </span>
                       <span className="text-xs">{isAr ? '←' : '→'}</span>

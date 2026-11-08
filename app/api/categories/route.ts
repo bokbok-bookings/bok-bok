@@ -13,7 +13,8 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
   try {
-    await ensureDbIndexes()
+    // Run index check non-blocking in the background so category fetches respond immediately
+    void ensureDbIndexes()
     const { searchParams } = new URL(request.url)
     const slug = searchParams.get('slug')
     const requestedIncludeInactive = searchParams.get('includeInactive') === 'true'

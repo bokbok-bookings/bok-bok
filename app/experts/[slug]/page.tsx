@@ -208,6 +208,10 @@ export default function ExpertProfile({ params }: PageProps) {
       alert(isAr ? 'يرجى إدخال الاسم بالكامل والبريد الإلكتروني' : 'Please enter your full name and email address')
       return
     }
+    if (!receiptUrl) {
+      alert(isAr ? 'يرجى رفع إيصال تحويل إنستاباي لإتمام الحجز' : 'Please upload your InstaPay transfer receipt to complete the booking')
+      return
+    }
 
     setBookingLoading(true)
 
@@ -704,7 +708,12 @@ export default function ExpertProfile({ params }: PageProps) {
                           <CloudinaryUploadWidget
                             folder="bokbok/receipts"
                             fallbackType="receipt"
-                            onSuccess={(result) => setReceiptUrl(result.url)}
+                            onUploadStart={() => setUploadingReceipt(true)}
+                            onSuccess={(result) => {
+                              setReceiptUrl(result.url)
+                              setUploadingReceipt(false)
+                            }}
+                            onError={() => setUploadingReceipt(false)}
                           >
                             <button
                               type="button"
@@ -714,11 +723,25 @@ export default function ExpertProfile({ params }: PageProps) {
                             </button>
                           </CloudinaryUploadWidget>
                         </div>
+                      ) : uploadingReceipt ? (
+                        <div className="rounded-xl border border-dashed border-accent/60 bg-accent/10 p-3 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="size-3.5 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+                            <p className="text-[11px] font-bold text-accent">
+                              {isAr ? 'جاري رفع إيصال الدفع...' : 'Uploading transfer receipt...'}
+                            </p>
+                          </div>
+                        </div>
                       ) : (
                         <CloudinaryUploadWidget
                           folder="bokbok/receipts"
                           fallbackType="receipt"
-                          onSuccess={(result) => setReceiptUrl(result.url)}
+                          onUploadStart={() => setUploadingReceipt(true)}
+                          onSuccess={(result) => {
+                            setReceiptUrl(result.url)
+                            setUploadingReceipt(false)
+                          }}
+                          onError={() => setUploadingReceipt(false)}
                           className="w-full"
                         >
                           <div className="group cursor-pointer rounded-xl border border-dashed border-white/25 bg-white/5 p-3 text-center transition hover:border-accent hover:bg-white/10">
@@ -737,15 +760,19 @@ export default function ExpertProfile({ params }: PageProps) {
                   {/* Submit Button */}
                   <button
                     type="button"
-                    disabled={!selectedTime || bookingLoading || uploadingReceipt}
+                    disabled={!selectedTime || bookingLoading || uploadingReceipt || !receiptUrl}
                     onClick={handleBooking}
-                    className="mt-5 flex w-full items-center justify-center rounded-full bg-accent hover:bg-accent-hover px-5 py-3.5 text-sm font-bold text-primary shadow-xs transition disabled:opacity-40"
+                    className="mt-5 flex w-full items-center justify-center rounded-full bg-accent hover:bg-accent-hover px-5 py-3.5 text-sm font-bold text-primary shadow-xs transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {bookingLoading
                       ? (isAr ? 'جاري إرسال الموعد...' : 'Submitting appointment...')
-                      : selectedTime
-                        ? (isAr ? 'حجز وتأكيد التحويل' : 'Book & Submit Receipt')
-                        : (isAr ? 'اختر التاريخ والتوقيت' : 'Choose a date & time')}
+                      : uploadingReceipt
+                        ? (isAr ? 'جاري رفع إيصال الدفع...' : 'Uploading Receipt...')
+                        : !selectedTime
+                          ? (isAr ? 'اختر التاريخ والتوقيت' : 'Choose a date & time')
+                          : !receiptUrl
+                            ? (isAr ? 'يرجى إرفاق إيصال التحويل أولاً' : 'Upload Receipt to Book')
+                            : (isAr ? 'حجز وتأكيد التحويل' : 'Book & Submit Receipt')}
                   </button>
                 </>
               )}
