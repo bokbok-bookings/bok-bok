@@ -186,7 +186,8 @@ export async function GET(request: Request) {
         return NextResponse.redirect(new URL(callbackUrl || '/dashboard', request.url))
       }
 
-      const target = callbackUrl || (user.role === 'admin' ? '/admin' : '/dashboard')
+      const defaultRedirect = user.role === 'admin' ? '/admin' : user.role === 'client' ? '/account' : '/dashboard'
+      const target = callbackUrl || defaultRedirect
       return NextResponse.redirect(new URL(target, request.url))
     }
   } catch (err: any) {

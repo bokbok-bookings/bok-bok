@@ -435,6 +435,56 @@ export interface BookingDoc {
   clientAttendanceReport?: AttendanceReport
   attendanceDisputeResolution?: AttendanceDisputeResolution
   reminders?: BookingReminders
+  hasReview?: boolean
+  reviewId?: ObjectId
+  hasComplaint?: boolean
+  complaintId?: ObjectId
+}
+
+export interface ReviewDoc {
+  _id?: ObjectId
+  bookingId: ObjectId
+  clientId: ObjectId
+  clientName: string
+  clientEmail: string
+  expertId: ObjectId
+  serviceId?: ObjectId
+  expertRating: number // 1 to 5
+  expertReviewText?: string
+  serviceRating: number // 1 to 5
+  serviceReviewText?: string
+  createdAt: Date
+  updatedAt?: Date
+}
+
+export type ComplaintCategory =
+  | 'no_show'
+  | 'technical_issue'
+  | 'session_shortened'
+  | 'service_quality'
+  | 'billing_payment'
+  | 'other'
+
+export type ComplaintStatus = 'pending' | 'under_review' | 'resolved' | 'dismissed'
+
+export interface ComplaintDoc {
+  _id?: ObjectId
+  bookingId: ObjectId
+  clientId: ObjectId
+  clientName: string
+  clientEmail: string
+  expertId: ObjectId
+  serviceId?: ObjectId
+  category: ComplaintCategory
+  subject: string
+  description: string
+  status: ComplaintStatus
+  adminNotes?: string
+  resolution?: string
+  resolvedAt?: Date
+  resolvedBy?: ObjectId
+  createdAt: Date
+  updatedAt?: Date
 }
 
 export interface EmailLogDoc {
@@ -569,6 +619,16 @@ export async function getAttendanceLogsCollection(): Promise<Collection<Attendan
   return db.collection<AttendanceLogDoc>('attendance_logs')
 }
 
+export async function getReviewsCollection(): Promise<Collection<ReviewDoc>> {
+  const db = await getDb()
+  return db.collection<ReviewDoc>('reviews')
+}
+
+export async function getComplaintsCollection(): Promise<Collection<ComplaintDoc>> {
+  const db = await getDb()
+  return db.collection<ComplaintDoc>('complaints')
+}
+
 const globalForDbIndexes = globalThis as unknown as {
   _ensureDbIndexesPromise?: Promise<void>
 }
@@ -637,6 +697,16 @@ export async function ensureDbIndexes(): Promise<void> {
         safeCreateIndex(db.collection('email_logs'), { bookingId: 1 }),
         safeCreateIndex(db.collection('email_logs'), { status: 1, nextRetryAt: 1 }),
         safeCreateIndex(db.collection('attendance_logs'), { bookingId: 1, submittedAt: -1 }),
+        // Reviews indexes
+        safeCreateIndex(db.collection('reviews'), { bookingId: 1 }, { unique: true }),
+        safeCreateIndex(db.collection('reviews'), { expertId: 1, createdAt: -1 }),
+        safeCreateIndex(db.collection('reviews'), { serviceId: 1 }),
+        safeCreateIndex(db.collection('reviews'), { clientId: 1 }),
+        // Complaints indexes
+        safeCreateIndex(db.collection('complaints'), { bookingId: 1 }),
+        safeCreateIndex(db.collection('complaints'), { clientId: 1, createdAt: -1 }),
+        safeCreateIndex(db.collection('complaints'), { expertId: 1 }),
+        safeCreateIndex(db.collection('complaints'), { status: 1 }),
         // Category & Subcategory indexes
         safeCreateIndex(db.collection('categories'), { slug: 1 }, { unique: true }),
         safeCreateIndex(db.collection('categories'), { isActive: 1, sortOrder: 1 }),

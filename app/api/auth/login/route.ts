@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     if (user.role === 'admin') {
       redirectTo = '/admin'
     } else if (user.role === 'client') {
-      redirectTo = '/'
+      redirectTo = '/account'
     }
 
     return NextResponse.json({

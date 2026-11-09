@@ -18,6 +18,10 @@ export default async function ExpertDashboardLayout({
 }) {
   const session = await verifySession()
 
+  if (session.role === 'client') {
+    redirect('/account')
+  }
+
   // If admin tries to access /dashboard, they can view or use /admin
   let expertDoc = null
   if (session.expertId) {

@@ -56,7 +56,8 @@ export async function POST(request: Request, context: RouteContext) {
       session?.expertId &&
       session.expertId === booking.expertId.toString()
     const isClientSession =
-      session?.userId && booking.clientId && session.userId === booking.clientId.toString()
+      (session?.userId && booking.clientId && session.userId === booking.clientId.toString()) ||
+      (session?.email && booking.clientEmail && session.email.toLowerCase() === booking.clientEmail.toLowerCase())
 
     let callerRole: 'client' | 'expert' | 'admin' | null = null
 
