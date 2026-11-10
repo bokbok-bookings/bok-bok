@@ -33,10 +33,8 @@ export interface CloudinaryUploadWidgetProps {
   children?: React.ReactNode
   fallbackType?: 'avatar' | 'receipt' | 'id_document' | 'certificate' | 'service_thumbnail' | 'general'
   allowPdf?: boolean
+  accept?: string
 }
-
-const VIEWPORT_SIZE = 320
-const OUTPUT_SIZE = 600
 
 export function CloudinaryUploadWidget({
   onSuccess,
@@ -55,10 +53,26 @@ export function CloudinaryUploadWidget({
   children,
   fallbackType = 'receipt',
   allowPdf = false,
+  accept,
 }: CloudinaryUploadWidgetProps) {
   const { isAr } = useLanguage()
   const [mounted, setMounted] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+
+  const isCircle = croppingAspectRatio === 1 && fallbackType !== 'service_thumbnail'
+  const isThumbnail = fallbackType === 'service_thumbnail' || Math.abs(croppingAspectRatio - 16 / 9) < 0.05
+
+  // Dimensions for Viewport Canvas
+  const viewportWidth = isThumbnail ? 368 : croppingAspectRatio !== 1 ? Math.round(320 * croppingAspectRatio) : 320
+  const viewportHeight = isThumbnail ? 207 : 320
+
+  // Dimensions for Output Canvas (High Resolution Export)
+  const outputWidth = isThumbnail ? 1280 : croppingAspectRatio !== 1 ? Math.round(720 * croppingAspectRatio) : 600
+  const outputHeight = isThumbnail ? 720 : 600
+
+  // Dimensions for Mini Preview Canvas
+  const previewWidth = isThumbnail ? 128 : 72
+  const previewHeight = isThumbnail ? 72 : 72
 
   // Crop modal state
   const [isCropModalOpen, setIsCropModalOpen] = useState(false)
@@ -110,20 +124,20 @@ export function CloudinaryUploadWidget({
       const effW = isSwapped ? size.height : size.width
       const effH = isSwapped ? size.width : size.height
 
-      const baseScale = Math.max(VIEWPORT_SIZE / effW, VIEWPORT_SIZE / effH)
+      const baseScale = Math.max(viewportWidth / effW, viewportHeight / effH)
       const currentScale = baseScale * currentZoom
       const dispW = effW * currentScale
       const dispH = effH * currentScale
 
-      const maxPanX = Math.max(0, (dispW - VIEWPORT_SIZE) / 2)
-      const maxPanY = Math.max(0, (dispH - VIEWPORT_SIZE) / 2)
+      const maxPanX = Math.max(0, (dispW - viewportWidth) / 2)
+      const maxPanY = Math.max(0, (dispH - viewportHeight) / 2)
 
       return {
         x: Math.max(-maxPanX, Math.min(maxPanX, x)),
         y: Math.max(-maxPanY, Math.min(maxPanY, y)),
       }
     },
-    []
+    [viewportWidth, viewportHeight]
   )
 
   // Render to both viewport and preview canvas whenever view parameters change
@@ -135,19 +149,19 @@ export function CloudinaryUploadWidget({
     const isSwapped = rotation === 90 || rotation === 270
     const effW = isSwapped ? img.naturalHeight : img.naturalWidth
     const effH = isSwapped ? img.naturalWidth : img.naturalHeight
-    const baseScale = Math.max(VIEWPORT_SIZE / effW, VIEWPORT_SIZE / effH)
+    const baseScale = Math.max(viewportWidth / effW, viewportHeight / effH)
 
     // 1. Draw Viewport Canvas
     const canvas = viewportCanvasRef.current
     if (canvas) {
       const ctx = canvas.getContext('2d')
       if (ctx) {
-        ctx.clearRect(0, 0, VIEWPORT_SIZE, VIEWPORT_SIZE)
+        ctx.clearRect(0, 0, viewportWidth, viewportHeight)
         ctx.fillStyle = '#0a0f1d'
-        ctx.fillRect(0, 0, VIEWPORT_SIZE, VIEWPORT_SIZE)
+        ctx.fillRect(0, 0, viewportWidth, viewportHeight)
 
         ctx.save()
-        ctx.translate(VIEWPORT_SIZE / 2 + pan.x, VIEWPORT_SIZE / 2 + pan.y)
+        ctx.translate(viewportWidth / 2 + pan.x, viewportHeight / 2 + pan.y)
         ctx.rotate((rotation * Math.PI) / 180)
         const scale = baseScale * zoom
         ctx.scale(scale, scale)
@@ -158,19 +172,18 @@ export function CloudinaryUploadWidget({
       }
     }
 
-    // 2. Draw Mini Preview Canvas (72x72)
+    // 2. Draw Mini Preview Canvas
     const pCanvas = previewCanvasRef.current
     if (pCanvas) {
       const pCtx = pCanvas.getContext('2d')
       if (pCtx) {
-        const PREVIEW_SIZE = 72
-        pCtx.clearRect(0, 0, PREVIEW_SIZE, PREVIEW_SIZE)
+        pCtx.clearRect(0, 0, previewWidth, previewHeight)
         pCtx.fillStyle = '#0a0f1d'
-        pCtx.fillRect(0, 0, PREVIEW_SIZE, PREVIEW_SIZE)
+        pCtx.fillRect(0, 0, previewWidth, previewHeight)
 
-        const pFactor = PREVIEW_SIZE / VIEWPORT_SIZE
+        const pFactor = previewWidth / viewportWidth
         pCtx.save()
-        pCtx.translate(PREVIEW_SIZE / 2 + pan.x * pFactor, PREVIEW_SIZE / 2 + pan.y * pFactor)
+        pCtx.translate(previewWidth / 2 + pan.x * pFactor, previewHeight / 2 + pan.y * pFactor)
         pCtx.rotate((rotation * Math.PI) / 180)
         const pScale = baseScale * zoom * pFactor
         pCtx.scale(pScale, pScale)
@@ -180,7 +193,7 @@ export function CloudinaryUploadWidget({
         pCtx.restore()
       }
     }
-  }, [cropImageSrc, rotation, zoom, pan])
+  }, [cropImageSrc, rotation, zoom, pan, viewportWidth, viewportHeight, previewWidth, previewHeight])
 
   useEffect(() => {
     renderCanvases()
@@ -347,8 +360,8 @@ export function CloudinaryUploadWidget({
 
     try {
       const exportCanvas = document.createElement('canvas')
-      exportCanvas.width = OUTPUT_SIZE
-      exportCanvas.height = OUTPUT_SIZE
+      exportCanvas.width = outputWidth
+      exportCanvas.height = outputHeight
       const ctx = exportCanvas.getContext('2d')
       if (!ctx) throw new Error('Could not initialize canvas context')
 
@@ -358,11 +371,11 @@ export function CloudinaryUploadWidget({
       const isSwapped = rotation === 90 || rotation === 270
       const effW = isSwapped ? img.naturalHeight : img.naturalWidth
       const effH = isSwapped ? img.naturalWidth : img.naturalHeight
-      const baseScale = Math.max(VIEWPORT_SIZE / effW, VIEWPORT_SIZE / effH)
+      const baseScale = Math.max(viewportWidth / effW, viewportHeight / effH)
 
-      const factor = OUTPUT_SIZE / VIEWPORT_SIZE
+      const factor = outputWidth / viewportWidth
       ctx.save()
-      ctx.translate(OUTPUT_SIZE / 2 + pan.x * factor, OUTPUT_SIZE / 2 + pan.y * factor)
+      ctx.translate(outputWidth / 2 + pan.x * factor, outputHeight / 2 + pan.y * factor)
       ctx.rotate((rotation * Math.PI) / 180)
       const scale = baseScale * zoom * factor
       ctx.scale(scale, scale)
@@ -424,18 +437,24 @@ export function CloudinaryUploadWidget({
     >
       <div
         dir={isAr ? 'rtl' : 'ltr'}
-        className="relative flex w-full max-w-md flex-col rounded-3xl border border-border bg-surface p-5 sm:p-6 shadow-2xl"
+        className={`relative flex w-full ${isCircle ? 'max-w-md' : 'max-w-lg'} flex-col rounded-3xl border border-border bg-surface p-5 sm:p-6 shadow-2xl`}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div>
             <h3 className="text-base font-bold text-primary">
-              {isAr ? 'تعديل وقص الصورة الشخصية' : 'Crop & Position Photo'}
+              {isCircle
+                ? (isAr ? 'تعديل وقص الصورة الشخصية' : 'Crop & Position Photo')
+                : (isAr ? 'تعديل وقص صورة الخدمة (16:9)' : 'Crop & Position Thumbnail (16:9)')}
             </h3>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              {isAr
-                ? 'اسحب الصورة لتحديد الموضع واستخدم شريط التكبير لضبط الحجم'
-                : 'Drag to reposition, use slider to zoom for perfect circle'}
+              {isCircle
+                ? (isAr
+                    ? 'اسحب الصورة لتحديد الموضع واستخدم شريط التكبير لضبط الحجم'
+                    : 'Drag to reposition, use slider to zoom for perfect circle')
+                : (isAr
+                    ? 'اسحب الصورة لتحديد الموضع واستخدم شريط التكبير لضبط الحجم بنسبة 16:9'
+                    : 'Drag to reposition, use slider to zoom for 16:9 card display')}
             </p>
           </div>
           <button
@@ -459,86 +478,148 @@ export function CloudinaryUploadWidget({
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
             onWheel={handleWheel}
-            style={{ width: VIEWPORT_SIZE, height: VIEWPORT_SIZE, touchAction: 'none' }}
-            className={`relative overflow-hidden rounded-2xl bg-neutral-950 select-none shadow-inner border border-neutral-800 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'
-              }`}
+            style={{ width: viewportWidth, height: viewportHeight, touchAction: 'none' }}
+            className={`relative overflow-hidden rounded-2xl bg-neutral-950 select-none shadow-inner border border-neutral-800 ${
+              isDragging ? 'cursor-grabbing' : 'cursor-grab'
+            }`}
           >
             {/* Main Interactive Canvas */}
             <canvas
               ref={viewportCanvasRef}
-              width={VIEWPORT_SIZE}
-              height={VIEWPORT_SIZE}
+              width={viewportWidth}
+              height={viewportHeight}
               className="size-full block"
             />
 
-            {/* SVG Mask & Circular Guide Overlay */}
+            {/* SVG Mask & Crop Guide Overlay */}
             <svg
               className="pointer-events-none absolute inset-0 size-full"
-              viewBox={`0 0 ${VIEWPORT_SIZE} ${VIEWPORT_SIZE}`}
+              viewBox={`0 0 ${viewportWidth} ${viewportHeight}`}
             >
               <defs>
-                <mask id="avatar-crop-cutout">
-                  <rect width={VIEWPORT_SIZE} height={VIEWPORT_SIZE} fill="white" />
-                  <circle
-                    cx={VIEWPORT_SIZE / 2}
-                    cy={VIEWPORT_SIZE / 2}
-                    r={VIEWPORT_SIZE / 2 - 8}
-                    fill="black"
-                  />
+                <mask id="upload-crop-cutout">
+                  <rect width={viewportWidth} height={viewportHeight} fill="white" />
+                  {isCircle ? (
+                    <circle
+                      cx={viewportWidth / 2}
+                      cy={viewportHeight / 2}
+                      r={Math.min(viewportWidth, viewportHeight) / 2 - 8}
+                      fill="black"
+                    />
+                  ) : (
+                    <rect
+                      x="8"
+                      y="8"
+                      width={viewportWidth - 16}
+                      height={viewportHeight - 16}
+                      rx="14"
+                      ry="14"
+                      fill="black"
+                    />
+                  )}
                 </mask>
               </defs>
 
-              {/* Darkened mask outside the circle */}
+              {/* Darkened mask outside the crop zone */}
               <rect
-                width={VIEWPORT_SIZE}
-                height={VIEWPORT_SIZE}
+                width={viewportWidth}
+                height={viewportHeight}
                 fill="rgba(10, 15, 29, 0.65)"
-                mask="url(#avatar-crop-cutout)"
+                mask="url(#upload-crop-cutout)"
               />
 
-              {/* Circle outline */}
-              <circle
-                cx={VIEWPORT_SIZE / 2}
-                cy={VIEWPORT_SIZE / 2}
-                r={VIEWPORT_SIZE / 2 - 8}
-                fill="none"
-                stroke="#FCAD35"
-                strokeWidth="2"
-                strokeDasharray="4 4"
-                className="opacity-90"
-              />
+              {/* Outline */}
+              {isCircle ? (
+                <circle
+                  cx={viewportWidth / 2}
+                  cy={viewportHeight / 2}
+                  r={Math.min(viewportWidth, viewportHeight) / 2 - 8}
+                  fill="none"
+                  stroke="#FCAD35"
+                  strokeWidth="2"
+                  strokeDasharray="4 4"
+                  className="opacity-90"
+                />
+              ) : (
+                <rect
+                  x="8"
+                  y="8"
+                  width={viewportWidth - 16}
+                  height={viewportHeight - 16}
+                  rx="14"
+                  ry="14"
+                  fill="none"
+                  stroke="#FCAD35"
+                  strokeWidth="2"
+                  strokeDasharray="4 4"
+                  className="opacity-90"
+                />
+              )}
 
-              {/* Subtle rule-of-thirds grid inside the circle */}
-              <g opacity="0.18" stroke="#FFFFFF" strokeWidth="1">
-                <line
-                  x1={VIEWPORT_SIZE * 0.35}
-                  y1={VIEWPORT_SIZE * 0.15}
-                  x2={VIEWPORT_SIZE * 0.35}
-                  y2={VIEWPORT_SIZE * 0.85}
-                  strokeDasharray="2 3"
-                />
-                <line
-                  x1={VIEWPORT_SIZE * 0.65}
-                  y1={VIEWPORT_SIZE * 0.15}
-                  x2={VIEWPORT_SIZE * 0.65}
-                  y2={VIEWPORT_SIZE * 0.85}
-                  strokeDasharray="2 3"
-                />
-                <line
-                  x1={VIEWPORT_SIZE * 0.15}
-                  y1={VIEWPORT_SIZE * 0.35}
-                  x2={VIEWPORT_SIZE * 0.85}
-                  y2={VIEWPORT_SIZE * 0.35}
-                  strokeDasharray="2 3"
-                />
-                <line
-                  x1={VIEWPORT_SIZE * 0.15}
-                  y1={VIEWPORT_SIZE * 0.65}
-                  x2={VIEWPORT_SIZE * 0.85}
-                  y2={VIEWPORT_SIZE * 0.65}
-                  strokeDasharray="2 3"
-                />
-              </g>
+              {/* Subtle rule-of-thirds grid inside the crop zone */}
+              {isCircle ? (
+                <g opacity="0.18" stroke="#FFFFFF" strokeWidth="1">
+                  <line
+                    x1={viewportWidth * 0.35}
+                    y1={viewportHeight * 0.15}
+                    x2={viewportWidth * 0.35}
+                    y2={viewportHeight * 0.85}
+                    strokeDasharray="2 3"
+                  />
+                  <line
+                    x1={viewportWidth * 0.65}
+                    y1={viewportHeight * 0.15}
+                    x2={viewportWidth * 0.65}
+                    y2={viewportHeight * 0.85}
+                    strokeDasharray="2 3"
+                  />
+                  <line
+                    x1={viewportWidth * 0.15}
+                    y1={viewportHeight * 0.35}
+                    x2={viewportWidth * 0.85}
+                    y2={viewportHeight * 0.35}
+                    strokeDasharray="2 3"
+                  />
+                  <line
+                    x1={viewportWidth * 0.15}
+                    y1={viewportHeight * 0.65}
+                    x2={viewportWidth * 0.85}
+                    y2={viewportHeight * 0.65}
+                    strokeDasharray="2 3"
+                  />
+                </g>
+              ) : (
+                <g opacity="0.2" stroke="#FFFFFF" strokeWidth="1">
+                  <line
+                    x1={8 + (viewportWidth - 16) / 3}
+                    y1={8}
+                    x2={8 + (viewportWidth - 16) / 3}
+                    y2={viewportHeight - 8}
+                    strokeDasharray="2 3"
+                  />
+                  <line
+                    x1={8 + ((viewportWidth - 16) * 2) / 3}
+                    y1={8}
+                    x2={8 + ((viewportWidth - 16) * 2) / 3}
+                    y2={viewportHeight - 8}
+                    strokeDasharray="2 3"
+                  />
+                  <line
+                    x1={8}
+                    y1={8 + (viewportHeight - 16) / 3}
+                    x2={viewportWidth - 8}
+                    y2={8 + (viewportHeight - 16) / 3}
+                    strokeDasharray="2 3"
+                  />
+                  <line
+                    x1={8}
+                    y1={8 + ((viewportHeight - 16) * 2) / 3}
+                    x2={viewportWidth - 8}
+                    y2={8 + ((viewportHeight - 16) * 2) / 3}
+                    strokeDasharray="2 3"
+                  />
+                </g>
+              )}
             </svg>
           </div>
         </div>
@@ -624,16 +705,20 @@ export function CloudinaryUploadWidget({
               </button>
             </div>
 
-            {/* Live circular avatar preview */}
+            {/* Live preview */}
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold text-muted-foreground hidden sm:inline">
                 {isAr ? 'المعاينة:' : 'Preview:'}
               </span>
-              <div className="relative size-10 shrink-0 overflow-hidden rounded-full border-2 border-[#FCAD35] shadow-sm bg-neutral-900">
+              <div
+                className={`relative shrink-0 overflow-hidden border-2 border-[#FCAD35] shadow-sm bg-neutral-900 ${
+                  isCircle ? 'size-10 rounded-full' : 'w-16 h-9 rounded-lg'
+                }`}
+              >
                 <canvas
                   ref={previewCanvasRef}
-                  width={72}
-                  height={72}
+                  width={previewWidth}
+                  height={previewHeight}
                   className="size-full block"
                 />
               </div>
@@ -694,11 +779,12 @@ export function CloudinaryUploadWidget({
         ref={fileInputRef}
         type="file"
         accept={
-          cropping
+          accept ||
+          (cropping
             ? 'image/jpeg,image/png,image/webp,image/gif,image/heic,image/avif'
             : allowPdf
               ? 'image/*,application/pdf'
-              : 'image/*'
+              : 'image/*')
         }
         className="hidden"
         onChange={handleFileChange}

@@ -3,6 +3,7 @@
 import React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { getCategoryLabel, getSubcategoryLabel } from '@/lib/data/categories'
 
 export interface ExpertAdminItem {
   _id: string
@@ -185,17 +186,71 @@ export function ExpertVerificationCard({
               </div>
             )}
 
-            {/* Categories badges */}
-            {exp.categories && exp.categories.length > 0 && (
-              <div className="mt-2.5 flex flex-wrap gap-1.5">
-                {exp.categories.map((c) => (
-                  <span
-                    key={c.categorySlug}
-                    className="rounded-md bg-neutral-100 border border-border px-2 py-0.5 text-[10px] text-muted-foreground font-medium"
-                  >
-                    {c.categorySlug} ({c.subcategories?.length || 0} subcategories)
-                  </span>
-                ))}
+            {/* Categories & Subcategories section */}
+            {((exp.categories && exp.categories.length > 0) || exp.categorySlug) && (
+              <div className="mt-3 space-y-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                  Categories &amp; Subcategories:
+                </span>
+                <div className="flex flex-col gap-2">
+                  {exp.categories && exp.categories.length > 0 ? (
+                    exp.categories.map((c) => {
+                      const catName = getCategoryLabel(c.categorySlug, 'en') || c.categorySlug
+                      const subs = c.subcategories || []
+                      return (
+                        <div
+                          key={c.categorySlug}
+                          className="rounded-xl border border-border bg-[#faf8f5] p-2.5 space-y-1.5"
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-[#14243b]">
+                              📁 {catName}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              ({c.categorySlug})
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {subs.length > 0 ? (
+                              subs.map((sSlug) => {
+                                const subName = getSubcategoryLabel(c.categorySlug, sSlug, 'en') || sSlug
+                                return (
+                                  <span
+                                    key={sSlug}
+                                    className="inline-flex items-center gap-1 rounded-md border border-[#e2ddd5] bg-white px-2 py-0.5 text-[11px] font-semibold text-[#14243b] shadow-2xs"
+                                  >
+                                    <span className="size-1.5 rounded-full bg-emerald-500" />
+                                    {subName}
+                                  </span>
+                                )
+                              })
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground italic">
+                                No subcategories selected
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <div className="rounded-xl border border-border bg-[#faf8f5] p-2.5 space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-[#14243b]">
+                          📁 {getCategoryLabel(exp.categorySlug, 'en') || exp.categorySlug}
+                        </span>
+                      </div>
+                      {exp.subcategorySlug && (
+                        <div className="flex flex-wrap gap-1.5">
+                          <span className="inline-flex items-center gap-1 rounded-md border border-[#e2ddd5] bg-white px-2 py-0.5 text-[11px] font-semibold text-[#14243b] shadow-2xs">
+                            <span className="size-1.5 rounded-full bg-emerald-500" />
+                            {getSubcategoryLabel(exp.categorySlug, exp.subcategorySlug, 'en') || exp.subcategorySlug}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -341,6 +396,61 @@ export function ExpertVerificationCard({
                       📜 {cert.title} ({cert.fileType || 'file'}) ↗
                     </a>
                   ))}
+                </div>
+              </div>
+            )}
+            {(Array.isArray(exp.pendingInfoUpdate.categories) || exp.pendingInfoUpdate.categorySlug) && (
+              <div className="rounded-lg bg-white p-2.5 border border-indigo-100 sm:col-span-2 shadow-2xs">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground block mb-1.5">
+                  Requested Categories &amp; Subcategories
+                </span>
+                <div className="space-y-1.5">
+                  {Array.isArray(exp.pendingInfoUpdate.categories) && exp.pendingInfoUpdate.categories.length > 0 ? (
+                    exp.pendingInfoUpdate.categories.map((c: any, idx: number) => {
+                      const subs: string[] = Array.isArray(c.subcategories) ? c.subcategories : []
+                      const catName = getCategoryLabel(c.categorySlug, 'en') || c.categorySlug
+                      return (
+                        <div key={idx} className="rounded-md border border-indigo-200 bg-indigo-50/50 p-2 space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-indigo-950">📁 {catName}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono">({c.categorySlug})</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {subs.length > 0 ? (
+                              subs.map((sSlug: string) => {
+                                const subName = getSubcategoryLabel(c.categorySlug, sSlug, 'en') || sSlug
+                                return (
+                                  <span
+                                    key={sSlug}
+                                    className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-indigo-900 shadow-2xs"
+                                  >
+                                    <span className="size-1.5 rounded-full bg-indigo-500" />
+                                    {subName}
+                                  </span>
+                                )
+                              })
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground italic">No subcategories</span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <div className="rounded-md border border-indigo-200 bg-indigo-50/50 p-2 space-y-1">
+                      <span className="text-xs font-bold text-indigo-950">
+                        📁 {getCategoryLabel(exp.pendingInfoUpdate.categorySlug, 'en') || exp.pendingInfoUpdate.categorySlug}
+                      </span>
+                      {exp.pendingInfoUpdate.subcategorySlug && (
+                        <div className="flex flex-wrap gap-1.5">
+                          <span className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-indigo-900 shadow-2xs">
+                            <span className="size-1.5 rounded-full bg-indigo-500" />
+                            {getSubcategoryLabel(exp.pendingInfoUpdate.categorySlug, exp.pendingInfoUpdate.subcategorySlug, 'en') || exp.pendingInfoUpdate.subcategorySlug}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

@@ -20,7 +20,7 @@ export interface CatalogItem {
   subcategorySlug?: string
   bookingType?: 'APPOINTMENT' | 'WORKSHOP' | 'WEBINAR'
   serviceKind?: 'CONSULTATION' | 'GENERAL_SERVICE'
-  deliveryMode?: 'ONLINE' | 'IN_PERSON' | 'HYBRID'
+  deliveryMode?: 'ONLINE' | 'IN_PERSON'
   durationMinutes: number
   event?: {
     date: string

@@ -19,9 +19,11 @@ export interface BookingDocItem {
   currency?: string
   status: string
   deliveryMode?: string
+  location?: { city: string; address: string; addressDescription?: string; googleMapsUrl?: string }
   paymentMethod?: string
   paymentStatus?: string
   paymentReceiptUrl?: string
+  intakeAnswers?: Array<{ questionId?: string; question: string; type: 'string' | 'pdf' | 'image'; answer: string }>
   adminNotes?: string
   googleMeetLink?: string
   googleCalendarEventLink?: string
@@ -87,6 +89,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
 
   // Manual Add/Edit Meet link modal
   const [meetModalBooking, setMeetModalBooking] = useState<BookingDocItem | null>(null)
+  const [viewIntakeBooking, setViewIntakeBooking] = useState<BookingDocItem | null>(null)
   const [newMeetLink, setNewMeetLink] = useState('')
   const [savingMeetLink, setSavingMeetLink] = useState(false)
 
@@ -665,6 +668,15 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                           )}
                         </>
                       )}
+                      {Array.isArray(b.intakeAnswers) && b.intakeAnswers.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setViewIntakeBooking(b)}
+                          className="mt-1 inline-flex items-center gap-1 rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-700 hover:bg-blue-100 transition shadow-2xs"
+                        >
+                          <span>📋 Intake Answers ({b.intakeAnswers.length})</span>
+                        </button>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 font-medium text-[#14243b]">
                       {b.serviceTitle?.en || 'General Session'}
@@ -776,7 +788,27 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                           </div>
                         )
                       ) : (
-                        <span className="text-[10px] text-[#8b94a1] font-semibold">In-Person</span>
+                        <div className="space-y-0.5">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 border border-neutral-200 px-2 py-0.5 text-[10px] font-bold text-neutral-800">
+                            📍 In-Person
+                          </span>
+                          {b.location?.address && (
+                            <p className="text-[11px] text-[#14243b] font-medium truncate max-w-[180px]" title={b.location.address}>
+                              {b.location.address}
+                              {b.location.city ? `, ${b.location.city}` : ''}
+                            </p>
+                          )}
+                          {b.location?.googleMapsUrl && (
+                            <a
+                              href={b.location.googleMapsUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[10px] text-[#2855C5] font-semibold hover:underline block"
+                            >
+                              Maps ↗
+                            </a>
+                          )}
+                        </div>
                       )}
                     </td>
 
@@ -1303,6 +1335,92 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                   </button>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4.5: View Client Intake Answers & Files */}
+      {viewIntakeBooking && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-3xl bg-white p-6 sm:p-7 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[#dedbd5] pb-3">
+              <div>
+                <h3 className="text-base font-bold text-[#14243b]">
+                  Client Intake Form &amp; Files
+                </h3>
+                <p className="text-xs text-[#637084]">
+                  {viewIntakeBooking.clientName} — #{viewIntakeBooking.reference || viewIntakeBooking._id.slice(-6).toUpperCase()}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewIntakeBooking(null)}
+                className="size-8 rounded-full bg-[#f4f2ee] text-xs font-bold text-[#637084] hover:bg-[#dedbd5]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {viewIntakeBooking.intakeAnswers?.map((ans, idx) => (
+                <div key={idx} className="rounded-2xl border border-[#dedbd5] bg-[#faf8f5] p-3.5 space-y-2">
+                  <p className="text-xs font-bold text-[#14243b]">
+                    <span className="text-[#8b94a1] mr-1">Q{idx + 1}:</span>
+                    {ans.question}
+                  </p>
+                  {ans.type === 'pdf' ? (
+                    ans.answer ? (
+                      <a
+                        href={ans.answer}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 border border-indigo-200 px-3 py-1.5 text-xs font-bold text-indigo-800 hover:underline"
+                      >
+                        📄 Open Client PDF Document ↗
+                      </a>
+                    ) : (
+                      <span className="text-xs text-[#8b94a1] italic">No file uploaded</span>
+                    )
+                  ) : ans.type === 'image' ? (
+                    ans.answer ? (
+                      <div className="space-y-2">
+                        <a href={ans.answer} target="_blank" rel="noreferrer" className="block">
+                          <img
+                            src={ans.answer}
+                            alt="Client upload"
+                            className="max-h-48 rounded-xl border border-[#dedbd5] object-cover"
+                          />
+                        </a>
+                        <a
+                          href={ans.answer}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11px] font-bold text-[#2855C5] hover:underline"
+                        >
+                          View Full Image ↗
+                        </a>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-[#8b94a1] italic">No image uploaded</span>
+                    )
+                  ) : (
+                    <p className="text-xs text-[#14243b] whitespace-pre-line bg-white p-2.5 rounded-xl border border-[#dedbd5]">
+                      {ans.answer || '—'}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-[#dedbd5]">
+              <button
+                type="button"
+                onClick={() => setViewIntakeBooking(null)}
+                className="rounded-full bg-[#14243b] px-5 py-2 text-xs font-bold text-white hover:bg-[#2855C5]"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

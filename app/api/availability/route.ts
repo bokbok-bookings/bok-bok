@@ -26,11 +26,29 @@ export async function GET(request: Request) {
     const expertId = await getCanonicalExpertId(rawExpertId)
     const duration = parseInt(searchParams.get('duration') || '30', 10)
     const breakAfter = parseInt(searchParams.get('breakAfter') || '0', 10)
+    const serviceId = searchParams.get('serviceId')
+
+    let minNoticeHours = 0
+    if (searchParams.has('minNoticeHours')) {
+      minNoticeHours = parseInt(searchParams.get('minNoticeHours') || '24', 10)
+    } else if (serviceId && serviceId !== 'default') {
+      try {
+        const servicesCol = await getServicesCollection()
+        const sDoc = await servicesCol.findOne({ _id: toObjectId(serviceId) })
+        if (sDoc && sDoc.minNoticeHours !== undefined) {
+          minNoticeHours = Number(sDoc.minNoticeHours)
+        } else if (sDoc) {
+          minNoticeHours = 24 // default: day before
+        }
+      } catch (err) {
+        // fallback
+      }
+    }
 
     if (action === 'days') {
-      const count = parseInt(searchParams.get('count') || '14', 10)
-      const days = await getExpertUpcomingDays(expertId, count, duration)
-      return NextResponse.json({ success: true, expertId, days })
+      const count = parseInt(searchParams.get('count') || '90', 10)
+      const days = await getExpertUpcomingDays(expertId, count, duration, minNoticeHours)
+      return NextResponse.json({ success: true, expertId, days, minNoticeHours })
     }
 
     if (action === 'slots') {
@@ -41,8 +59,8 @@ export async function GET(request: Request) {
           { status: 400 },
         )
       }
-      const slots = await getExpertSlotsForDate(expertId, date, duration, breakAfter)
-      return NextResponse.json({ success: true, expertId, date, slots })
+      const slots = await getExpertSlotsForDate(expertId, date, duration, breakAfter, minNoticeHours)
+      return NextResponse.json({ success: true, expertId, date, slots, minNoticeHours })
     }
 
     return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 })
@@ -69,6 +87,7 @@ export async function POST(request: Request) {
       serviceId,
       paymentReceiptUrl,
       paymentReceiptPublicId,
+      intakeAnswers,
     } = body
 
     if (!rawExpertId || !clientName?.trim()) {
@@ -127,7 +146,7 @@ export async function POST(request: Request) {
           {
             success: false,
             error:
-              'This offer is inactive, outside the approved MVP taxonomy, or pending admin/licensing review and cannot accept new bookings.',
+              'This offer is inactive, outside the approved taxonomy, or pending admin/licensing review and cannot accept new bookings.',
           },
           { status: 400 },
         )
@@ -190,6 +209,7 @@ export async function POST(request: Request) {
           amount: verifiedAmount,
           currency: verifiedCurrency,
           deliveryMode: serviceDoc.deliveryMode || 'ONLINE',
+          location: serviceDoc.deliveryMode === 'IN_PERSON' ? serviceDoc.location : undefined,
           timezone: 'Africa/Cairo',
           sessionStartAt: bounds.sessionStartAt,
           sessionEndAt: bounds.sessionEndAt,
@@ -205,6 +225,7 @@ export async function POST(request: Request) {
           paymentReceiptUrl: paymentReceiptUrl || undefined,
           paymentReceiptPublicId: paymentReceiptPublicId || undefined,
           status: paymentReceiptUrl ? 'awaiting_verification' : 'pending',
+          ...(Array.isArray(intakeAnswers) ? { intakeAnswers } : {}),
         })
 
         // Trigger booking received email notifications (to client and expert)
@@ -260,7 +281,7 @@ export async function POST(request: Request) {
           return NextResponse.json(
             {
               success: false,
-              error: 'This expert profile references a category outside the approved MVP scope.',
+              error: 'This expert profile references a category outside the approved platform scope.',
             },
             { status: 400 },
           )
@@ -270,12 +291,33 @@ export async function POST(request: Request) {
       }
     }
 
+    const minNoticeHours = serviceDoc?.minNoticeHours !== undefined ? Number(serviceDoc.minNoticeHours) : 24
+    const bounds = computeSessionBounds(date, time, verifiedDuration, 'Africa/Cairo')
+    const now = new Date()
+    const minBookingCutoff = new Date(now.getTime() + (minNoticeHours > 0 ? minNoticeHours * 60 * 60 * 1000 : 15 * 60 * 1000))
+
+    if (bounds.sessionStartAt.getTime() < minBookingCutoff.getTime()) {
+      const noticeMsg = minNoticeHours === 0
+        ? 'in advance'
+        : minNoticeHours === 24
+          ? 'at least 1 day (24 hours) in advance (the day before)'
+          : `at least ${Math.round(minNoticeHours / 24)} days in advance`
+      return NextResponse.json(
+        {
+          success: false,
+          error: `This service requires booking ${noticeMsg}. Please select an upcoming eligible slot.`,
+        },
+        { status: 400 },
+      )
+    }
+
     // Backend verification of Slot Availability to prevent double-booking
     const availableSlots = await getExpertSlotsForDate(
       expertId,
       date,
       verifiedDuration,
       verifiedBreak,
+      minNoticeHours,
     )
     const slotObj = availableSlots.find((s) => s.time === time)
 
@@ -292,7 +334,6 @@ export async function POST(request: Request) {
 
     const reference = `BK-${Math.floor(1000 + Math.random() * 9000)}`
     const deliveryMode = serviceDoc?.deliveryMode || 'ONLINE'
-    const bounds = computeSessionBounds(date, time, verifiedDuration, 'Africa/Cairo')
     const rescheduleToken = crypto.randomBytes(24).toString('hex')
 
     const booking = await createExpertBooking({
@@ -310,6 +351,7 @@ export async function POST(request: Request) {
       amount: verifiedAmount,
       currency: verifiedCurrency,
       deliveryMode,
+      location: deliveryMode === 'IN_PERSON' ? serviceDoc?.location : undefined,
       timezone: 'Africa/Cairo',
       sessionStartAt: bounds.sessionStartAt,
       sessionEndAt: bounds.sessionEndAt,
@@ -325,6 +367,7 @@ export async function POST(request: Request) {
       paymentReceiptUrl: paymentReceiptUrl || undefined,
       paymentReceiptPublicId: paymentReceiptPublicId || undefined,
       status: paymentReceiptUrl ? 'awaiting_verification' : 'pending',
+      ...(Array.isArray(intakeAnswers) ? { intakeAnswers } : {}),
     })
 
     // Trigger booking received email notifications (to client and expert)

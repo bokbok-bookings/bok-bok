@@ -17,8 +17,28 @@ export type BookingType = (typeof BOOKING_TYPES)[number]
 export const SERVICE_KINDS = ['CONSULTATION', 'GENERAL_SERVICE'] as const
 export type ServiceKind = (typeof SERVICE_KINDS)[number]
 
-export const DELIVERY_MODES = ['ONLINE', 'IN_PERSON', 'HYBRID'] as const
+export const DELIVERY_MODES = ['ONLINE', 'IN_PERSON'] as const
 export type DeliveryMode = (typeof DELIVERY_MODES)[number]
+
+/**
+ * Minimum booking notice requirements in hours.
+ * Defaults to 24 hours (the day before).
+ */
+export const MIN_NOTICE_OPTIONS = [
+  { hours: 0, labelEn: 'Same day (no advance notice required)', labelAr: 'نفس اليوم (حجز فوري متاح)' },
+  { hours: 24, labelEn: 'The day before (24 hours in advance) — Recommended', labelAr: 'اليوم السابق (قبل 24 ساعة) — موصى به' },
+  { hours: 48, labelEn: '2 days before (48 hours)', labelAr: 'قبل يومين (48 ساعة)' },
+  { hours: 72, labelEn: '3 days before (72 hours)', labelAr: 'قبل 3 أيام (72 ساعة)' },
+  { hours: 96, labelEn: '4 days before (96 hours)', labelAr: 'قبل 4 أيام (96 ساعة)' },
+  { hours: 120, labelEn: '5 days before', labelAr: 'قبل 5 أيام' },
+  { hours: 144, labelEn: '6 days before', labelAr: 'قبل 6 أيام' },
+  { hours: 168, labelEn: '7 days before (1 week)', labelAr: 'قبل 7 أيام (أسبوع)' },
+  { hours: 192, labelEn: '8 days before', labelAr: 'قبل 8 أيام' },
+  { hours: 216, labelEn: '9 days before', labelAr: 'قبل 9 أيام' },
+  { hours: 240, labelEn: '10 days before', labelAr: 'قبل 10 أيام' },
+] as const
+
+export const DEFAULT_MIN_NOTICE_HOURS = 24
 
 export const EVENT_BOOKING_TYPES: BookingType[] = ['WORKSHOP', 'WEBINAR']
 

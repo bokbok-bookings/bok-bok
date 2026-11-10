@@ -2,7 +2,8 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import React, { useState, useEffect, use } from 'react'
+import React, { useState, useEffect, useMemo, use } from 'react'
+import { Clock, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { getExpertBySlug } from '@/lib/data/experts'
 import { getCategoryLabel, getSubcategoryLabel } from '@/lib/data/categories'
 import type { DayAvailability, TimeSlot } from '@/lib/data/availability'
@@ -50,11 +51,52 @@ export default function ExpertProfile({ params }: PageProps) {
   const [services, setServices] = useState<ServiceItem[]>([])
   const [selectedService, setSelectedService] = useState<ServiceItem | null>(null)
   const [loadingServices, setLoadingServices] = useState(true)
+  const [servicesMeta, setServicesMeta] = useState<{
+    totalCount?: number
+    pendingCount?: number
+    hasServices?: boolean
+    hasPending?: boolean
+  } | null>(null)
 
   // Booking states
   const [days, setDays] = useState<DayAvailability[]>([])
   const [loadingDays, setLoadingDays] = useState(true)
   const [selectedDate, setSelectedDate] = useState<string>('')
+  const [selectedMonth, setSelectedMonth] = useState<string>('all')
+
+  const availableMonths = useMemo(() => {
+    const monthsMap = new Map<string, string>()
+    const localeCode = isAr ? 'ar-EG' : 'en-US'
+    for (const d of days) {
+      const ym = d.date.slice(0, 7)
+      if (!monthsMap.has(ym)) {
+        const label = new Intl.DateTimeFormat(localeCode, { month: 'short', year: 'numeric' }).format(
+          new Date(d.date + 'T00:00:00')
+        )
+        monthsMap.set(ym, label)
+      }
+    }
+    return Array.from(monthsMap.entries()).map(([key, label]) => ({ key, label }))
+  }, [days, isAr])
+
+  const visibleDays = useMemo(() => {
+    if (selectedMonth === 'all') return days
+    return days.filter((d) => d.date.startsWith(selectedMonth))
+  }, [days, selectedMonth])
+
+  const datesScrollRef = React.useRef<HTMLDivElement>(null)
+
+  const scrollDates = (direction: 'prev' | 'next') => {
+    if (datesScrollRef.current) {
+      const forward = direction === 'next'
+      const offset = 280
+      if (isAr) {
+        datesScrollRef.current.scrollBy({ left: forward ? -offset : offset, behavior: 'smooth' })
+      } else {
+        datesScrollRef.current.scrollBy({ left: forward ? offset : -offset, behavior: 'smooth' })
+      }
+    }
+  }
 
   const [slots, setSlots] = useState<TimeSlot[]>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
@@ -125,28 +167,35 @@ export default function ExpertProfile({ params }: PageProps) {
       .then((data) => {
         if (data.success && Array.isArray(data.data) && data.data.length > 0) {
           setServices(data.data)
+          setServicesMeta(data.meta || { totalCount: data.data.length, pendingCount: 0, hasServices: true, hasPending: false })
           const mostBooked = data.data.find((s: ServiceItem) => s.isMostBooked) || data.data[0]
           setSelectedService(mostBooked)
         } else {
           setServices([])
+          setServicesMeta(data.meta || { totalCount: 0, pendingCount: 0, hasServices: false, hasPending: false })
           setSelectedService(null)
         }
       })
       .catch(() => {
         setServices([])
+        setServicesMeta(null)
         setSelectedService(null)
       })
       .finally(() => setLoadingServices(false))
   }, [profileId])
 
   // 2. Fetch upcoming days for this expert
-  const duration = selectedService?.durationMinutes || profile?.durationMinutes || 45
+  const duration = selectedService?.durationMinutes || 45
 
   useEffect(() => {
-    if (!profileId) return
+    if (!profileId || services.length === 0) {
+      setLoadingDays(false)
+      return
+    }
     let ignore = false
     setLoadingDays(true)
-    fetch(`/api/availability?expertId=${profileId}&action=days&count=14`)
+    const serviceIdParam = selectedService?._id ? `&serviceId=${selectedService._id}` : ''
+    fetch(`/api/availability?expertId=${profileId}&action=days&count=90${serviceIdParam}`)
       .then((res) => res.json())
       .then((data) => {
         if (!ignore && data.success && Array.isArray(data.days)) {
@@ -165,7 +214,7 @@ export default function ExpertProfile({ params }: PageProps) {
     return () => {
       ignore = true
     }
-  }, [profileId])
+  }, [profileId, services.length, selectedService?._id])
 
   // 3. Fetch slots whenever selectedDate or duration changes
   useEffect(() => {
@@ -203,7 +252,7 @@ export default function ExpertProfile({ params }: PageProps) {
 
   // Handle booking submission
   const handleBooking = async () => {
-    if (!selectedDate || !selectedTime || !profile) return
+    if (!selectedService || !selectedDate || !selectedTime || !profile) return
     if (!clientName.trim() || !clientEmail.trim()) {
       alert(isAr ? 'يرجى إدخال الاسم بالكامل والبريد الإلكتروني' : 'Please enter your full name and email address')
       return
@@ -216,7 +265,7 @@ export default function ExpertProfile({ params }: PageProps) {
     setBookingLoading(true)
 
     try {
-      const priceEGP = selectedService?.pricing?.prices?.EGP ?? profile.priceNumber ?? 500
+      const priceEGP = selectedService.pricing?.prices?.EGP ?? 0
 
       const res = await fetch('/api/availability', {
         method: 'POST',
@@ -295,7 +344,11 @@ export default function ExpertProfile({ params }: PageProps) {
     )
   }
 
-  const currentPriceEGP = selectedService?.pricing?.prices?.EGP ?? profile.priceNumber ?? 500
+  const hasApprovedServices = services.length > 0
+  const hasPendingServices = Boolean(
+    servicesMeta?.hasPending || (servicesMeta?.pendingCount && servicesMeta.pendingCount > 0)
+  )
+  const currentPriceEGP = selectedService?.pricing?.prices?.EGP ?? 0
 
   return (
     <main className="min-h-screen bg-background text-foreground overflow-x-hidden">
@@ -383,11 +436,31 @@ export default function ExpertProfile({ params }: PageProps) {
                     {isAr ? 'جاري تحميل الجلسات...' : 'Loading offerings...'}
                   </p>
                 ) : services.length === 0 ? (
-                  <div className="mt-4 rounded-2xl border border-dashed border-border bg-surface p-6 text-xs text-muted-foreground">
-                    {isAr
-                      ? 'لا توجد جلسات معتمدة منشورة حالياً لهذا الخبير.'
-                      : 'No active approved offerings are currently published for this expert.'}
-                  </div>
+                  hasPendingServices ? (
+                    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/60 p-6 text-xs text-amber-950 shadow-2xs">
+                      <div className="flex items-center gap-2 font-bold mb-1.5 text-amber-900">
+                        <Clock size={16} className="text-amber-600 shrink-0" />
+                        <span>{isAr ? 'جلسات الخبير قيد المراجعة والاعتماد' : 'Offerings Currently Under Admin Review'}</span>
+                      </div>
+                      <p className="text-muted-foreground leading-relaxed">
+                        {isAr
+                          ? 'تم تقديم جلسات وعروض هذا الخبير وهي قيد المراجعة حالياً من قبل إدارة المنصة للتأكد من مطابقتها للمعايير، وستتاح للحجز فور اعتمادها.'
+                          : "This expert's sessions have been submitted and are currently being reviewed by platform administrators. They will be available for booking once approved."}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-2xl border border-dashed border-border bg-surface p-6 text-xs text-muted-foreground shadow-2xs">
+                      <div className="flex items-center gap-2 font-bold text-primary mb-1.5">
+                        <AlertCircle size={16} className="text-muted-foreground shrink-0" />
+                        <span>{isAr ? 'لم يقم الخبير بإضافة أي خدمات بعد' : 'No Services Added Yet'}</span>
+                      </div>
+                      <p className="leading-relaxed">
+                        {isAr
+                          ? 'لم يقم هذا الخبير بنشر أي خدمات أو جلسات حتى الآن. سيتم عرضها هنا فور إضافتها.'
+                          : 'This expert has not published any services or sessions yet. Please check back later.'}
+                      </p>
+                    </div>
+                  )
                 ) : (
                   <div className="mt-4 grid gap-3 sm:grid-cols-2 min-w-0 w-full">
                     {services.map((s) => {
@@ -502,19 +575,34 @@ export default function ExpertProfile({ params }: PageProps) {
 
             {/* Right Column: Live Booking & InstaPay Widget */}
             <aside className="h-fit rounded-[32px] bg-primary p-5 sm:p-6 text-white shadow-xl min-w-0 w-full overflow-hidden">
-              <div className="flex items-baseline justify-between border-b border-white/10 pb-4">
-                <div>
-                  <span className="text-3xl font-semibold tracking-tight">
-                    {currentPriceEGP} {isAr ? 'ج.م' : 'EGP'}
-                  </span>
-                  <span className="ms-2 text-xs text-white/70">
-                    {isAr ? `/ جلسة ${duration} دقيقة` : `/ ${duration} min session`}
+              {hasApprovedServices && selectedService ? (
+                <div className="flex items-baseline justify-between border-b border-white/10 pb-4">
+                  <div>
+                    <span className="text-3xl font-semibold tracking-tight">
+                      {currentPriceEGP} {isAr ? 'ج.م' : 'EGP'}
+                    </span>
+                    <span className="ms-2 text-xs text-white/70">
+                      {isAr ? `/ جلسة ${duration} دقيقة` : `/ ${duration} min session`}
+                    </span>
+                  </div>
+                  {/* <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-accent">
+                    {isAr ? 'دفع مؤكد إنستاباي' : 'InstaPay Verified'}
+                  </span> */}
+                </div>
+              ) : (
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                  <div>
+                    <span className="text-lg font-bold tracking-tight text-white">
+                      {hasPendingServices
+                        ? (isAr ? 'الخدمات قيد المراجعة' : 'Services Under Review')
+                        : (isAr ? 'لا توجد خدمات متاحة' : 'No Services Available')}
+                    </span>
+                  </div>
+                  <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-accent">
+                    {isAr ? 'الحجز غير متاح' : 'Booking Unavailable'}
                   </span>
                 </div>
-                <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-accent">
-                  {isAr ? 'دفع مؤكد إنستاباي' : 'InstaPay Verified'}
-                </span>
-              </div>
+              )}
 
               {booked ? (
                 <div className="mt-6 rounded-2xl bg-emerald-900/60 border border-emerald-500/40 p-5 text-center space-y-3">
@@ -533,59 +621,135 @@ export default function ExpertProfile({ params }: PageProps) {
                   </p>
                 </div>
               ) : services.length === 0 ? (
-                <div className="mt-6 rounded-2xl bg-white/5 border border-white/10 p-5 text-center text-xs text-white/75">
-                  {isAr
-                    ? 'يتم حالياً تحديث عروض هذا الخبير وستتاح فور اكتمال مراجعتها.'
-                    : "This expert's offerings are currently being updated for the approved MVP taxonomy and will be available once admin review is complete."}
-                </div>
+                hasPendingServices ? (
+                  <div className="mt-6 rounded-2xl bg-white/5 border border-white/10 p-6 text-center space-y-3">
+                    <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-amber-500/20 text-amber-300">
+                      <Clock size={24} />
+                    </div>
+                    <h3 className="text-base font-bold text-white">
+                      {isAr ? 'الخدمات قيد المراجعة والاعتماد' : 'Services Under Admin Review'}
+                    </h3>
+                    <p className="text-xs text-white/75 leading-relaxed">
+                      {isAr
+                        ? 'يقوم فريق الإدارة بمراجعة خدمات هذا الخبير حالياً. ستظهر الأسعار والجلسات ومواعيد الحجز هنا فور اعتمادها.'
+                        : "This expert's offerings are currently being reviewed by platform administrators. Pricing, sessions, and booking availability will appear here once approved."}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-6 rounded-2xl bg-white/5 border border-white/10 p-6 text-center space-y-3">
+                    <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-white/10 text-white/70">
+                      <AlertCircle size={24} />
+                    </div>
+                    <h3 className="text-base font-bold text-white">
+                      {isAr ? 'لم يقم الخبير بإضافة خدمات بعد' : 'No Services Added Yet'}
+                    </h3>
+                    <p className="text-xs text-white/75 leading-relaxed">
+                      {isAr
+                        ? 'لم يقم هذا الخبير بنشر أي خدمات أو جلسات استشارية حتى الآن. يرجى معاودة الزيارة لاحقاً.'
+                        : 'This expert has not published any services or sessions yet. Please check back later.'}
+                    </p>
+                  </div>
+                )
               ) : (
                 <>
                   {/* Step 1: Pick a Date */}
                   <div className="mt-5">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-accent">
-                      {isAr ? '١. اختر التاريخ' : '1. Select Date'}
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-accent">
+                        {isAr ? '١. اختر التاريخ' : '1. Select Date'}
+                      </label>
+                      <div className="hidden sm:flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => scrollDates('prev')}
+                          className="size-7 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition border border-white/10 active:scale-95"
+                          title={isAr ? 'السابق' : 'Previous dates'}
+                          aria-label={isAr ? 'السابق' : 'Previous dates'}
+                        >
+                          {isAr ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => scrollDates('next')}
+                          className="size-7 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition border border-white/10 active:scale-95"
+                          title={isAr ? 'التالي' : 'Next dates'}
+                          aria-label={isAr ? 'التالي' : 'Next dates'}
+                        >
+                          {isAr ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+                        </button>
+                      </div>
+                    </div>
                     {loadingDays ? (
                       <p className="mt-2 text-xs text-white/60">
                         {isAr ? 'جاري فحص المواعيد...' : 'Checking calendar...'}
                       </p>
                     ) : (
-                      <div className="mt-2 flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-                        {days.map((d) => {
-                          const isSelected = selectedDate === d.date
-                          const isClosed = !d.hasSlots
-                          const localeCode = isAr ? 'ar-EG' : 'en-US'
-
-                          return (
+                      <div className="space-y-2">
+                        {availableMonths.length > 1 && (
+                          <div className="mt-2 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                             <button
-                              key={d.date}
-                              disabled={isClosed}
-                              onClick={() => setSelectedDate(d.date)}
-                              className={`shrink-0 rounded-2xl border px-3 py-2 text-center transition ${isSelected
-                                ? 'border-accent bg-accent text-primary shadow-xs font-bold'
-                                : isClosed
-                                  ? 'border-white/10 bg-white/5 text-white/30 cursor-not-allowed'
-                                  : 'border-white/15 bg-white/10 text-white hover:border-white/40'
+                              type="button"
+                              onClick={() => setSelectedMonth('all')}
+                              className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition shrink-0 ${selectedMonth === 'all'
+                                  ? 'bg-accent text-primary shadow-2xs'
+                                  : 'bg-white/10 text-white/80 hover:bg-white/20'
                                 }`}
                             >
-                              <span className="block text-[10px] font-bold uppercase">
-                                {new Intl.DateTimeFormat(localeCode, { weekday: 'short' }).format(
-                                  new Date(d.date + 'T00:00:00')
-                                )}
-                              </span>
-                              <span className="block text-sm font-semibold">
-                                {new Intl.DateTimeFormat(localeCode, { day: 'numeric', month: 'short' }).format(
-                                  new Date(d.date + 'T00:00:00')
-                                )}
-                              </span>
-                              {isClosed && (
-                                <span className="mt-0.5 block text-[9px] text-white/40">
-                                  {isAr ? 'مغلق' : 'Closed'}
-                                </span>
-                              )}
+                              {isAr ? 'كل الشهور' : 'All'}
                             </button>
-                          )
-                        })}
+                            {availableMonths.map((m) => (
+                              <button
+                                key={m.key}
+                                type="button"
+                                onClick={() => setSelectedMonth(m.key)}
+                                className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition shrink-0 ${selectedMonth === m.key
+                                    ? 'bg-accent text-primary shadow-2xs'
+                                    : 'bg-white/10 text-white/80 hover:bg-white/20'
+                                  }`}
+                              >
+                                {m.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        <div ref={datesScrollRef} className="mt-1 flex gap-2 overflow-x-auto pb-2 scrollbar-none scroll-smooth">
+                          {visibleDays.map((d) => {
+                            const isSelected = selectedDate === d.date
+                            const isClosed = !d.hasSlots
+                            const localeCode = isAr ? 'ar-EG' : 'en-US'
+                            const dateObj = new Date(d.date + 'T00:00:00')
+
+                            return (
+                              <button
+                                key={d.date}
+                                disabled={isClosed}
+                                onClick={() => setSelectedDate(d.date)}
+                                className={`shrink-0 rounded-2xl border px-3 py-2 text-center transition min-w-[68px] ${isSelected
+                                    ? 'border-accent bg-accent text-primary shadow-xs font-bold'
+                                    : isClosed
+                                      ? 'border-white/10 bg-white/5 text-white/30 cursor-not-allowed'
+                                      : 'border-white/15 bg-white/10 text-white hover:border-white/40'
+                                  }`}
+                              >
+                                <span className="block text-[10px] font-bold uppercase">
+                                  {new Intl.DateTimeFormat(localeCode, { weekday: 'short' }).format(dateObj)}
+                                </span>
+                                <span className="block text-base font-black my-0.5">
+                                  {dateObj.getDate()}
+                                </span>
+                                <span className="block text-[10px] font-semibold uppercase opacity-90">
+                                  {new Intl.DateTimeFormat(localeCode, { month: 'short' }).format(dateObj)}
+                                </span>
+                                {isClosed && (
+                                  <span className="mt-0.5 block text-[9px] text-white/40">
+                                    {isAr ? 'مغلق' : 'Closed'}
+                                  </span>
+                                )}
+                              </button>
+                            )
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>

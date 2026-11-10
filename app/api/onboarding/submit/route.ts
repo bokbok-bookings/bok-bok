@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Please select a valid category from the approved MVP taxonomy before submitting.',
+          error: 'Please select a valid category from the approved taxonomy before submitting.',
         },
         { status: 400 }
       )
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Please select at least one valid subcategory from the approved MVP taxonomy before submitting.',
+          error: 'Please select at least one valid subcategory from the approved taxonomy before submitting.',
         },
         { status: 400 }
       )

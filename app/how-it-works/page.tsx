@@ -66,7 +66,7 @@ export default function HowItWorksPage() {
       {
         num: '01',
         title: 'Find the Right Expert & Offering',
-        desc: 'Explore vetted specialists across 9 approved MVP categories including Marketing, Business, Technology, Career, and Design. Filter by consultation, workshop, or webinar.',
+        desc: 'Explore vetted specialists across 9 approved categories including Marketing, Business, Technology, Career, and Design. Filter by consultation, workshop, or webinar.',
         icon: Compass,
         highlight: '9 Approved Categories',
       },
@@ -128,7 +128,7 @@ export default function HowItWorksPage() {
       {
         num: '01',
         title: 'Build Your Offer Catalog',
-        desc: 'Package what you know into 1-on-1 consultations, hands-on workshops, or masterclass webinars within the approved MVP taxonomy, with clear scope and audience.',
+        desc: 'Package what you know into 1-on-1 consultations, hands-on workshops, or masterclass webinars within our approved taxonomy, with clear scope and audience.',
         icon: Briefcase,
         highlight: 'Admin-reviewed quality',
       },
@@ -212,12 +212,12 @@ export default function HowItWorksPage() {
         a: 'Every expert undergoes identity and portfolio verification, and every offer requires administrator review before publication. Structured vocational training programmes are additionally flagged for a separate licensing review before publication.',
       },
       {
-        q: 'What offerings are included in the Bok Bok MVP?',
-        a: 'Bok Bok is a marketplace for Consultations, Workshops, and Webinars across 9 approved categories (Marketing, Business & Entrepreneurship, Technology & IT, Career & Professional Development, Design & Creative, Languages & Communication, Personal Skills & Lifestyle, Hobbies & Skills, and Travel). Professional Services and regulated medical, legal, financial, or school tutoring services are outside the MVP.',
+        q: 'What offerings are available on Bok Bok?',
+        a: 'Bok Bok is a marketplace for Consultations, Workshops, and Webinars across 9 approved categories (Marketing, Business & Entrepreneurship, Technology & IT, Career & Professional Development, Design & Creative, Languages & Communication, Personal Skills & Lifestyle, Hobbies & Skills, and Travel). Regulated medical, legal, financial, or school tutoring services are excluded from the platform.',
       },
       {
         q: 'Who can book or offer sessions on Bok Bok?',
-        a: 'Bok Bok connects ambitious individuals with vetted specialists across 9 approved MVP categories. Services directed at school tutoring, university exam preparation, or academic ghostwriting are excluded from the platform.',
+        a: 'Bok Bok connects ambitious individuals with vetted specialists across 9 approved categories. Services directed at school tutoring, university exam preparation, or academic ghostwriting are excluded from the platform.',
       },
       {
         q: 'How does payment with InstaPay work?',
@@ -320,7 +320,7 @@ export default function HowItWorksPage() {
         </div>
       </section>
 
-      {/* 3 MVP Formats Section */}
+      {/* 3 Core Formats Section */}
       <section className="border-t border-border bg-surface py-20">
         <div className="mx-auto max-w-[1140px] px-5 sm:px-8">
           <div className="text-center max-w-xl mx-auto mb-14">
@@ -426,7 +426,7 @@ export default function HowItWorksPage() {
                     },
                     {
                       title: 'Approved Taxonomy',
-                      text: 'Curated across 9 MVP categories and 63 specialized subcategories.',
+                      text: 'Curated across 9 approved categories and 63 specialized subcategories.',
                     },
                     {
                       title: 'Professional Learning Scope',

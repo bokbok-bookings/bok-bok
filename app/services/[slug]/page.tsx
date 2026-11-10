@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, use } from 'react'
+import React, { useState, useEffect, useMemo, use } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { getCategoryLabel, getSubcategoryLabel } from '@/lib/data/categories'
@@ -14,6 +14,8 @@ import {
   Users,
   ArrowRight,
   ShieldCheck,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import type { DayAvailability, TimeSlot } from '@/lib/data/availability'
 import { formatDateLabel, formatSlotLabel } from '@/lib/data/availability'
@@ -40,6 +42,41 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
   const [days, setDays] = useState<DayAvailability[]>([])
   const [loadingDays, setLoadingDays] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string>('')
+  const [selectedMonth, setSelectedMonth] = useState<string>('all')
+
+  const availableMonths = useMemo(() => {
+    const monthsMap = new Map<string, string>()
+    const localeCode = isAr ? 'ar-EG' : 'en-US'
+    for (const d of days) {
+      const ym = d.date.slice(0, 7)
+      if (!monthsMap.has(ym)) {
+        const label = new Intl.DateTimeFormat(localeCode, { month: 'short', year: 'numeric' }).format(
+          new Date(d.date + 'T00:00:00')
+        )
+        monthsMap.set(ym, label)
+      }
+    }
+    return Array.from(monthsMap.entries()).map(([key, label]) => ({ key, label }))
+  }, [days, isAr])
+
+  const visibleDays = useMemo(() => {
+    if (selectedMonth === 'all') return days
+    return days.filter((d) => d.date.startsWith(selectedMonth))
+  }, [days, selectedMonth])
+
+  const datesScrollRef = React.useRef<HTMLDivElement>(null)
+
+  const scrollDates = (direction: 'prev' | 'next') => {
+    if (datesScrollRef.current) {
+      const forward = direction === 'next'
+      const offset = 280
+      if (isAr) {
+        datesScrollRef.current.scrollBy({ left: forward ? -offset : offset, behavior: 'smooth' })
+      } else {
+        datesScrollRef.current.scrollBy({ left: forward ? offset : -offset, behavior: 'smooth' })
+      }
+    }
+  }
 
   const [slots, setSlots] = useState<TimeSlot[]>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
@@ -49,6 +86,8 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
   const [clientName, setClientName] = useState('')
   const [clientEmail, setClientEmail] = useState('')
   const [clientPhone, setClientPhone] = useState('')
+  const [intakeAnswers, setIntakeAnswers] = useState<Record<string, string>>({})
+  const [uploadingIntake, setUploadingIntake] = useState<Record<string, boolean>>({})
   const [receiptUrl, setReceiptUrl] = useState('')
   const [uploadingReceipt, setUploadingReceipt] = useState(false)
 
@@ -76,7 +115,9 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
   useEffect(() => {
     if (!expertId || isEvent) return
     setLoadingDays(true)
-    fetch(`/api/availability?expertId=${expertId}&action=days&count=14&duration=${service.durationMinutes || 45}`)
+    const noticeDays = Math.ceil((service.minNoticeHours !== undefined ? Number(service.minNoticeHours) : 24) / 24)
+    const dayCount = Math.max(90, noticeDays + 90)
+    fetch(`/api/availability?expertId=${expertId}&action=days&count=${dayCount}&duration=${service.durationMinutes || 45}&serviceId=${service._id}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.days)) {
@@ -86,7 +127,7 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
         }
       })
       .finally(() => setLoadingDays(false))
-  }, [expertId, isEvent, service?.durationMinutes])
+  }, [expertId, isEvent, service?.durationMinutes, service?._id, service?.minNoticeHours])
 
   // Load slots when date changes
   useEffect(() => {
@@ -97,7 +138,7 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
     setLoadingSlots(true)
     setSelectedTime('')
     fetch(
-      `/api/availability?expertId=${expertId}&action=slots&date=${selectedDate}&duration=${service.durationMinutes || 45}&breakAfter=${service.breakAfterMinutes || 0}`
+      `/api/availability?expertId=${expertId}&action=slots&date=${selectedDate}&duration=${service.durationMinutes || 45}&breakAfter=${service.breakAfterMinutes || 0}&serviceId=${service._id}`
     )
       .then((res) => res.json())
       .then((data) => {
@@ -108,7 +149,7 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
         }
       })
       .finally(() => setLoadingSlots(false))
-  }, [selectedDate, expertId, isEvent, service?.durationMinutes, service?.breakAfterMinutes])
+  }, [selectedDate, expertId, isEvent, service?.durationMinutes, service?.breakAfterMinutes, service?._id])
 
   const handleShare = () => {
     if (typeof window !== 'undefined') {
@@ -134,6 +175,20 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
       return
     }
 
+    if (Array.isArray(service.intakeQuestions)) {
+      for (const q of service.intakeQuestions) {
+        if (q.required && !intakeAnswers[q.id]?.trim()) {
+          const qName = q.question || (isAr ? 'السؤال الإلزامي' : 'the required intake question')
+          alert(
+            isAr
+              ? `يرجى الإجابة أو رفع الملف المطلوب لـ: "${qName}"`
+              : `Please provide an answer or file for required question: "${qName}"`
+          )
+          return
+        }
+      }
+    }
+
     setBookingLoading(true)
     try {
       const payload: any = {
@@ -146,6 +201,15 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
         clientPhone: clientPhone.trim(),
         adultsOnlyConfirmed: true,
         paymentReceiptUrl: receiptUrl || undefined,
+      }
+
+      if (Array.isArray(service.intakeQuestions) && service.intakeQuestions.length > 0) {
+        payload.intakeAnswers = service.intakeQuestions.map((q: any) => ({
+          questionId: q.id,
+          question: q.question,
+          type: q.type,
+          answer: intakeAnswers[q.id]?.trim() || '',
+        }))
       }
 
       if (!isEvent) {
@@ -201,7 +265,7 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
         <p className="mt-2 text-xs text-muted-foreground">
           {isAr
             ? 'هذا العرض غير متاح حالياً أو قيد مراجعة الإدارة.'
-            : 'This offer may be inactive, outside the approved MVP taxonomy, or pending administrator review.'}
+            : 'This offer may be inactive, outside approved platform categories, or pending administrator review.'}
         </p>
         <Link href="/explore" className="mt-6 rounded-full bg-primary px-6 py-2.5 text-xs font-bold text-white">
           {isAr ? '← استكشف العروض المعتمدة' : '← Explore Approved Offerings'}
@@ -231,16 +295,25 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
         : '1-on-1 Consultation'
 
   const deliveryLabel = isAr
-    ? service.deliveryMode === 'ONLINE'
-      ? '🌐 عبر الإنترنت'
-      : service.deliveryMode === 'IN_PERSON'
-        ? '📍 حضوري'
-        : '🔄 مرن / هجين'
-    : service.deliveryMode === 'ONLINE'
-      ? '🌐 Online Remote'
-      : service.deliveryMode === 'IN_PERSON'
-        ? '📍 In-Person'
-        : '🔄 Hybrid'
+    ? service.deliveryMode === 'IN_PERSON'
+      ? '📍 حضوري'
+      : '🌐 عبر الإنترنت'
+    : service.deliveryMode === 'IN_PERSON'
+      ? '📍 In-Person'
+      : '🌐 Online Remote'
+
+  const minNoticeHours = service.minNoticeHours !== undefined ? Number(service.minNoticeHours) : 24
+  const noticeLabel = isAr
+    ? minNoticeHours === 0
+      ? '⚡ حجز فوري في نفس اليوم'
+      : minNoticeHours === 24
+        ? '🕒 حجز مسبق (اليوم السابق)'
+        : `🕒 حجز مسبق قبل ${Math.round(minNoticeHours / 24)} أيام`
+    : minNoticeHours === 0
+      ? '⚡ Same-day booking available'
+      : minNoticeHours === 24
+        ? '🕒 24h advance notice (Day before)'
+        : `🕒 ${Math.round(minNoticeHours / 24)} days advance notice`
 
   return (
     <main className="min-h-screen bg-background text-foreground overflow-x-hidden">
@@ -281,6 +354,9 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                 </span>
                 <span className="rounded-full bg-surface border border-border px-3 py-1 text-xs font-semibold text-muted-foreground">
                   {deliveryLabel}
+                </span>
+                <span className="rounded-full bg-surface border border-border px-3 py-1 text-xs font-semibold text-muted-foreground">
+                  {noticeLabel}
                 </span>
                 {catLabel && (
                   <span className="rounded-full bg-surface border border-border px-3 py-1 text-xs font-semibold text-primary">
@@ -337,23 +413,33 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                           : `${service.durationMinutes} minutes session`}
                       </span>
                     </div>
-                    {service.breakAfterMinutes > 0 && (
+                    {/* {service.breakAfterMinutes > 0 && (
                       <span className="text-[11px] text-muted-foreground">
                         {isAr
                           ? `(${service.breakAfterMinutes} دقيقة فترة راحة)`
                           : `(${service.breakAfterMinutes}m break buffer)`}
                       </span>
-                    )}
+                    )} */}
                   </>
                 )}
 
-                {service.deliveryMode !== 'ONLINE' && service.location?.address && (
+                {service.deliveryMode !== 'ONLINE' && (service.location?.address || service.location?.city) && (
                   <div className="flex items-center gap-2">
                     <MapPin size={16} className="text-primary shrink-0" />
                     <span>
-                      {service.location.address}
-                      {service.location.city ? `, ${service.location.city}` : ''}
+                      {service.location.address || service.location.city}
+                      {service.location.address && service.location.city ? `, ${service.location.city}` : ''}
                     </span>
+                    {service.location.googleMapsUrl && (
+                      <a
+                        href={service.location.googleMapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] font-bold text-primary underline hover:text-primary/80 ms-1"
+                      >
+                        {isAr ? 'الخريطة ↗' : 'Map ↗'}
+                      </a>
+                    )}
                   </div>
                 )}
               </div>
@@ -369,6 +455,79 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                   </p>
                 )}
               </div>
+
+              {/* What You Will Get / Key Outcomes */}
+              {Array.isArray(service.whatYouWillGet) && service.whatYouWillGet.length > 0 && (
+                <div className="mt-6 rounded-3xl border border-primary/15 bg-secondary/30 p-5 sm:p-6 space-y-3 shadow-2xs">
+                  <h2 className="text-base font-bold text-primary flex items-center gap-2">
+                    <span className="flex size-6 items-center justify-center rounded-full bg-primary text-white text-xs font-bold shrink-0">✓</span>
+                    <span>{isAr ? 'ماذا ستستفيد / تجد في هذه الجلسة' : 'What you will get from this session'}</span>
+                  </h2>
+                  <div className="grid gap-2 sm:grid-cols-2 pt-1">
+                    {service.whatYouWillGet.map((item: any, idx: number) => {
+                      const text =
+                        typeof item === 'string'
+                          ? item
+                          : isAr
+                            ? item?.ar || item?.en || ''
+                            : item?.en || item?.ar || ''
+                      if (!text) return null
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-start gap-2.5 rounded-2xl bg-surface border border-border p-3 text-xs text-foreground shadow-2xs"
+                        >
+                          <span className="mt-1 size-1.5 rounded-full bg-emerald-500 shrink-0" />
+                          <span className="leading-relaxed font-semibold">{text}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* In-Person Venue & Directions Card */}
+              {service.deliveryMode !== 'ONLINE' && service.location && (
+                <div className="mt-6 rounded-3xl border border-border bg-surface p-5 sm:p-6 space-y-3 shadow-2xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="flex size-10 items-center justify-center rounded-2xl bg-secondary text-primary border border-border shrink-0">
+                        <MapPin size={18} />
+                      </div>
+                      <div>
+                        <h3 className="text-sm sm:text-base font-bold text-primary">
+                          {isAr ? 'مقر وموقع الحضور' : 'In-Person Venue & Location'}
+                        </h3>
+                        <p className="text-xs text-foreground mt-0.5 font-medium">
+                          {service.location.address || service.location.city}
+                          {service.location.address && service.location.city ? `, ${service.location.city}` : ''}
+                        </p>
+                      </div>
+                    </div>
+
+                    {service.location.googleMapsUrl && (
+                      <a
+                        href={service.location.googleMapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary/90 transition shadow-2xs shrink-0 self-start sm:self-auto"
+                      >
+                        <MapPin size={13} />
+                        <span>{isAr ? 'فتح في خرائط جوجل ↗' : 'Open in Google Maps ↗'}</span>
+                      </a>
+                    )}
+                  </div>
+
+                  {service.location.addressDescription && (
+                    <div className="rounded-2xl border border-border bg-background p-3.5 text-xs text-muted-foreground leading-relaxed">
+                      <strong className="text-foreground block mb-0.5">
+                        {isAr ? '📍 تفاصيل وإرشادات الوصول للمكان:' : '📍 Venue Directions & Access Notes:'}
+                      </strong>
+                      <p className="whitespace-pre-line">{service.location.addressDescription}</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Intended Audience Box */}
               <div className="mt-6 rounded-2xl border border-border bg-surface p-4 space-y-1.5">
@@ -456,9 +615,9 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                     : isAr ? `/ جلسة ${service.durationMinutes} دقيقة` : `/ ${service.durationMinutes} min session`}
                 </span>
               </div>
-              <span className="shrink-0 rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold text-accent">
+              {/* <span className="shrink-0 rounded-full bg-white/10 px-3 py-1 text-[11px] font-bold text-accent">
                 {isAr ? 'دفع مؤكد إنستاباي' : 'InstaPay Verified'}
-              </span>
+              </span> */}
             </div>
 
             {booked ? (
@@ -483,9 +642,31 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                 {!isEvent && (
                   <>
                     <div className="min-w-0 w-full">
-                      <label className="block text-xs font-bold uppercase tracking-wider text-accent mb-2">
-                        {isAr ? '١. اختر التاريخ' : '1. Select Date'}
-                      </label>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-accent">
+                          {isAr ? '١. اختر التاريخ' : '1. Select Date'}
+                        </label>
+                        <div className="hidden sm:flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => scrollDates('prev')}
+                            className="size-7 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition border border-white/10 active:scale-95"
+                            title={isAr ? 'السابق' : 'Previous dates'}
+                            aria-label={isAr ? 'السابق' : 'Previous dates'}
+                          >
+                            {isAr ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => scrollDates('next')}
+                            className="size-7 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition border border-white/10 active:scale-95"
+                            title={isAr ? 'التالي' : 'Next dates'}
+                            aria-label={isAr ? 'التالي' : 'Next dates'}
+                          >
+                            {isAr ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+                          </button>
+                        </div>
+                      </div>
                       {loadingDays ? (
                         <p className="text-xs text-white/60">
                           {isAr ? 'جاري فحص المواعيد...' : 'Loading available dates...'}
@@ -495,33 +676,65 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                           {isAr ? 'لا توجد مواعيد متاحة لهذه المدة.' : 'No available dates found for this duration.'}
                         </p>
                       ) : (
-                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none w-full min-w-0 max-w-full">
-                          {days.map((d) => {
-                            const localeCode = isAr ? 'ar-EG' : 'en-US'
-                            return (
+                        <div className="space-y-2">
+                          {availableMonths.length > 1 && (
+                            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                               <button
-                                key={d.date}
                                 type="button"
-                                disabled={!d.hasSlots}
-                                onClick={() => setSelectedDate(d.date)}
-                                className={`shrink-0 rounded-2xl p-2.5 text-center transition min-w-[64px] ${selectedDate === d.date
-                                  ? 'bg-accent text-primary font-bold shadow-xs'
-                                  : d.hasSlots
-                                    ? 'bg-white/10 text-white hover:bg-white/20'
-                                    : 'bg-white/5 text-white/30 cursor-not-allowed'
+                                onClick={() => setSelectedMonth('all')}
+                                className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition shrink-0 ${selectedMonth === 'all'
+                                    ? 'bg-accent text-primary shadow-2xs'
+                                    : 'bg-white/10 text-white/80 hover:bg-white/20'
                                   }`}
                               >
-                                <span className="block text-[10px] font-bold uppercase">
-                                  {new Intl.DateTimeFormat(localeCode, { weekday: 'short' }).format(
-                                    new Date(d.date + 'T00:00:00')
-                                  )}
-                                </span>
-                                <span className="block text-base font-black mt-0.5">
-                                  {d.date.slice(8)}
-                                </span>
+                                {isAr ? 'كل الشهور' : 'All'}
                               </button>
-                            )
-                          })}
+                              {availableMonths.map((m) => (
+                                <button
+                                  key={m.key}
+                                  type="button"
+                                  onClick={() => setSelectedMonth(m.key)}
+                                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition shrink-0 ${selectedMonth === m.key
+                                      ? 'bg-accent text-primary shadow-2xs'
+                                      : 'bg-white/10 text-white/80 hover:bg-white/20'
+                                    }`}
+                                >
+                                  {m.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          <div ref={datesScrollRef} className="flex gap-2 overflow-x-auto pb-2 scrollbar-none w-full min-w-0 max-w-full scroll-smooth">
+                            {visibleDays.map((d) => {
+                              const localeCode = isAr ? 'ar-EG' : 'en-US'
+                              const dateObj = new Date(d.date + 'T00:00:00')
+                              return (
+                                <button
+                                  key={d.date}
+                                  type="button"
+                                  disabled={!d.hasSlots}
+                                  onClick={() => setSelectedDate(d.date)}
+                                  className={`shrink-0 rounded-2xl p-2.5 text-center transition min-w-[68px] ${selectedDate === d.date
+                                      ? 'bg-accent text-primary font-bold shadow-xs'
+                                      : d.hasSlots
+                                        ? 'bg-white/10 text-white hover:bg-white/20'
+                                        : 'bg-white/5 text-white/30 cursor-not-allowed'
+                                    }`}
+                                >
+                                  <span className="block text-[10px] font-bold uppercase">
+                                    {new Intl.DateTimeFormat(localeCode, { weekday: 'short' }).format(dateObj)}
+                                  </span>
+                                  <span className="block text-base font-black my-0.5">
+                                    {dateObj.getDate()}
+                                  </span>
+                                  <span className="block text-[10px] font-semibold uppercase opacity-90">
+                                    {new Intl.DateTimeFormat(localeCode, { month: 'short' }).format(dateObj)}
+                                  </span>
+                                </button>
+                              )
+                            })}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -595,6 +808,199 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                     className="w-full rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-xs text-white outline-none placeholder:text-white/40 focus:border-accent"
                   />
                 </div>
+
+                {/* Additional Intake Questions from Expert */}
+                {Array.isArray(service.intakeQuestions) && service.intakeQuestions.length > 0 && (
+                  <div className="border-t border-white/10 pt-4 space-y-3">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-accent">
+                      {isEvent
+                        ? isAr ? '٣. متطلبات وأسئلة إضافية من الخبير' : '3. Intake Questions from Expert'
+                        : isAr ? '٤. متطلبات وأسئلة إضافية من الخبير' : '4. Intake Questions from Expert'}
+                    </label>
+                    <p className="text-[11px] text-white/70 leading-relaxed">
+                      {isAr
+                        ? 'يرجى تقديم الإجابات أو رفع الملفات المطلوبة أدناه للتحضير للجلسة:'
+                        : 'Please provide answers or upload requested files to help the expert prepare for your session:'}
+                    </p>
+
+                    <div className="space-y-3 pt-1">
+                      {service.intakeQuestions.map((q: any, idx: number) => {
+                        const answerValue = intakeAnswers[q.id] || ''
+                        const isUp = Boolean(uploadingIntake[q.id])
+
+                        return (
+                          <div
+                            key={q.id || idx}
+                            className="rounded-2xl border border-white/15 bg-white/5 p-3.5 space-y-2"
+                          >
+                            <label className="block text-xs font-bold text-white">
+                              {q.question} {q.required && <span className="text-amber-400">*</span>}
+                            </label>
+
+                            {q.type === 'string' ? (
+                              <textarea
+                                rows={2}
+                                value={answerValue}
+                                onChange={(e) =>
+                                  setIntakeAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
+                                }
+                                placeholder={isAr ? 'اكتب إجابتك هنا...' : 'Type your answer here...'}
+                                className="w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs text-white outline-none placeholder:text-white/40 focus:border-accent"
+                              />
+                            ) : q.type === 'pdf' ? (
+                              <div>
+                                {answerValue ? (
+                                  <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-2.5">
+                                    <a
+                                      href={answerValue}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-xs font-bold text-emerald-300 hover:underline flex items-center gap-1.5 truncate"
+                                    >
+                                      <span>📄</span>
+                                      <span className="truncate">{isAr ? 'عرض مستند PDF المرفق' : 'Attached PDF Document'} ↗</span>
+                                    </a>
+                                    <CloudinaryUploadWidget
+                                      folder="bokbok/intake_docs"
+                                      fallbackType="certificate"
+                                      allowPdf={true}
+                                      accept="application/pdf"
+                                      onUploadStart={() =>
+                                        setUploadingIntake((prev) => ({ ...prev, [q.id]: true }))
+                                      }
+                                      onSuccess={(res) => {
+                                        setIntakeAnswers((prev) => ({
+                                          ...prev,
+                                          [q.id]: res.secureUrl || res.url,
+                                        }))
+                                        setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
+                                      }}
+                                      onError={() =>
+                                        setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
+                                      }
+                                    >
+                                      <button
+                                        type="button"
+                                        className="text-[11px] font-bold text-emerald-300 hover:text-white underline shrink-0 px-1"
+                                      >
+                                        {isAr ? 'تغيير' : 'Change'}
+                                      </button>
+                                    </CloudinaryUploadWidget>
+                                  </div>
+                                ) : isUp ? (
+                                  <div className="rounded-xl border border-dashed border-accent/60 bg-accent/10 p-3 text-center text-xs text-accent">
+                                    {isAr ? 'جاري رفع ملف PDF...' : 'Uploading PDF...'}
+                                  </div>
+                                ) : (
+                                  <CloudinaryUploadWidget
+                                    folder="bokbok/intake_docs"
+                                    fallbackType="certificate"
+                                    allowPdf={true}
+                                    accept="application/pdf"
+                                    onUploadStart={() =>
+                                      setUploadingIntake((prev) => ({ ...prev, [q.id]: true }))
+                                    }
+                                    onSuccess={(res) => {
+                                      setIntakeAnswers((prev) => ({
+                                        ...prev,
+                                        [q.id]: res.secureUrl || res.url,
+                                      }))
+                                      setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
+                                    }}
+                                    onError={() =>
+                                      setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
+                                    }
+                                    className="w-full"
+                                  >
+                                    <div className="cursor-pointer rounded-xl border border-dashed border-white/25 bg-white/5 p-3 text-center transition hover:border-accent hover:bg-white/10">
+                                      <p className="text-xs font-bold text-white hover:text-accent">
+                                        {isAr ? '+ رفع مستند PDF' : '+ Upload PDF Document'}
+                                      </p>
+                                    </div>
+                                  </CloudinaryUploadWidget>
+                                )}
+                              </div>
+                            ) : (
+                              /* image */
+                              <div>
+                                {answerValue ? (
+                                  <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-2.5">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={answerValue}
+                                        alt="Uploaded preview"
+                                        className="size-10 rounded-lg object-cover border border-emerald-400/40 shrink-0"
+                                      />
+                                      <span className="text-xs font-bold text-emerald-300 truncate">
+                                        {isAr ? '✓ تم إرفاق الصورة' : '✓ Image attached'}
+                                      </span>
+                                    </div>
+                                    <CloudinaryUploadWidget
+                                      folder="bokbok/intake_images"
+                                      fallbackType="general"
+                                      accept="image/*"
+                                      onUploadStart={() =>
+                                        setUploadingIntake((prev) => ({ ...prev, [q.id]: true }))
+                                      }
+                                      onSuccess={(res) => {
+                                        setIntakeAnswers((prev) => ({
+                                          ...prev,
+                                          [q.id]: res.secureUrl || res.url,
+                                        }))
+                                        setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
+                                      }}
+                                      onError={() =>
+                                        setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
+                                      }
+                                    >
+                                      <button
+                                        type="button"
+                                        className="text-[11px] font-bold text-emerald-300 hover:text-white underline shrink-0 px-1"
+                                      >
+                                        {isAr ? 'تغيير' : 'Change'}
+                                      </button>
+                                    </CloudinaryUploadWidget>
+                                  </div>
+                                ) : isUp ? (
+                                  <div className="rounded-xl border border-dashed border-accent/60 bg-accent/10 p-3 text-center text-xs text-accent">
+                                    {isAr ? 'جاري رفع ملف الصورة...' : 'Uploading image...'}
+                                  </div>
+                                ) : (
+                                  <CloudinaryUploadWidget
+                                    folder="bokbok/intake_images"
+                                    fallbackType="general"
+                                    accept="image/*"
+                                    onUploadStart={() =>
+                                      setUploadingIntake((prev) => ({ ...prev, [q.id]: true }))
+                                    }
+                                    onSuccess={(res) => {
+                                      setIntakeAnswers((prev) => ({
+                                        ...prev,
+                                        [q.id]: res.secureUrl || res.url,
+                                      }))
+                                      setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
+                                    }}
+                                    onError={() =>
+                                      setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
+                                    }
+                                    className="w-full"
+                                  >
+                                    <div className="cursor-pointer rounded-xl border border-dashed border-white/25 bg-white/5 p-3 text-center transition hover:border-accent hover:bg-white/10">
+                                      <p className="text-xs font-bold text-white hover:text-accent">
+                                        {isAr ? '+ رفع ملف صورة' : '+ Upload Image File'}
+                                      </p>
+                                    </div>
+                                  </CloudinaryUploadWidget>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Step 3: InstaPay Transfer Instructions */}
                 <div className="border-t border-white/10 pt-4 space-y-3">
@@ -693,6 +1099,7 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                   disabled={
                     bookingLoading ||
                     uploadingReceipt ||
+                    Object.values(uploadingIntake).some(Boolean) ||
                     !receiptUrl ||
                     (!isEvent && (!selectedDate || !selectedTime))
                   }
@@ -703,11 +1110,13 @@ export default function ServiceDetailPage({ params }: ServiceDetailPageProps) {
                     ? (isAr ? 'جاري معالجة الطلب...' : 'Processing Booking...')
                     : uploadingReceipt
                       ? (isAr ? 'جاري رفع إيصال الدفع...' : 'Uploading Receipt...')
-                      : !receiptUrl
-                        ? (isAr ? 'يرجى إرفاق إيصال التحويل أولاً' : 'Upload Receipt to Proceed')
-                        : isEvent
-                          ? (isAr ? 'تأكيد التسجيل في الجلسة' : 'Confirm Registration')
-                          : (isAr ? 'تأكيد وحجز الموعد' : 'Confirm & Request Session')}
+                      : Object.values(uploadingIntake).some(Boolean)
+                        ? (isAr ? 'جاري رفع الملفات المرفقة...' : 'Uploading files...')
+                        : !receiptUrl
+                          ? (isAr ? 'يرجى إرفاق إيصال التحويل أولاً' : 'Upload Receipt to Proceed')
+                          : isEvent
+                            ? (isAr ? 'تأكيد التسجيل في الجلسة' : 'Confirm Registration')
+                            : (isAr ? 'تأكيد وحجز الموعد' : 'Confirm & Request Session')}
                 </button>
 
                 <div className="flex items-center justify-center gap-2 text-[11px] text-white/50 pt-1">

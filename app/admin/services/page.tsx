@@ -38,7 +38,8 @@ interface ServiceItem {
   adminReviewNote?: string
   bookingType?: 'APPOINTMENT' | 'WORKSHOP' | 'WEBINAR'
   serviceKind?: 'CONSULTATION' | 'GENERAL_SERVICE'
-  deliveryMode?: 'ONLINE' | 'IN_PERSON' | 'HYBRID'
+  deliveryMode?: 'ONLINE' | 'IN_PERSON'
+  minNoticeHours?: number
   location?: {
     address?: string
     city?: string
@@ -127,7 +128,7 @@ export default function AdminServicesPage() {
     } else if (action === 'unpublish') {
       const note = prompt(
         'Admin note for unpublishing this offering for review:',
-        'Unpublished for MVP taxonomy/scope review.'
+        'Unpublished for taxonomy/scope review.'
       )
       if (note === null) return
       adminReviewNote = note
@@ -345,7 +346,7 @@ export default function AdminServicesPage() {
             let typeColor = 'bg-blue-50 text-blue-700 border border-blue-200'
             if (bType === 'APPOINTMENT') {
               typeLabel =
-                sKind === 'GENERAL_SERVICE' ? 'General Service (Outside MVP)' : 'Consultation'
+                sKind === 'GENERAL_SERVICE' ? 'General Service (Unsupported)' : 'Consultation'
               typeColor =
                 sKind === 'GENERAL_SERVICE'
                   ? 'bg-rose-50 text-rose-700 border border-rose-200'
@@ -391,11 +392,14 @@ export default function AdminServicesPage() {
                           {typeLabel}
                         </span>
                         <span className="rounded-full bg-neutral-100 border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                          {dMode === 'ONLINE'
-                            ? '🌐 Online'
-                            : dMode === 'IN_PERSON'
-                              ? '📍 In-Person'
-                              : '🔄 Hybrid'}
+                          {dMode === 'IN_PERSON' ? '📍 In-Person' : '🌐 Online'}
+                        </span>
+                        <span className="rounded-full bg-sky-50 border border-sky-200 px-2.5 py-0.5 text-[10px] font-bold text-sky-800">
+                          {srv.minNoticeHours === 0
+                            ? '⚡ Same Day'
+                            : (srv.minNoticeHours === 24 || srv.minNoticeHours === undefined)
+                              ? '🕒 24h Notice'
+                              : `🕒 ${Math.round(srv.minNoticeHours / 24)}d Notice`}
                         </span>
                         <span
                           className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${srv.approvalStatus === 'pending'
@@ -425,7 +429,7 @@ export default function AdminServicesPage() {
                         )}
                         {srv.isMvpTaxonomyValid === false && (
                           <span className="rounded-full bg-rose-50 border border-rose-200 px-2.5 py-0.5 text-[10px] font-bold text-rose-700">
-                            ⚠ Outside Approved MVP Taxonomy
+                            ⚠ Outside Approved Taxonomy
                           </span>
                         )}
                       </div>

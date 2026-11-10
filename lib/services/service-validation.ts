@@ -34,6 +34,8 @@ export interface LocalizedValue {
 export interface ServiceLocation {
   city: string
   address: string
+  addressDescription?: string
+  googleMapsUrl?: string
 }
 
 export interface ServiceEventDetails {
@@ -53,12 +55,21 @@ export type LicensingReviewStatus =
   | 'licensing_approved'
   | 'licensing_rejected'
 
+export interface ServiceIntakeQuestion {
+  id: string
+  question: string
+  type: 'string' | 'pdf' | 'image'
+  required?: boolean
+}
+
 export interface NormalizedService {
   slug?: string
   thumbnailUrl?: string
   title: LocalizedValue
   description: LocalizedValue
   intendedAudience: LocalizedValue
+  whatYouWillGet?: LocalizedValue[]
+  intakeQuestions?: ServiceIntakeQuestion[]
   adultsOnly: boolean
   minimumAge: number
   categorySlug: string
@@ -70,6 +81,7 @@ export interface NormalizedService {
   location?: ServiceLocation
   durationMinutes: number
   breakAfterMinutes: number
+  minNoticeHours?: number
   pricing: { baseCurrency: string; prices: Record<string, number> }
   event?: ServiceEventDetails
   isStructuredVocationalProgramme: boolean
@@ -241,7 +253,7 @@ export function detectExcludedService(text: string): {
         return {
           excluded: true,
           ruleId: rule.id,
-          reason: `Excluded from MVP scope: ${rule.label.en}. Do not move excluded services into another category or rename them to bypass restrictions.`,
+          reason: `Excluded from platform scope: ${rule.label.en}. Do not move excluded services into another category or rename them to bypass restrictions.`,
         }
       }
     }
@@ -324,7 +336,16 @@ function normalizeLocation(raw: any): ServiceLocation | undefined {
   }
   const city = str(raw.city)
   const address = str(raw.address)
-  return city || address ? { city, address } : undefined
+  const addressDescription = str(raw.addressDescription)
+  const googleMapsUrl = str(raw.googleMapsUrl)
+  return city || address
+    ? {
+        city,
+        address,
+        ...(addressDescription ? { addressDescription } : {}),
+        ...(googleMapsUrl ? { googleMapsUrl } : {}),
+      }
+    : undefined
 }
 
 /**
@@ -357,7 +378,7 @@ export function validateServiceInput(
     }
     if (rawKind === 'GENERAL_SERVICE') {
       errors.push(
-        'Professional Services are outside the MVP scope. Bok Bok MVP only supports Consultations, Workshops, and Webinars.',
+        'Professional Services are outside the platform scope. Bok Bok only supports Consultations, Workshops, and Webinars.',
       )
     }
     serviceKind = 'CONSULTATION'
@@ -402,14 +423,14 @@ export function validateServiceInput(
   const minimumAge = rawMinAge === undefined ? 18 : Number(rawMinAge)
 
   if (!adultsOnly || !Number.isFinite(minimumAge) || minimumAge < 18) {
-    errors.push('MVP offers are strictly limited to adults aged 18 and over.')
+    errors.push('Platform offers are strictly limited to adults aged 18 and over.')
   }
 
   if (MINORS_AUDIENCE_PATTERN.test(`${title.en} ${title.ar} ${description.en} ${description.ar} ${intendedAudience.en} ${intendedAudience.ar}`)) {
-    errors.push('Services directed at children or minors under 18 are excluded from the MVP.')
+    errors.push('Services directed at children or minors under 18 are excluded from the platform.')
   }
 
-  // ---- Approved MVP taxonomy enforcement (no free-text bypass) -----------
+  // ---- Approved taxonomy enforcement (no free-text bypass) -----------
   const categorySlug = str(pick('categorySlug')).toLowerCase()
   const subcategorySlug = str(pick('subcategorySlug')).toLowerCase()
 
@@ -417,11 +438,11 @@ export function validateServiceInput(
     errors.push('Category is required')
   } else if (isRemovedCategory(categorySlug)) {
     errors.push(
-      `Category "${categorySlug}" has been removed from active MVP use. New or updated offers cannot be published under it.`,
+      `Category "${categorySlug}" is not available for new or updated offers.`,
     )
   } else if (!isAllowedMvpCategory(categorySlug)) {
     errors.push(
-      `Category "${categorySlug}" is not in the approved MVP taxonomy. Free-text or unapproved categories are not permitted.`,
+      `Category "${categorySlug}" is not in the approved platform taxonomy. Free-text or unapproved categories are not permitted.`,
     )
   }
 
@@ -429,7 +450,7 @@ export function validateServiceInput(
     errors.push('An approved subcategory is required (free-text or unspecified subcategories are not permitted).')
   } else if (isAllowedMvpCategory(categorySlug) && !isAllowedMvpSubcategory(categorySlug, subcategorySlug)) {
     errors.push(
-      `Subcategory "${subcategorySlug}" is not in the approved MVP taxonomy for category "${categorySlug}".`,
+      `Subcategory "${subcategorySlug}" is not in the approved platform taxonomy for category "${categorySlug}".`,
     )
   }
 
@@ -492,11 +513,10 @@ export function validateServiceInput(
     errors.push(`Invalid delivery mode: ${rawMode}`)
   }
   let deliveryMode: DeliveryMode = isDeliveryMode(rawMode) ? rawMode : 'ONLINE'
-  if (bookingType === 'WEBINAR') deliveryMode = 'ONLINE' // webinars are online by definition
 
   const location = deliveryMode === 'ONLINE' ? undefined : normalizeLocation(pick('location'))
   if (deliveryMode !== 'ONLINE' && !location) {
-    errors.push('A location (city or address) is required for in-person or hybrid offerings')
+    errors.push('A location (city or address) is required for in-person offerings')
   }
 
   const unset: ServiceValidationResult['unset'] = []
@@ -559,8 +579,8 @@ export function validateServiceInput(
     } else if (capacity < registeredCount) {
       errors.push(`Capacity cannot be lower than the ${registeredCount} seats already registered`)
     }
-    if (bookingType === 'WEBINAR' && !joinUrl) {
-      errors.push('A joining link is required for webinars')
+    if (bookingType === 'WEBINAR' && deliveryMode === 'ONLINE' && !joinUrl) {
+      errors.push('A joining link is required for online webinars')
     }
     if (joinUrl && !isHttpUrl(joinUrl)) {
       errors.push('Joining link must be a valid http(s) URL')
@@ -595,10 +615,60 @@ export function validateServiceInput(
     return { ok: false, errors, warnings, unset }
   }
 
+  const rawMinNotice = pick('minNoticeHours')
+  const minNoticeHours =
+    rawMinNotice !== undefined && rawMinNotice !== null && rawMinNotice !== ''
+      ? Math.max(0, Number(rawMinNotice))
+      : existing.minNoticeHours !== undefined
+        ? existing.minNoticeHours
+        : 24
+
+  const rawWhatYouWillGet = pick('whatYouWillGet')
+  let whatYouWillGet: LocalizedValue[] = []
+  if (Array.isArray(rawWhatYouWillGet)) {
+    whatYouWillGet = rawWhatYouWillGet
+      .map((item: any) => {
+        if (!item) return null
+        if (typeof item === 'string') {
+          const s = item.trim()
+          return s ? { en: s, ar: s } : null
+        }
+        if (typeof item === 'object') {
+          const en = String(item.en || '').trim()
+          const ar = String(item.ar || '').trim()
+          if (!en && !ar) return null
+          return { en: en || ar, ar: ar || en }
+        }
+        return null
+      })
+      .filter((v): v is LocalizedValue => Boolean(v))
+  } else if (typeof rawWhatYouWillGet === 'string' && rawWhatYouWillGet.trim()) {
+    whatYouWillGet = rawWhatYouWillGet
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => ({ en: s, ar: s }))
+  }
+
+  const rawIntake = pick('intakeQuestions')
+  let intakeQuestions: ServiceIntakeQuestion[] = []
+  if (Array.isArray(rawIntake)) {
+    intakeQuestions = rawIntake
+      .filter((q: any) => q && typeof q === 'object' && String(q.question || '').trim())
+      .map((q: any, idx: number) => ({
+        id: String(q.id || `q_${Date.now()}_${idx}`),
+        question: String(q.question).trim(),
+        type: q.type === 'pdf' || q.type === 'image' ? q.type : 'string',
+        required: Boolean(q.required),
+      }))
+  }
+
   const value: NormalizedService = {
     title,
     description,
     intendedAudience,
+    whatYouWillGet,
+    intakeQuestions,
     adultsOnly: true,
     minimumAge: Math.max(18, minimumAge),
     categorySlug,
@@ -608,6 +678,7 @@ export function validateServiceInput(
     deliveryMode,
     durationMinutes,
     breakAfterMinutes,
+    minNoticeHours,
     pricing,
     isStructuredVocationalProgramme,
     requiresLicensingReview,

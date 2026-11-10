@@ -191,11 +191,13 @@ export type LicensingReviewStatus =
 
 export type BookingType = 'APPOINTMENT' | 'WORKSHOP' | 'WEBINAR'
 export type ServiceKind = 'CONSULTATION' | 'GENERAL_SERVICE'
-export type DeliveryMode = 'ONLINE' | 'IN_PERSON' | 'HYBRID'
+export type DeliveryMode = 'ONLINE' | 'IN_PERSON'
 
 export interface ServiceLocation {
   city: string
   address: string
+  addressDescription?: string
+  googleMapsUrl?: string
 }
 
 export interface ServiceEventDetails {
@@ -209,6 +211,13 @@ export interface ServiceEventDetails {
   platform?: string
 }
 
+export interface ServiceIntakeQuestion {
+  id: string
+  question: string
+  type: 'string' | 'pdf' | 'image'
+  required?: boolean
+}
+
 export interface ServiceDoc {
   _id: ObjectId
   expertId: ObjectId // Native BSON ObjectId!
@@ -217,6 +226,8 @@ export interface ServiceDoc {
   title: LocalizedText
   description: LocalizedText
   intendedAudience?: LocalizedText
+  whatYouWillGet?: Array<LocalizedText | string>
+  intakeQuestions?: ServiceIntakeQuestion[]
   adultsOnly?: boolean
   minimumAge?: number
   categorySlug?: string
@@ -229,6 +240,7 @@ export interface ServiceDoc {
   event?: ServiceEventDetails
   durationMinutes: number
   breakAfterMinutes: number
+  minNoticeHours?: number // Minimum notice required before booking (0 = same day, 24 = day before (default), 48 = 2 days, etc.)
   pricing: {
     baseCurrency: string // e.g. 'EGP'
     prices: Record<string, number> // { EGP: 750, USD: 25, SAR: 95 }
@@ -380,6 +392,13 @@ export interface GoogleMeetTelemetry {
   syncError?: string
 }
 
+export interface BookingIntakeAnswer {
+  questionId?: string
+  question: string
+  type: 'string' | 'pdf' | 'image'
+  answer: string
+}
+
 export interface BookingDoc {
   _id?: ObjectId
   id?: string
@@ -392,6 +411,7 @@ export interface BookingDoc {
   clientName: string
   clientEmail: string
   clientPhone?: string
+  intakeAnswers?: BookingIntakeAnswer[]
   date: string // YYYY-MM-DD
   time: string // HH:mm
   durationMinutes: number
@@ -399,6 +419,7 @@ export interface BookingDoc {
   currency?: string
   status: BookingStatus
   deliveryMode?: DeliveryMode
+  location?: ServiceLocation
   timezone?: string
   sessionStartAt?: Date
   sessionEndAt?: Date

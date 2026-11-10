@@ -137,7 +137,7 @@ export async function PATCH(request: Request) {
           {
             success: false,
             error:
-              'Cannot approve Professional / General Services: only Consultations, Workshops, and Webinars are permitted in the MVP.',
+              'Cannot approve Professional / General Services: only Consultations, Workshops, and Webinars are permitted.',
           },
           { status: 400 }
         )
@@ -150,7 +150,7 @@ export async function PATCH(request: Request) {
         return NextResponse.json(
           {
             success: false,
-            error: `Cannot approve offer: category "${existing.categorySlug || 'none'}" / subcategory "${existing.subcategorySlug || 'none'}" is outside the approved MVP taxonomy. Reassign to a valid MVP subcategory first.`,
+            error: `Cannot approve offer: category "${existing.categorySlug || 'none'}" / subcategory "${existing.subcategorySlug || 'none'}" is outside the approved taxonomy. Reassign to a valid subcategory first.`,
           },
           { status: 400 }
         )
@@ -214,7 +214,7 @@ export async function PATCH(request: Request) {
       updateDoc.approvalStatus = 'rejected'
       updateDoc.isActive = false
       updateDoc.rejectionReason =
-        rejectionReason || 'Offer does not meet Bok Bok reduced-risk MVP scope and compliance requirements.'
+        rejectionReason || 'Offer does not meet Bok Bok quality and compliance requirements.'
     } else if (action === 'unpublish') {
       updateDoc.isActive = false
       updateDoc.approvalStatus = 'pending'

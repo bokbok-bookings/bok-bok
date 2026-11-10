@@ -449,7 +449,7 @@ export default function Page() {
                   ['03', 'احجز بكل طمأنينة', 'عروض مراجعة بدقة مع نطاق عمل واضح ودعم مستمر.'],
                 ]
                 : [
-                  ['01', 'Find your expert', 'Browse verified specialists across 9 approved MVP categories.'],
+                  ['01', 'Find your expert', 'Browse verified specialists across 9 approved categories.'],
                   ['02', 'Choose a format & time', 'Pick a consultation, workshop, or webinar that fits your schedule.'],
                   ['03', 'Book with confidence', 'Admin-reviewed offers with clear scope and guidance.'],
                 ]

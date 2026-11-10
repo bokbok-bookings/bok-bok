@@ -150,7 +150,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: `Category "${slug}" is outside the approved MVP taxonomy. Free-text or removed categories (including Education & Learning and Fitness & Wellness) are not permitted in the MVP.`,
+          error: `Category "${slug}" is outside the approved taxonomy. Free-text or removed categories (including Education & Learning and Fitness & Wellness) are not permitted.`,
         },
         { status: 400 }
       )
@@ -263,7 +263,7 @@ export async function PATCH(request: Request) {
         return NextResponse.json(
           {
             success: false,
-            error: `Category slug "${normalized}" is outside the approved MVP taxonomy.`,
+            error: `Category slug "${normalized}" is outside the approved taxonomy.`,
           },
           { status: 400 }
         )
@@ -294,7 +294,7 @@ export async function PATCH(request: Request) {
         return NextResponse.json(
           {
             success: false,
-            error: `Cannot activate "${existing.name.en}" (${targetSlug}) because it is removed or outside the approved MVP taxonomy.`,
+            error: `Cannot activate "${existing.name.en}" (${targetSlug}) because it is removed or outside the approved taxonomy.`,
           },
           { status: 400 }
         )

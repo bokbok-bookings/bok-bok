@@ -554,6 +554,7 @@ export async function getExpertSlotsForDate(
   dateStr: string,
   consultationDurationMinutes: number = 30,
   breakAfterMinutes: number = 0,
+  minNoticeHours: number = 0,
 ): Promise<TimeSlot[]> {
   const expertObjectId = await getCanonicalExpertObjectId(expertIdOrSlug)
   const expertIdStr = expertObjectId.toString()
@@ -595,21 +596,31 @@ export async function getExpertSlotsForDate(
     busyIntervals.push({ start: bStart, end: bEnd })
   }
 
-  // Check past hours if date is today
+  // Check past hours and minimum booking notice requirement
   const now = new Date()
   const todayISO = toISODate(now)
   const isToday = dateStr === todayISO
   const currentMinutesFromMidnight = now.getHours() * 60 + now.getMinutes() + 15
+
+  const minNotice = Math.max(0, Number(minNoticeHours) || 0)
+  const minBookingCutoff = new Date(now.getTime() + (minNotice > 0 ? minNotice * 60 * 60 * 1000 : 15 * 60 * 1000))
+  const [slotYear, slotMonth, slotDay] = dateStr.split('-').map(Number)
 
   const slots: TimeSlot[] = []
 
   for (let t = startMins; t + duration <= endMins; t += interval) {
     const slotStart = t
     const slotEndWithBuffer = t + duration + reqBuffer
-    const slotCoreEnd = t + duration
     const timeLabel = minutesToTime(slotStart)
 
     if (isToday && slotStart <= currentMinutesFromMidnight) {
+      slots.push({ time: timeLabel, available: false })
+      continue
+    }
+
+    // Minimum notice cutoff check
+    const slotDateTime = new Date(slotYear, slotMonth - 1, slotDay, Math.floor(slotStart / 60), slotStart % 60, 0)
+    if (slotDateTime.getTime() < minBookingCutoff.getTime()) {
       slots.push({ time: timeLabel, available: false })
       continue
     }
@@ -635,8 +646,9 @@ export async function getExpertSlotsForDate(
  */
 export async function getExpertUpcomingDays(
   expertIdOrSlug: string,
-  count = 14,
+  count = 90,
   _consultationDurationMinutes = 30,
+  minNoticeHours = 0,
 ): Promise<DayAvailability[]> {
   const expertObjectId = await getCanonicalExpertObjectId(expertIdOrSlug)
   const expertIdStr = expertObjectId.toString()
@@ -645,6 +657,10 @@ export async function getExpertUpcomingDays(
   start.setHours(0, 0, 0, 0)
   const settings = await getExpertAvailabilitySettings(expertIdStr)
   const overrides = await getExpertDateOverrides(expertIdStr)
+
+  const now = new Date()
+  const minNotice = Math.max(0, Number(minNoticeHours) || 0)
+  const minBookingCutoff = new Date(now.getTime() + (minNotice > 0 ? minNotice * 60 * 60 * 1000 : 15 * 60 * 1000))
 
   const candidateDates: string[] = []
   for (let offset = 0; candidateDates.length < count; offset++) {
@@ -670,6 +686,17 @@ export async function getExpertUpcomingDays(
         })
         continue
       }
+      const [y, m, d] = dateStr.split('-').map(Number)
+      const [endH, endM] = (override.endTime || '17:00').split(':').map(Number)
+      const dayEndDateTime = new Date(y, m - 1, d, endH, endM, 0)
+      if (dayEndDateTime.getTime() <= minBookingCutoff.getTime()) {
+        days.push({
+          date: dateStr,
+          hasSlots: false,
+          reason: minNotice > 0 ? 'Requires advance notice' : 'Passed',
+        })
+        continue
+      }
       days.push({ date: dateStr, hasSlots: true })
       continue
     }
@@ -685,7 +712,18 @@ export async function getExpertUpcomingDays(
         reason: dayOfWeek === 5 ? 'Friday Weekend' : 'Day Off',
       })
     } else {
-      days.push({ date: dateStr, hasSlots: true })
+      const [y, m, d] = dateStr.split('-').map(Number)
+      const [endH, endM] = (dayTemplate.endTime || '17:00').split(':').map(Number)
+      const dayEndDateTime = new Date(y, m - 1, d, endH, endM, 0)
+      if (dayEndDateTime.getTime() <= minBookingCutoff.getTime()) {
+        days.push({
+          date: dateStr,
+          hasSlots: false,
+          reason: minNotice > 0 ? 'Requires advance notice' : 'Passed',
+        })
+      } else {
+        days.push({ date: dateStr, hasSlots: true })
+      }
     }
   }
 

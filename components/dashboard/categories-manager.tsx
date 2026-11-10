@@ -702,10 +702,10 @@ export function CategoriesManager() {
 
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5 shadow-xs">
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
-                Active MVP Categories
+                Active Categories
               </span>
               <p className="mt-2 text-3xl font-black text-emerald-900">{activeCategoriesCount}</p>
-              <p className="mt-1 text-xs text-emerald-700/80">Visible to public & experts (9 MVP limit)</p>
+              <p className="mt-1 text-xs text-emerald-700/80">Visible to public & experts (9 core categories)</p>
             </div>
 
             <div className="rounded-2xl border border-border bg-white p-5 shadow-xs">
@@ -713,7 +713,7 @@ export function CategoriesManager() {
                 Active Subcategories
               </span>
               <p className="mt-2 text-3xl font-black text-foreground">{totalActiveSubcategoriesCount}</p>
-              <p className="mt-1 text-xs text-muted-foreground">Across 9 MVP disciplines</p>
+              <p className="mt-1 text-xs text-muted-foreground">Across 9 disciplines</p>
             </div>
 
             <div className="rounded-2xl border border-border bg-white p-5 flex flex-col justify-between shadow-xs">
@@ -721,7 +721,7 @@ export function CategoriesManager() {
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   Taxonomy Engine
                 </span>
-                <p className="mt-1 text-xs text-foreground font-semibold">Reduced-Risk MVP Scope</p>
+                <p className="mt-1 text-xs text-foreground font-semibold">Standard Platform Scope</p>
               </div>
               <button
                 onClick={openCreateCategory}
@@ -898,7 +898,7 @@ export function CategoriesManager() {
                   {editingCategory ? 'Edit Category' : 'Create New Category'}
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Configure English and Arabic names and URL slug (MVP taxonomy enforced).
+                  Configure English and Arabic names and URL slug (approved taxonomy enforced).
                 </p>
               </div>
               <button

@@ -102,7 +102,7 @@ export async function PUT(request: Request) {
         return NextResponse.json(
           {
             success: false,
-            error: `Category "${categorySlug}" is removed or outside the approved MVP taxonomy.`,
+            error: `Category "${categorySlug}" is removed or outside the approved taxonomy.`,
           },
           { status: 400 }
         )
@@ -111,7 +111,7 @@ export async function PUT(request: Request) {
         return NextResponse.json(
           {
             success: false,
-            error: `Subcategory "${subcategorySlug}" is not an approved MVP subcategory under "${categorySlug}".`,
+            error: `Subcategory "${subcategorySlug}" is not an approved subcategory under "${categorySlug}".`,
           },
           { status: 400 }
         )
@@ -129,7 +129,7 @@ export async function PUT(request: Request) {
           return NextResponse.json(
             {
               success: false,
-              error: `Category "${cSlug}" is removed or outside the approved MVP taxonomy.`,
+              error: `Category "${cSlug}" is removed or outside the approved taxonomy.`,
             },
             { status: 400 }
           )
@@ -140,7 +140,7 @@ export async function PUT(request: Request) {
             return NextResponse.json(
               {
                 success: false,
-                error: `Subcategory "${sSlug}" is not an approved MVP subcategory under "${cSlug}".`,
+                error: `Subcategory "${sSlug}" is not an approved subcategory under "${cSlug}".`,
               },
               { status: 400 }
             )

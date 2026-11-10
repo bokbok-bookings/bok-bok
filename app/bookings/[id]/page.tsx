@@ -4,7 +4,7 @@ import React, { useState, useEffect, use } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { BrandLogo } from '@/components/brand/logo'
-import { Video, Calendar, Clock, AlertCircle, CheckCircle, ArrowRight, ShieldCheck, UserCheck, XCircle } from 'lucide-react'
+import { Video, Calendar, Clock, AlertCircle, CheckCircle, ArrowRight, ShieldCheck, UserCheck, XCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { TimeSlot, DayAvailability } from '@/lib/data/availability'
 import { formatDateLabel, formatSlotLabel } from '@/lib/data/availability'
 import { useLanguage } from '@/lib/i18n/language-context'
@@ -47,6 +47,20 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
 
   // Real-time clock to evaluate the 15-minute meeting link access window
   const [currentTime, setCurrentTime] = useState<number>(() => Date.now())
+
+  const rescheduleScrollRef = React.useRef<HTMLDivElement>(null)
+
+  const scrollRescheduleDates = (direction: 'prev' | 'next') => {
+    if (rescheduleScrollRef.current) {
+      const forward = direction === 'next'
+      const offset = 280
+      if (isAr) {
+        rescheduleScrollRef.current.scrollBy({ left: forward ? -offset : offset, behavior: 'smooth' })
+      } else {
+        rescheduleScrollRef.current.scrollBy({ left: forward ? offset : -offset, behavior: 'smooth' })
+      }
+    }
+  }
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(Date.now()), 15000)
@@ -116,7 +130,7 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
     if (!booking || !booking.isRescheduleAllowed) return
 
     setLoadingDays(true)
-    fetch(`/api/availability?expertId=${booking.expertId}&action=days&count=14&duration=${booking.durationMinutes || 45}`)
+    fetch(`/api/availability?expertId=${booking.expertId}&action=days&count=90&duration=${booking.durationMinutes || 45}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.success && Array.isArray(data.days)) {
@@ -504,32 +518,60 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
               )}
 
               <div>
-                <label className="block text-xs font-bold text-primary mb-2">
-                  {isAr ? '١. اختر التاريخ الجديد' : '1. Select New Date'}
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold text-primary">
+                    {isAr ? '١. اختر التاريخ الجديد' : '1. Select New Date'}
+                  </label>
+                  <div className="hidden sm:flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => scrollRescheduleDates('prev')}
+                      className="size-7 rounded-xl bg-secondary hover:bg-border text-primary flex items-center justify-center transition border border-border active:scale-95"
+                      title={isAr ? 'السابق' : 'Previous dates'}
+                      aria-label={isAr ? 'السابق' : 'Previous dates'}
+                    >
+                      {isAr ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => scrollRescheduleDates('next')}
+                      className="size-7 rounded-xl bg-secondary hover:bg-border text-primary flex items-center justify-center transition border border-border active:scale-95"
+                      title={isAr ? 'التالي' : 'Next dates'}
+                      aria-label={isAr ? 'التالي' : 'Next dates'}
+                    >
+                      {isAr ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+                    </button>
+                  </div>
+                </div>
                 {loadingDays ? (
                   <p className="text-xs text-muted-foreground">{isAr ? 'جاري فحص المواعيد...' : 'Loading available dates...'}</p>
                 ) : (
-                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-                    {days.map((d) => (
-                      <button
-                        key={d.date}
-                        type="button"
-                        disabled={!d.hasSlots}
-                        onClick={() => setSelectedDate(d.date)}
-                        className={`shrink-0 rounded-2xl p-2.5 text-center transition min-w-[64px] border ${selectedDate === d.date
-                          ? 'bg-accent text-primary border-accent shadow-xs font-bold'
-                          : d.hasSlots
-                            ? 'bg-background text-primary border-border hover:border-primary'
-                            : 'bg-neutral-100 text-neutral-400 border-transparent cursor-not-allowed'
-                          }`}
-                      >
-                        <span className="block text-[10px] font-bold uppercase">
-                          {new Intl.DateTimeFormat(isAr ? 'ar-EG' : 'en-US', { weekday: 'short' }).format(new Date(d.date + 'T00:00:00'))}
-                        </span>
-                        <span className="block text-base font-black mt-0.5">{d.date.slice(8)}</span>
-                      </button>
-                    ))}
+                  <div ref={rescheduleScrollRef} className="flex gap-2 overflow-x-auto pb-2 scrollbar-none scroll-smooth">
+                    {days.map((d) => {
+                      const dateObj = new Date(d.date + 'T00:00:00')
+                      return (
+                        <button
+                          key={d.date}
+                          type="button"
+                          disabled={!d.hasSlots}
+                          onClick={() => setSelectedDate(d.date)}
+                          className={`shrink-0 rounded-2xl p-2.5 text-center transition min-w-[68px] border ${selectedDate === d.date
+                            ? 'bg-accent text-primary border-accent shadow-xs font-bold'
+                            : d.hasSlots
+                              ? 'bg-background text-primary border-border hover:border-primary'
+                              : 'bg-neutral-100 text-neutral-400 border-transparent cursor-not-allowed'
+                            }`}
+                        >
+                          <span className="block text-[10px] font-bold uppercase">
+                            {new Intl.DateTimeFormat(isAr ? 'ar-EG' : 'en-US', { weekday: 'short' }).format(dateObj)}
+                          </span>
+                          <span className="block text-base font-black my-0.5">{dateObj.getDate()}</span>
+                          <span className="block text-[10px] font-semibold uppercase opacity-80">
+                            {new Intl.DateTimeFormat(isAr ? 'ar-EG' : 'en-US', { month: 'short' }).format(dateObj)}
+                          </span>
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
               </div>

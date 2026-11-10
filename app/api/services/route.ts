@@ -159,7 +159,39 @@ export async function GET(request: Request) {
       }
     })
 
-    return NextResponse.json({ success: true, data: formatted })
+    let meta:
+      | {
+          totalCount: number
+          pendingCount: number
+          hasServices: boolean
+          hasPending: boolean
+        }
+      | undefined = undefined
+
+    if (expertObjId) {
+      const [totalCount, pendingCount] = await Promise.all([
+        servicesCol.countDocuments({ expertId: expertObjId }),
+        servicesCol.countDocuments({
+          expertId: expertObjId,
+          $or: [
+            { approvalStatus: 'pending' },
+            { licensingReviewStatus: 'pending_licensing_review' },
+          ],
+        }),
+      ])
+      meta = {
+        totalCount,
+        pendingCount,
+        hasServices: totalCount > 0,
+        hasPending: pendingCount > 0,
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: formatted,
+      ...(meta ? { meta } : {}),
+    })
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to fetch services' },

@@ -391,33 +391,16 @@ export function AvailabilityManager({
         </div>
       )}
 
-      {/* Main Action Bar */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
-            {isAr ? 'مواعيد التفرغ وساعات العمل' : 'Availability & Working Hours'}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {isAr
-              ? `إعدادات أوقات العمل الخاصة بـ ${expertName || 'حسابك'}`
-              : `Configured for ${expertName || 'your account'}`}
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleSaveSchedule}
-          disabled={savingSchedule || loadingExpertData}
-          className="inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-bold text-white transition hover:opacity-95 disabled:opacity-50"
-        >
-          {savingSchedule
-            ? isAr
-              ? 'جاري الحفظ...'
-              : 'Saving...'
-            : isAr
-              ? 'حفظ الجدول الأسبوعي'
-              : 'Save weekly schedule'}
-        </button>
+      {/* Main Header */}
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
+          {isAr ? 'مواعيد التفرغ وساعات العمل' : 'Availability & Working Hours'}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {isAr
+            ? `إعدادات أوقات العمل الخاصة بـ ${expertName || 'حسابك'}`
+            : `Configured for ${expertName || 'your account'}`}
+        </p>
       </div>
 
       {/* Status Notifications */}
@@ -775,6 +758,29 @@ export function AvailabilityManager({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Bottom Save Action Bar */}
+      <div className="flex flex-col gap-4 pt-6 border-t border-border sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-muted-foreground">
+          {isAr
+            ? 'احرص على حفظ التغييرات بعد تعديل الجدول الأسبوعي أو الفواصل الزمنية أو سياسة إعادة الجدولة.'
+            : 'Make sure to save your changes after updating weekly hours, slot intervals, or rescheduling policy.'}
+        </p>
+        <button
+          type="button"
+          onClick={handleSaveSchedule}
+          disabled={savingSchedule || loadingExpertData}
+          className="inline-flex items-center justify-center rounded-full bg-primary px-8 py-3.5 text-sm font-bold text-white transition hover:opacity-95 disabled:opacity-50"
+        >
+          {savingSchedule
+            ? isAr
+              ? 'جاري الحفظ...'
+              : 'Saving...'
+            : isAr
+              ? 'حفظ الجدول الأسبوعي'
+              : 'Save weekly schedule'}
+        </button>
       </div>
 
       {/* Modal: Add Date Override */}

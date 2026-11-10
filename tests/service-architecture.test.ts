@@ -162,7 +162,7 @@ test('Validation: valid MVP Consultation, Workshop, and Webinar', () => {
     pricing: { baseCurrency: 'EGP', prices: { EGP: 1500 } },
   })
   assert.equal(rejectedGeneralService.ok, false)
-  assert.match(rejectedGeneralService.errors.join('; '), /Professional Services.*outside the MVP/i)
+  assert.match(rejectedGeneralService.errors.join('; '), /Professional Services.*outside the (platform|MVP)/i)
 
   // 3. Reject removed categories (Education & Learning, Fitness & Wellness)
   const rejectedRemovedCat = validateServiceInput({
@@ -181,7 +181,7 @@ test('Validation: valid MVP Consultation, Workshop, and Webinar', () => {
     pricing: { baseCurrency: 'EGP', prices: { EGP: 500 } },
   })
   assert.equal(rejectedRemovedCat.ok, false)
-  assert.match(rejectedRemovedCat.errors.join('; '), /removed from active MVP use/i)
+  assert.match(rejectedRemovedCat.errors.join('; '), /not available for new or updated offers|removed from active/i)
 })
 
 test('Validation: enforce all 10 excluded service categories and offer-level controls', () => {

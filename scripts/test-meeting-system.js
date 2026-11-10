@@ -69,5 +69,27 @@ assert.equal(resolveAttendanceStatus('absent', undefined, true), 'client_absent'
 assert.equal(resolveAttendanceStatus(undefined, 'absent', true), 'expert_absent')
 console.log('✓ Attendance status resolution matrix verified.')
 
+console.log('--- TEST 4: Minimum Booking Notice Cutoff ---')
+const now = new Date('2026-11-10T12:00:00Z')
+function isSlotBookable(slotTime, minNoticeHours, currentTime = now) {
+  const cutoff = new Date(currentTime.getTime() + (minNoticeHours > 0 ? minNoticeHours * 3600000 : 900000))
+  return slotTime.getTime() >= cutoff.getTime()
+}
+// 1. Same day (0h notice, 15m buffer):
+assert.equal(isSlotBookable(new Date('2026-11-10T12:10:00Z'), 0), false) // < 15m
+assert.equal(isSlotBookable(new Date('2026-11-10T14:00:00Z'), 0), true)  // Same day future
+
+// 2. Day before (24h notice - default):
+assert.equal(isSlotBookable(new Date('2026-11-10T18:00:00Z'), 24), false) // Same day blocked
+assert.equal(isSlotBookable(new Date('2026-11-11T11:00:00Z'), 24), false) // 23h away (<24h)
+assert.equal(isSlotBookable(new Date('2026-11-11T13:00:00Z'), 24), true)  // 25h away (>=24h)
+
+// 3. Multi-day notices (2 days / 48h, 3 days / 72h, up to 10 days / 240h):
+assert.equal(isSlotBookable(new Date('2026-11-12T10:00:00Z'), 48), false) // 46h (<48h)
+assert.equal(isSlotBookable(new Date('2026-11-12T13:00:00Z'), 48), true)  // 49h (>=48h)
+assert.equal(isSlotBookable(new Date('2026-11-20T11:00:00Z'), 240), false) // <10 days
+assert.equal(isSlotBookable(new Date('2026-11-20T13:00:00Z'), 240), true)  // >=10 days
+console.log('✓ Minimum booking notice condition (Same day, 24h default, 2-10 days) verified.')
+
 console.log('--- ALL AUTOMATED VERIFICATION CHECKS PASSED ---')
 

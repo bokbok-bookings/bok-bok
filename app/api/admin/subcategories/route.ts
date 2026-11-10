@@ -167,7 +167,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: `Subcategory "${slug}" under "${parent.slug}" is outside the approved MVP taxonomy. Custom or removed subcategories are not permitted in the MVP.`,
+          error: `Subcategory "${slug}" under "${parent.slug}" is outside the approved taxonomy. Custom or removed subcategories are not permitted.`,
         },
         { status: 400 }
       )
@@ -313,7 +313,7 @@ export async function PATCH(request: Request) {
         return NextResponse.json(
           {
             success: false,
-            error: `Subcategory slug "${targetSlug}" is outside the approved MVP taxonomy for "${parentDoc?.slug || ''}".`,
+            error: `Subcategory slug "${targetSlug}" is outside the approved taxonomy for "${parentDoc?.slug || ''}".`,
           },
           { status: 400 }
         )
@@ -356,7 +356,7 @@ export async function PATCH(request: Request) {
           return NextResponse.json(
             {
               success: false,
-              error: `Cannot activate subcategory "${targetSlug}" because it is outside the approved MVP taxonomy.`,
+              error: `Cannot activate subcategory "${targetSlug}" because it is outside the approved taxonomy.`,
             },
             { status: 400 }
           )

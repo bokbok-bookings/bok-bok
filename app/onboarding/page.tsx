@@ -667,8 +667,8 @@ export default function OnboardingPage() {
                   type="button"
                   onClick={() => setAccountType('expert')}
                   className={`flex items-start gap-3 rounded-2xl border p-4 text-start transition ${accountType === 'expert'
-                      ? 'border-primary bg-primary text-white shadow-xs'
-                      : 'border-border bg-surface text-foreground hover:border-primary'
+                    ? 'border-primary bg-primary text-white shadow-xs'
+                    : 'border-border bg-surface text-foreground hover:border-primary'
                     }`}
                 >
                   <UserCheck
@@ -698,8 +698,8 @@ export default function OnboardingPage() {
                   type="button"
                   onClick={() => setAccountType('organization')}
                   className={`flex items-start gap-3 rounded-2xl border p-4 text-start transition ${accountType === 'organization'
-                      ? 'border-primary bg-primary text-white shadow-xs'
-                      : 'border-border bg-surface text-foreground hover:border-primary'
+                    ? 'border-primary bg-primary text-white shadow-xs'
+                    : 'border-border bg-surface text-foreground hover:border-primary'
                     }`}
                 >
                   <Building2
@@ -1141,8 +1141,8 @@ export default function OnboardingPage() {
                     type="button"
                     onClick={() => setPreferredPayoutMethod('instapay')}
                     className={`rounded-xl border px-4 py-2.5 text-xs font-bold transition text-start ${preferredPayoutMethod === 'instapay'
-                        ? 'border-primary bg-primary text-white'
-                        : 'border-border bg-surface text-foreground hover:border-primary'
+                      ? 'border-primary bg-primary text-white'
+                      : 'border-border bg-surface text-foreground hover:border-primary'
                       }`}
                   >
                     {isAr ? '⚡ إنستاباي (InstaPay)' : '⚡ InstaPay (Preferred)'}
@@ -1151,8 +1151,8 @@ export default function OnboardingPage() {
                     type="button"
                     onClick={() => setPreferredPayoutMethod('bank_account')}
                     className={`rounded-xl border px-4 py-2.5 text-xs font-bold transition text-start ${preferredPayoutMethod === 'bank_account'
-                        ? 'border-primary bg-primary text-white'
-                        : 'border-border bg-surface text-foreground hover:border-primary'
+                      ? 'border-primary bg-primary text-white'
+                      : 'border-border bg-surface text-foreground hover:border-primary'
                       }`}
                   >
                     {isAr ? '🏦 تحويل لحساب بنكي' : '🏦 Bank Account Transfer'}
@@ -1260,8 +1260,8 @@ export default function OnboardingPage() {
                       type="button"
                       onClick={() => toggleCategory(cat.slug)}
                       className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition ${isSelected
-                          ? 'bg-primary text-white shadow-sm'
-                          : 'border border-border bg-surface text-muted-foreground hover:border-primary'
+                        ? 'bg-primary text-white shadow-sm'
+                        : 'border border-border bg-surface text-muted-foreground hover:border-primary'
                         }`}
                     >
                       {catTitle} {isSelected ? '✓' : '+'}
@@ -1303,8 +1303,8 @@ export default function OnboardingPage() {
                               type="button"
                               onClick={() => toggleSubcategory(selCat.categorySlug, sub.slug)}
                               className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition ${isSubSelected
-                                  ? 'bg-accent text-primary font-bold'
-                                  : 'border border-border bg-surface text-muted-foreground hover:border-primary'
+                                ? 'bg-accent text-primary font-bold'
+                                : 'border border-border bg-surface text-muted-foreground hover:border-primary'
                                 }`}
                             >
                               {subTitle}
@@ -1322,7 +1322,6 @@ export default function OnboardingPage() {
                 <div className="rounded-2xl border border-accent/40 bg-secondary/40 p-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="flex items-start gap-2.5">
-                      <Sparkles size={16} className="text-primary shrink-0 mt-0.5" />
                       <div>
                         <p className="text-xs font-bold text-primary">
                           {isAr

@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     if (slug) {
       if (!canIncludeInactive && (isRemovedCategory(slug) || !isAllowedMvpCategory(slug))) {
         return NextResponse.json(
-          { success: false, error: 'Category is outside the approved MVP taxonomy or inactive' },
+          { success: false, error: 'Category is outside the approved taxonomy or inactive' },
           { status: 404 }
         )
       }
