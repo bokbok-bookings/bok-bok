@@ -7,7 +7,7 @@ export default function ServicesPage() {
     <CatalogListing
       view="all"
       title="Consultations, Workshops & Webinars"
-      subtitle="Bok Bok is a marketplace for Consultations, Workshops, and Webinars across 9 approved fields."
+      subtitle="Bok Bok is a marketplace for Consultations, Workshops, and Webinars across 8 approved fields."
     />
   )
 }

@@ -89,15 +89,6 @@ const fallbackCategories = [
     descriptionAr: 'الرسم، الكتابة الإبداعية، الموسيقى والتصوير الفوتوغرافي',
     subCount: 6,
   },
-  {
-    slug: 'travel',
-    image: '/categories/travel.png',
-    name: 'Travel',
-    nameAr: 'السفر والترحال',
-    description: 'Destination info, preparation & travel guidance',
-    descriptionAr: 'إرشادات الوجهات، تجهيزات السفر والتخطيط العملي للرحلات',
-    subCount: 3,
-  },
 ]
 
 const fallbackExperts = [
@@ -444,12 +435,12 @@ export default function Page() {
             <div className="grid gap-8 sm:grid-cols-3">
               {(isAr
                 ? [
-                  ['01', 'اختر خبيرك المعتمد', 'تصفح قائمة المختصين الموثوقين عبر 9 مجالات معتمدة.'],
+                  ['01', 'اختر خبيرك المعتمد', 'تصفح قائمة المختصين الموثوقين عبر 8 مجالات معتمدة.'],
                   ['02', 'حدد النموذج والموعد', 'اختر استشارة فردية، ورشة عمل، أو ندوة تناسب وقتك.'],
                   ['03', 'احجز بكل طمأنينة', 'عروض مراجعة بدقة مع نطاق عمل واضح ودعم مستمر.'],
                 ]
                 : [
-                  ['01', 'Find your expert', 'Browse verified specialists across 9 approved categories.'],
+                  ['01', 'Find your expert', 'Browse verified specialists across 8 approved categories.'],
                   ['02', 'Choose a format & time', 'Pick a consultation, workshop, or webinar that fits your schedule.'],
                   ['03', 'Book with confidence', 'Admin-reviewed offers with clear scope and guidance.'],
                 ]

@@ -122,7 +122,7 @@ export const translations: Record<Language, TranslationDictionary> = {
     },
     footer: {
       tagline: 'Expertise, made human.',
-      description: 'Direct access to vetted specialists for 1-on-1 consultations, interactive workshops, and live webinars across 9 approved fields.',
+      description: 'Direct access to vetted specialists for 1-on-1 consultations, interactive workshops, and live webinars across 8 approved fields.',
       verifiedBadge: 'Admin-reviewed marketplace',
       marketplaceFormats: 'Marketplace Formats',
       learnDiscover: 'Learn & Discover',
@@ -149,7 +149,7 @@ export const translations: Record<Language, TranslationDictionary> = {
       adminReviewed: 'Admin-reviewed offers',
       verifiedSpecialists: 'Verified specialists',
       categoriesHeading: 'What can we help with?',
-      exploreAllCategories: 'Explore all 9 categories',
+      exploreAllCategories: 'Explore all 8 categories',
       specializations: 'specializations',
       exploreOfferings: 'Explore offerings',
       howItWorksHeading: 'Good advice is only three steps away.',
@@ -168,7 +168,7 @@ export const translations: Record<Language, TranslationDictionary> = {
     howItWorks: {
       heroBadge: 'Consultations • Workshops • Webinars',
       title: 'How Bok Bok Works',
-      subtitle: 'Direct access to vetted specialists across 9 approved fields. Seamless live scheduling, verified InstaPay payments, and admin-reviewed quality.',
+      subtitle: 'Direct access to vetted specialists across 8 approved fields. Seamless live scheduling, verified InstaPay payments, and admin-reviewed quality.',
       forClients: 'For Clients & Businesses',
       forExperts: 'For Experts & Advisors',
       clientJourney: 'Client Journey',
@@ -228,7 +228,7 @@ export const translations: Record<Language, TranslationDictionary> = {
     },
     footer: {
       tagline: 'الخبرة، بطابع إنساني موثوق.',
-      description: 'وصول مباشر لخبراء ومختصين معتمدين لجلسات استشارية فردية، ورش عمل تفاعلية، وندوات مباشرة عبر 9 مجالات معتمدة.',
+      description: 'وصول مباشر لخبراء ومختصين معتمدين لجلسات استشارية فردية، ورش عمل تفاعلية، وندوات مباشرة عبر 8 مجالات معتمدة.',
       verifiedBadge: 'منصة معتمدة ومراجعة بالكامل',
       marketplaceFormats: 'أنواع الجلسات والخدمات',
       learnDiscover: 'تعرف واكتشف',
@@ -255,7 +255,7 @@ export const translations: Record<Language, TranslationDictionary> = {
       adminReviewed: 'عروض معتمدة ومراجعة',
       verifiedSpecialists: 'مختصون موثوقون',
       categoriesHeading: 'كيف يمكننا مساعدتك؟',
-      exploreAllCategories: 'استكشف جميع المجالات الـ 9',
+      exploreAllCategories: 'استكشف جميع المجالات الـ 8',
       specializations: 'تخصصات',
       exploreOfferings: 'استكشف العروض',
       howItWorksHeading: 'المشورة الصحيحة على بعد ثلاث خطوات فقط.',
@@ -274,7 +274,7 @@ export const translations: Record<Language, TranslationDictionary> = {
     howItWorks: {
       heroBadge: 'استشارات • ورش عمل • ندوات مباشرة',
       title: 'كيف يعمل بوك بوك',
-      subtitle: 'تواصل مباشر مع متخصصين موثوقين في 9 مجالات معتمدة. مواعيد حية مباشرة، دفع مؤكد عبر إنستاباي، وجودة مراجعة من الإدارة.',
+      subtitle: 'تواصل مباشر مع متخصصين موثوقين في 8 مجالات معتمدة. مواعيد حية مباشرة، دفع مؤكد عبر إنستاباي، وجودة مراجعة من الإدارة.',
       forClients: 'للعملاء والشركات',
       forExperts: 'للخبراء والمستشارين',
       clientJourney: 'رحلة المستفيد',

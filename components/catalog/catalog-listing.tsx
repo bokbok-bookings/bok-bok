@@ -145,7 +145,7 @@ function CatalogListingContent({ view, title, subtitle }: CatalogListingProps) {
         ? 'انضم لمجموعات تدريبية تطبيقية صغيرة ومكثفة بإشراف خبراء متخصصين.'
         : view === 'webinars'
           ? 'محاضرات تفاعلية وجلسات نقاش حية مع نخبة المتخصصين والمهنيين.'
-          : 'اكتشف الجلسات الفردية، ورش العمل التفاعلية، والندوات المباشرة المعتمدة عبر 9 مجالات رئيسية.'
+          : 'اكتشف الجلسات الفردية، ورش العمل التفاعلية، والندوات المباشرة المعتمدة عبر 8 مجالات رئيسية.'
     : subtitle
 
   return (
@@ -226,8 +226,8 @@ function CatalogListingContent({ view, title, subtitle }: CatalogListingProps) {
                   setSelectedSubcategory('All')
                 }}
                 className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${selectedCategory === 'All'
-                    ? 'bg-secondary border border-accent text-primary shadow-xs ring-1 ring-accent/30'
-                    : 'bg-surface border border-border text-foreground hover:bg-secondary/40 hover:border-accent/40 font-medium'
+                  ? 'bg-secondary border border-accent text-primary shadow-xs ring-1 ring-accent/30'
+                  : 'bg-surface border border-border text-foreground hover:bg-secondary/40 hover:border-accent/40 font-medium'
                   }`}
               >
                 {selectedCategory === 'All' && (
@@ -254,8 +254,8 @@ function CatalogListingContent({ view, title, subtitle }: CatalogListingProps) {
                       setSelectedSubcategory('All')
                     }}
                     className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${isSelected
-                        ? 'bg-secondary border border-accent text-primary shadow-xs ring-1 ring-accent/30'
-                        : 'bg-surface border border-border text-foreground hover:bg-secondary/40 hover:border-accent/40 font-medium'
+                      ? 'bg-secondary border border-accent text-primary shadow-xs ring-1 ring-accent/30'
+                      : 'bg-surface border border-border text-foreground hover:bg-secondary/40 hover:border-accent/40 font-medium'
                       }`}
                   >
                     {isSelected && (
@@ -293,8 +293,8 @@ function CatalogListingContent({ view, title, subtitle }: CatalogListingProps) {
                   type="button"
                   onClick={() => setSelectedSubcategory('All')}
                   className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-all ${selectedSubcategory === 'All'
-                      ? 'bg-accent text-primary shadow-xs'
-                      : 'bg-surface border border-border text-foreground hover:bg-secondary/40 hover:border-accent/40 font-medium'
+                    ? 'bg-accent text-primary shadow-xs'
+                    : 'bg-surface border border-border text-foreground hover:bg-secondary/40 hover:border-accent/40 font-medium'
                     }`}
                 >
                   {isAr ? 'الكل' : 'All'}
@@ -312,8 +312,8 @@ function CatalogListingContent({ view, title, subtitle }: CatalogListingProps) {
                       type="button"
                       onClick={() => setSelectedSubcategory(sub.slug)}
                       className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-all ${isSubSelected
-                          ? 'bg-accent text-primary shadow-xs'
-                          : 'bg-surface border border-border text-foreground hover:bg-secondary/40 hover:border-accent/40 font-medium'
+                        ? 'bg-accent text-primary shadow-xs'
+                        : 'bg-surface border border-border text-foreground hover:bg-secondary/40 hover:border-accent/40 font-medium'
                         }`}
                     >
                       {subLabel}

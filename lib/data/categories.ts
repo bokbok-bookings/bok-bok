@@ -32,10 +32,11 @@ export const REMOVED_CATEGORY_SLUGS = [
   'photography-videography',
   'beauty-personal-care',
   'travel-tourism',
+  'travel',
 ] as const
 
 /**
- * Allowed MVP taxonomy (9 top-level categories and 63 approved subcategories)
+ * Allowed MVP taxonomy (8 top-level categories and 60 approved subcategories)
  * for Consultations, Workshops, and Webinars.
  */
 export const CATEGORIES: Category[] = [
@@ -201,22 +202,6 @@ export const CATEGORIES: Category[] = [
       { id: 'music', slug: 'music', title: { en: 'Music', ar: 'الموسيقى' }, isActive: true, sortOrder: 4 },
       { id: 'photography-as-a-hobby', slug: 'photography-as-a-hobby', title: { en: 'Photography as a Hobby', ar: 'التصوير الفوتوغرافي كهواية' }, isActive: true, sortOrder: 5 },
       { id: 'gardening-basics', slug: 'gardening-basics', title: { en: 'Gardening Basics', ar: 'أساسيات البستنة والعناية بالنباتات' }, isActive: true, sortOrder: 6 },
-    ],
-  },
-  {
-    id: 'travel',
-    slug: 'travel',
-    title: { en: 'Travel', ar: 'السفر' },
-    description: {
-      en: 'Destination information, general travel tips, and travel preparation guidance.',
-      ar: 'معلومات الوجهات السياحية، نصائح السفر العامة، وإرشادات الاستعداد للسفر.',
-    },
-    isActive: true,
-    sortOrder: 9,
-    subcategories: [
-      { id: 'destination-information', slug: 'destination-information', title: { en: 'Destination Information', ar: 'معلومات الوجهات السياحية' }, isActive: true, sortOrder: 1 },
-      { id: 'general-travel-tips', slug: 'general-travel-tips', title: { en: 'General Travel Tips', ar: 'نصائح السفر العامة' }, isActive: true, sortOrder: 2 },
-      { id: 'travel-preparation-guidance', slug: 'travel-preparation-guidance', title: { en: 'Travel Preparation Guidance', ar: 'إرشادات الاستعداد للسفر' }, isActive: true, sortOrder: 3 },
     ],
   },
 ]

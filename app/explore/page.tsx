@@ -7,7 +7,7 @@ export default function ExploreAllPage() {
     <CatalogListing
       view="all"
       title="Explore Marketplace"
-      subtitle="Discover admin-reviewed 1-on-1 consultations, interactive workshops, and live webinars across 9 approved categories."
+      subtitle="Discover admin-reviewed 1-on-1 consultations, interactive workshops, and live webinars across 8 approved categories."
     />
   )
 }

@@ -183,7 +183,7 @@ export default function ExpertsPage() {
             </button>
           </div>
 
-          {/* Categories Pill Bar - Wrapped, clear, all 9 categories visible */}
+          {/* Categories Pill Bar - Wrapped, clear, all 8 categories visible */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">

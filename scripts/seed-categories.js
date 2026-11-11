@@ -2,9 +2,9 @@
  * Database Seeding & MVP Taxonomy Migration Script: Categories, Subcategories, Services & Experts
  *
  * Reduced-risk MVP scope (Consultations, Workshops, and Webinars only):
- * - Enforces the 9 allowed MVP categories and 63 subcategories with bilingual English & Arabic labels.
+ * - Enforces the 8 allowed MVP categories and 60 subcategories with bilingual English & Arabic labels.
  * - Deactivates removed categories (`education-learning`, `fitness-wellness`, `travel-tourism`,
- *   `photography-videography`, `beauty-personal-care`) and all non-MVP subcategories without deleting history.
+ *   `travel`, `photography-videography`, `beauty-personal-care`) and all non-MVP subcategories without deleting history.
  * - Maps existing offers only where their actual scope clearly matches an allowed MVP subcategory;
  *   otherwise unpublishes them (`isActive: false`, `approvalStatus: 'pending'`) for admin review while
  *   preserving all historical bookings and transaction records untouched.
@@ -187,20 +187,6 @@ const SEED_CATEGORIES = [
       { slug: 'gardening-basics', name: { en: 'Gardening Basics', ar: 'أساسيات البستنة والعناية بالنباتات' }, sortOrder: 6 },
     ],
   },
-  {
-    slug: 'travel',
-    name: { en: 'Travel', ar: 'السفر' },
-    description: {
-      en: 'Destination information, general travel tips, and travel preparation guidance.',
-      ar: 'معلومات الوجهات، نصائح السفر العامة، وإرشادات التحضير للسفر.',
-    },
-    sortOrder: 9,
-    subcategories: [
-      { slug: 'destination-information', name: { en: 'Destination Information', ar: 'معلومات عن الوجهات' }, sortOrder: 1 },
-      { slug: 'general-travel-tips', name: { en: 'General Travel Tips', ar: 'نصائح السفر العامة' }, sortOrder: 2 },
-      { slug: 'travel-preparation-guidance', name: { en: 'Travel Preparation Guidance', ar: 'إرشادات التحضير للسفر' }, sortOrder: 3 },
-    ],
-  },
 ]
 
 const ALLOWED_CATEGORY_SLUGS = new Set(SEED_CATEGORIES.map((c) => c.slug))
@@ -242,7 +228,7 @@ async function seedCategories() {
     await subcategoriesCol.createIndex({ slug: 1 })
     await subcategoriesCol.createIndex({ isActive: 1 })
 
-    console.log(`\n🌱 Syncing MVP Taxonomy (${SEED_CATEGORIES.length} allowed categories, 63 subcategories)...\n`)
+    console.log(`\n🌱 Syncing MVP Taxonomy (${SEED_CATEGORIES.length} allowed categories, 60 subcategories)...\n`)
 
     const activeCategoryIds = new Map()
 

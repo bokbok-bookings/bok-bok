@@ -36,9 +36,9 @@ export default function HowItWorksPage() {
       {
         num: '01',
         title: 'ابحث عن الخبير والعرض المناسب',
-        desc: 'استكشف نخبة المتخصصين المعتمدين في 9 مجالات رئيسية تشمل التسويق، الأعمال، التقنية، المسار المهني، والتصميم. اختر بين الاستشارات أو ورش العمل أو الندوات.',
+        desc: 'استكشف نخبة المتخصصين المعتمدين في 8 مجالات رئيسية تشمل التسويق، الأعمال، التقنية، المسار المهني، والتصميم. اختر بين الاستشارات أو ورش العمل أو الندوات.',
         icon: Compass,
-        highlight: '9 مجالات معتمدة',
+        highlight: '8 مجالات معتمدة',
       },
       {
         num: '02',
@@ -66,9 +66,9 @@ export default function HowItWorksPage() {
       {
         num: '01',
         title: 'Find the Right Expert & Offering',
-        desc: 'Explore vetted specialists across 9 approved categories including Marketing, Business, Technology, Career, and Design. Filter by consultation, workshop, or webinar.',
+        desc: 'Explore vetted specialists across 8 approved categories including Marketing, Business, Technology, Career, and Design. Filter by consultation, workshop, or webinar.',
         icon: Compass,
-        highlight: '9 Approved Categories',
+        highlight: '8 Approved Categories',
       },
       {
         num: '02',
@@ -187,7 +187,7 @@ export default function HowItWorksPage() {
       },
       {
         q: 'ما هي أنواع العروض المتاحة على المنصة؟',
-        a: 'تركز منصة بوك بوك على الاستشارات الفردية، ورش العمل التفاعلية، والندوات المباشرة عبر 9 مجالات معتمدة (التسويق، الأعمال وريادة الأعمال، التقنية، التطوير المهني، التصميم والإبداع، اللغات، المهارات الشخصية، الهوايات، والسفر).',
+        a: 'تركز منصة بوك بوك على الاستشارات الفردية، ورش العمل التفاعلية، والندوات المباشرة عبر 8 مجالات معتمدة (التسويق، الأعمال وريادة الأعمال، التقنية، التطوير المهني، التصميم والإبداع، اللغات، المهارات الشخصية، والهوايات).',
       },
       {
         q: 'من يمكنه الاستفادة أو تقديم الجلسات على بوك بوك؟',
@@ -213,11 +213,11 @@ export default function HowItWorksPage() {
       },
       {
         q: 'What offerings are available on Bok Bok?',
-        a: 'Bok Bok is a marketplace for Consultations, Workshops, and Webinars across 9 approved categories (Marketing, Business & Entrepreneurship, Technology & IT, Career & Professional Development, Design & Creative, Languages & Communication, Personal Skills & Lifestyle, Hobbies & Skills, and Travel). Regulated medical, legal, financial, or school tutoring services are excluded from the platform.',
+        a: 'Bok Bok is a marketplace for Consultations, Workshops, and Webinars across 8 approved categories (Marketing, Business & Entrepreneurship, Technology & IT, Career & Professional Development, Design & Creative, Languages & Communication, Personal Skills & Lifestyle, and Hobbies & Skills). Regulated medical, legal, financial, or school tutoring services are excluded from the platform.',
       },
       {
         q: 'Who can book or offer sessions on Bok Bok?',
-        a: 'Bok Bok connects ambitious individuals with vetted specialists across 9 approved categories. Services directed at school tutoring, university exam preparation, or academic ghostwriting are excluded from the platform.',
+        a: 'Bok Bok connects ambitious individuals with vetted specialists across 8 approved categories. Services directed at school tutoring, university exam preparation, or academic ghostwriting are excluded from the platform.',
       },
       {
         q: 'How does payment with InstaPay work?',
@@ -408,7 +408,7 @@ export default function HowItWorksPage() {
                     },
                     {
                       title: 'تصنيفات محددة بدقة',
-                      text: 'منظمة عبر 9 مجالات رئيسية و63 تخصصاً فرعياً معتمداً.',
+                      text: 'منظمة عبر 8 مجالات رئيسية و60 تخصصاً فرعياً معتمداً.',
                     },
                     {
                       title: 'أثر مهني ومعرفي',
@@ -426,7 +426,7 @@ export default function HowItWorksPage() {
                     },
                     {
                       title: 'Approved Taxonomy',
-                      text: 'Curated across 9 approved categories and 63 specialized subcategories.',
+                      text: 'Curated across 8 approved categories and 60 specialized subcategories.',
                     },
                     {
                       title: 'Professional Learning Scope',
