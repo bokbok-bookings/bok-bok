@@ -12,14 +12,25 @@ export interface SessionPayload {
   expiresAt: Date
 }
 
-const secretKey = process.env.SESSION_SECRET
-if (!secretKey || secretKey.length < 32) {
-  if (process.env.NODE_ENV === 'production') {
+let cachedEncodedKey: Uint8Array | null = null
+
+function getEncodedKey(): Uint8Array {
+  if (cachedEncodedKey) return cachedEncodedKey
+  const secretKey =
+    process.env.SESSION_SECRET ||
+    process.env.JWT_SECRET ||
+    process.env.AUTH_SECRET
+  const isBuildPhase = process.env.NEXT_PHASE === 'phase-production-build'
+  if ((!secretKey || secretKey.length < 32) && process.env.NODE_ENV === 'production' && !isBuildPhase) {
     throw new Error('FATAL SECURITY ERROR: SESSION_SECRET must be set and at least 32 characters long.')
   }
+  const effectiveSecret =
+    secretKey && secretKey.length >= 32
+      ? secretKey
+      : 'session_secret_dev_only_min_32_characters_long_required_12345'
+  cachedEncodedKey = new TextEncoder().encode(effectiveSecret)
+  return cachedEncodedKey
 }
-const effectiveSecret = secretKey || 'session_secret_dev_only_min_32_characters_long_required_12345'
-const encodedKey = new TextEncoder().encode(effectiveSecret)
 
 const COOKIE_NAME = 'bokbok_session'
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
@@ -35,7 +46,7 @@ export async function encrypt(payload: SessionPayload): Promise<string> {
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('30d')
-    .sign(encodedKey)
+    .sign(getEncodedKey())
 }
 
 export async function decrypt(
@@ -49,7 +60,7 @@ export async function decrypt(
 } | null> {
   if (!session) return null
   try {
-    const { payload } = await jwtVerify(session, encodedKey, {
+    const { payload } = await jwtVerify(session, getEncodedKey(), {
       algorithms: ['HS256'],
     })
     return {
