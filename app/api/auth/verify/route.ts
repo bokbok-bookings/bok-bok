@@ -77,13 +77,28 @@ export async function GET(request: Request) {
   }
 }
 
+function escapeHtml(str: string): string {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
 function renderHtmlPage(title: string, message: string, success: boolean, redirectUrl?: string): string {
+  const safeTitle = escapeHtml(title)
+  const safeMessage = escapeHtml(message)
+  const safeRedirectUrl = redirectUrl && (redirectUrl.startsWith('/') || redirectUrl.startsWith('http://') || redirectUrl.startsWith('https://'))
+    ? escapeHtml(redirectUrl)
+    : '/'
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${title} - Bok Bok</title>
+  <title>${safeTitle} - Bok Bok</title>
   <style>
     body { margin: 0; padding: 0; background-color: #fbfaf7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #142D4E; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
     .card { background: #ffffff; border-radius: 24px; border: 1px solid #e7e2da; max-width: 480px; width: 90%; padding: 40px 32px; text-align: center; box-shadow: 0 10px 25px rgba(20,45,78,0.05); }
@@ -102,10 +117,10 @@ function renderHtmlPage(title: string, message: string, success: boolean, redire
   <div class="card">
     <div class="logo">Bok<span>Bok</span></div>
     <div class="icon ${success ? 'icon-success' : 'icon-error'}">${success ? '✓' : '✕'}</div>
-    <h1>${title}</h1>
-    <p>${message}</p>
+    <h1>${safeTitle}</h1>
+    <p>${safeMessage}</p>
     ${redirectUrl
-      ? `<a href="${redirectUrl}" class="btn">Continue to Bok Bok</a>`
+      ? `<a href="${safeRedirectUrl}" class="btn">Continue to Bok Bok</a>`
       : `<a href="/" class="btn">Return to Homepage</a>`
     }
   </div>

@@ -69,7 +69,7 @@ function CatalogListingContent({ view, title, subtitle }: CatalogListingProps) {
 
   useEffect(() => {
     // 1. Fetch live published & approved MVP services
-    fetch(`/api/services?type=${view}`)
+    fetch(`/api/services?view=${view}&type=${view}`)
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data)) {

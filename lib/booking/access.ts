@@ -36,14 +36,22 @@ export async function ensureBookingAccessTokens(
   }
 }
 
+function safeTokenEqual(a?: string | null, b?: string | null): boolean {
+  if (!a || !b) return false
+  const bufA = Buffer.from(a)
+  const bufB = Buffer.from(b)
+  if (bufA.length !== bufB.length) return false
+  return crypto.timingSafeEqual(bufA, bufB)
+}
+
 /** Resolves which participant a token belongs to. */
 export function resolveTokenRole(
   booking: Pick<BookingDoc, 'rescheduleToken' | 'expertAccessToken'>,
   token?: string | null
 ): BookingAccessRole | null {
   if (!token) return null
-  if (booking.expertAccessToken && token === booking.expertAccessToken) return 'expert'
-  if (booking.rescheduleToken && token === booking.rescheduleToken) return 'client'
+  if (safeTokenEqual(booking.expertAccessToken, token)) return 'expert'
+  if (safeTokenEqual(booking.rescheduleToken, token)) return 'client'
   return null
 }
 

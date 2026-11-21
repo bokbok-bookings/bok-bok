@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { google } from 'googleapis'
@@ -8,6 +9,23 @@ import { createSession } from '@/lib/auth/session'
 export const dynamic = 'force-dynamic'
 
 const GOOGLE_AUTH_STATE_COOKIE = 'bokbok_google_auth_state'
+
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, 'utf-8')
+  const bufB = Buffer.from(b, 'utf-8')
+  if (bufA.length !== bufB.length) return false
+  return crypto.timingSafeEqual(bufA, bufB)
+}
+
+function getSafeRedirectUrl(targetUrl: string | undefined | null, defaultFallback: string): string {
+  if (!targetUrl || typeof targetUrl !== 'string') return defaultFallback
+  const trimmed = targetUrl.trim()
+  // Must be an internal relative path starting with single '/', not protocol-relative '//', and without backslashes or scheme
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//') && !trimmed.startsWith('/\\') && !trimmed.includes(':') && !/[\r\n\t]/.test(trimmed)) {
+    return trimmed
+  }
+  return defaultFallback
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -24,17 +42,39 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL('/login?error=Google+sign-in+was+cancelled', request.url))
   }
 
+  // Verify OAuth CSRF state against the HttpOnly cookie set during /api/auth/google/signin
+  if (!rawState || !savedStateRaw) {
+    console.warn('Google OAuth CSRF state missing:', { hasQueryState: Boolean(rawState), hasCookieState: Boolean(savedStateRaw) })
+    return NextResponse.redirect(
+      new URL('/login?error=Invalid+or+expired+sign-in+session.+Please+try+again.', request.url)
+    )
+  }
+
   let role: 'expert' | 'client' = 'client'
   let callbackUrl = ''
 
   try {
-    if (rawState) {
-      const decodedState = JSON.parse(Buffer.from(rawState, 'base64url').toString('utf-8'))
-      if (decodedState.role === 'expert') role = 'expert'
-      if (decodedState.callbackUrl) callbackUrl = decodedState.callbackUrl
+    const decodedStateStr = Buffer.from(rawState, 'base64url').toString('utf-8')
+    if (!safeEqual(decodedStateStr, savedStateRaw)) {
+      console.warn('Google OAuth CSRF state mismatch')
+      return NextResponse.redirect(
+        new URL('/login?error=Invalid+sign-in+state.+Please+try+again.', request.url)
+      )
     }
+
+    const decodedState = JSON.parse(decodedStateStr)
+    if (!decodedState || typeof decodedState.nonce !== 'string' || decodedState.nonce.length < 16) {
+      return NextResponse.redirect(
+        new URL('/login?error=Invalid+sign-in+state.+Please+try+again.', request.url)
+      )
+    }
+    if (decodedState.role === 'expert') role = 'expert'
+    if (decodedState.callbackUrl) callbackUrl = decodedState.callbackUrl
   } catch (err) {
-    console.warn('Could not parse Google OAuth state:', err)
+    console.warn('Could not verify Google OAuth state:', err)
+    return NextResponse.redirect(
+      new URL('/login?error=Invalid+sign-in+state.+Please+try+again.', request.url)
+    )
   }
 
   const clientId = process.env.GOOGLE_CLIENT_ID
@@ -150,7 +190,7 @@ export async function GET(request: Request) {
         return NextResponse.redirect(new URL('/onboarding', request.url))
       }
 
-      const target = callbackUrl || '/'
+      const target = getSafeRedirectUrl(callbackUrl, '/')
       return NextResponse.redirect(new URL(target, request.url))
     } else {
       // Existing User login
@@ -183,11 +223,12 @@ export async function GET(request: Request) {
         if (expertDoc && (expertDoc.status === 'draft' || !hasDocs)) {
           return NextResponse.redirect(new URL('/onboarding', request.url))
         }
-        return NextResponse.redirect(new URL(callbackUrl || '/dashboard', request.url))
+        const safeTarget = getSafeRedirectUrl(callbackUrl, '/dashboard')
+        return NextResponse.redirect(new URL(safeTarget, request.url))
       }
 
       const defaultRedirect = user.role === 'admin' ? '/admin' : user.role === 'client' ? '/account' : '/dashboard'
-      const target = callbackUrl || defaultRedirect
+      const target = getSafeRedirectUrl(callbackUrl, defaultRedirect)
       return NextResponse.redirect(new URL(target, request.url))
     }
   } catch (err: any) {

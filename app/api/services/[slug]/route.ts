@@ -74,6 +74,9 @@ export async function GET(request: Request, { params }: RouteProps) {
       _id: serviceDoc._id.toString(),
       expertId: serviceDoc.expertId.toString(),
       slug: serviceDoc.slug || serviceDoc._id.toString(),
+      thumbnailUrl:
+        serviceDoc.thumbnailUrl ||
+        (serviceDoc.categorySlug ? `/categories/${serviceDoc.categorySlug}.png` : undefined),
       expert: expert
         ? {
             name: expert.name,

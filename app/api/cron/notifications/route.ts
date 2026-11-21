@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { NextResponse } from 'next/server'
 import { processAutomatedReminders } from '@/lib/email/scheduler'
 import { getSession } from '@/lib/auth/session'
@@ -5,28 +6,29 @@ import { getSession } from '@/lib/auth/session'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
+function safeSecretEqual(provided: string | null | undefined, expected: string | undefined): boolean {
+  if (!provided || !expected) return false
+  const bufA = Buffer.from(provided, 'utf-8')
+  const bufB = Buffer.from(expected, 'utf-8')
+  if (bufA.length !== bufB.length) return false
+  return crypto.timingSafeEqual(bufA, bufB)
+}
+
 async function handleCron(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const authHeader = request.headers.get('authorization')
     const secret =
-      searchParams.get('secret') ||
-      (authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null)
-
-    const userAgent = request.headers.get('user-agent') || ''
-    const isVercelCronHeader =
-      userAgent.includes('vercel-cron') || request.headers.get('x-vercel-cron') === '1'
+      (authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null) ||
+      searchParams.get('secret')
 
     const session = await getSession()
     const isAdmin = session?.role === 'admin'
     const cronSecret = process.env.CRON_SECRET
 
-    // If CRON_SECRET is set, require matching secret (Vercel automatically sends Authorization: Bearer <CRON_SECRET>) or admin session.
-    // If CRON_SECRET is not set, allow Vercel Cron header, admin session, or open access so cron triggers don't fail.
-    const isAuthorized =
-      isAdmin ||
-      (cronSecret ? secret === cronSecret : true) ||
-      isVercelCronHeader
+    // Require either an authenticated admin session or a valid CRON_SECRET (Vercel sends Authorization: Bearer <CRON_SECRET>)
+    const isSecretValid = safeSecretEqual(secret, cronSecret)
+    const isAuthorized = isAdmin || isSecretValid
 
     if (!isAuthorized) {
       return NextResponse.json({ success: false, error: 'Unauthorized cron access' }, { status: 401 })

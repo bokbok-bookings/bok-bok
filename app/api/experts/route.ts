@@ -117,7 +117,8 @@ export async function GET(request: Request) {
     }
 
     if (q) {
-      const regex = new RegExp(q.trim(), 'i')
+      const sanitizedQ = q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const regex = new RegExp(sanitizedQ, 'i')
       filter.$and = filter.$and || []
       filter.$and.push({
         $or: [

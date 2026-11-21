@@ -12,10 +12,14 @@ export interface SessionPayload {
   expiresAt: Date
 }
 
-const secretKey =
-  process.env.SESSION_SECRET ||
-  'bok_bok_secure_session_secret_key_change_in_production_2026_xyz'
-const encodedKey = new TextEncoder().encode(secretKey)
+const secretKey = process.env.SESSION_SECRET
+if (!secretKey || secretKey.length < 32) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('FATAL SECURITY ERROR: SESSION_SECRET must be set and at least 32 characters long.')
+  }
+}
+const effectiveSecret = secretKey || 'session_secret_dev_only_min_32_characters_long_required_12345'
+const encodedKey = new TextEncoder().encode(effectiveSecret)
 
 const COOKIE_NAME = 'bokbok_session'
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000

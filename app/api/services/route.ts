@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const expertIdParam = searchParams.get('expertId')
     const slugParam = searchParams.get('slug')
-    const viewParam = searchParams.get('view') // 'consultations' | 'services' | 'workshops' | 'webinars' | 'all'
+    const viewParam = searchParams.get('view') || searchParams.get('type') // 'consultations' | 'services' | 'workshops' | 'webinars' | 'all'
     const categoryParam = searchParams.get('category')
     const subcategoryParam = searchParams.get('subcategory')
     const tagParam = searchParams.get('tag')
@@ -161,11 +161,11 @@ export async function GET(request: Request) {
 
     let meta:
       | {
-          totalCount: number
-          pendingCount: number
-          hasServices: boolean
-          hasPending: boolean
-        }
+        totalCount: number
+        pendingCount: number
+        hasServices: boolean
+        hasPending: boolean
+      }
       | undefined = undefined
 
     if (expertObjId) {

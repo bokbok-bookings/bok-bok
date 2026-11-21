@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import { NextResponse } from 'next/server'
+import { ObjectId } from 'mongodb'
 import {
   getExpertUpcomingDays,
   getExpertSlotsForDate,
@@ -8,6 +9,7 @@ import {
   getCanonicalExpertObjectId,
 } from '@/lib/availability-server'
 import { toObjectId, getServicesCollection, getExpertsCollection } from '@/lib/db'
+import { getSession } from '@/lib/auth/session'
 import { isAllowedMvpCategory, isAllowedMvpSubcategory } from '@/lib/data/categories'
 import { computeSessionBounds, getAppBaseUrl, resolveExpertContact } from '@/lib/email/scheduler'
 import { sendTransactionalEmail } from '@/lib/email/mailer'
@@ -96,6 +98,13 @@ export async function POST(request: Request) {
         { status: 400 },
       )
     }
+
+    const session = await getSession()
+    const clientObjId =
+      session?.userId && ObjectId.isValid(session.userId)
+        ? new ObjectId(session.userId)
+        : undefined
+    const normalizedClientEmail = (clientEmail || session?.email || '').trim().toLowerCase()
 
     const expertId = await getCanonicalExpertId(rawExpertId)
     const expertObjId = await getCanonicalExpertObjectId(rawExpertId)
@@ -202,8 +211,9 @@ export async function POST(request: Request) {
           serviceTitle: verifiedServiceTitle,
           date: finalDate,
           time: finalTime,
+          ...(clientObjId ? { clientId: clientObjId } : {}),
           clientName: clientName.trim(),
-          clientEmail: (clientEmail || '').trim(),
+          clientEmail: normalizedClientEmail,
           clientPhone: (clientPhone || '').trim(),
           durationMinutes: finalDuration,
           amount: verifiedAmount,
@@ -344,8 +354,9 @@ export async function POST(request: Request) {
       serviceTitle: verifiedServiceTitle,
       date,
       time,
+      ...(clientObjId ? { clientId: clientObjId } : {}),
       clientName: clientName.trim(),
-      clientEmail: (clientEmail || '').trim(),
+      clientEmail: normalizedClientEmail,
       clientPhone: (clientPhone || '').trim(),
       durationMinutes: verifiedDuration,
       amount: verifiedAmount,

@@ -286,7 +286,8 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
   const msUntilStart = sessionStartTime - currentTime
   const isWithin15Minutes = msUntilStart <= 15 * 60 * 1000
   const isSessionEnded = currentTime > sessionEndTime
-  const isLinkAccessible = isWithin15Minutes && !isSessionEnded && Boolean(booking.googleMeetLink)
+  const isLinkAccessible =
+    isWithin15Minutes && !isSessionEnded && Boolean(booking.hasMeetLink || booking.googleMeetLink)
 
   const serviceTitle = isAr
     ? booking.serviceTitle?.ar || booking.serviceTitle?.en || 'جلسة استشارية'

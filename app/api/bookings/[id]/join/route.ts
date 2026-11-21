@@ -68,7 +68,12 @@ export async function GET(request: Request, context: RouteContext) {
       session.expertId === booking.expertId.toString()
     ) {
       role = 'expert'
-    } else if (session?.userId && booking.clientId && session.userId === booking.clientId.toString()) {
+    } else if (
+      (session?.userId && booking.clientId && session.userId === booking.clientId.toString()) ||
+      (session?.email &&
+        booking.clientEmail &&
+        session.email.toLowerCase().trim() === booking.clientEmail.toLowerCase().trim())
+    ) {
       role = 'client'
     }
   }

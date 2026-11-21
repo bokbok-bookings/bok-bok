@@ -122,7 +122,15 @@ function LoginForm() {
         </label>
 
         <label className="text-xs font-bold text-primary">
-          {isAr ? 'كلمة المرور' : 'Password'}
+          <div className="flex items-center justify-between">
+            <span>{isAr ? 'كلمة المرور' : 'Password'}</span>
+            <Link
+              href={localeHref('/forgot-password')}
+              className="text-[11px] font-semibold text-accent hover:underline"
+            >
+              {isAr ? 'نسيت كلمة المرور؟' : 'Forgot password?'}
+            </Link>
+          </div>
           <div className="mt-1.5 flex rounded-xl border border-border bg-background focus-within:border-accent">
             <input
               required

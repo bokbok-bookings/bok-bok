@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server'
 import { getBookingsCollection, getServicesCollection, toObjectId } from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
 import { resolveExpertContact, computeSessionBounds } from '@/lib/email/scheduler'
-import { resolveTokenRole } from '@/lib/booking/access'
+import { resolveTokenRole, MEET_UNLOCK_MINUTES_BEFORE, MEET_GRACE_MINUTES_AFTER_END } from '@/lib/booking/access'
 import { applyJoinTrackingAttendance } from '@/lib/booking/attendance'
 import { syncBookingMeetTelemetry, ensureBookingMeetDirectEntry } from '@/lib/google-calendar'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,6 +15,17 @@ interface RouteContext {
 
 export async function GET(request: Request, context: RouteContext) {
   try {
+    const rateLimit = checkRateLimit(request, 'booking-detail', 60, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Too many requests. Please try again shortly.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) },
+        }
+      )
+    }
+
     const unwrappedParams =
       typeof (context.params as any)?.then === 'function'
         ? await (context.params as Promise<{ id: string }>)
@@ -23,7 +35,13 @@ export async function GET(request: Request, context: RouteContext) {
     const { searchParams } = new URL(request.url)
     const token = searchParams.get('token')
 
-    const bookingObjId = toObjectId(id)
+    let bookingObjId
+    try {
+      bookingObjId = toObjectId(id)
+    } catch {
+      return NextResponse.json({ success: false, error: 'Invalid booking ID' }, { status: 400 })
+    }
+
     const bookingsCol = await getBookingsCollection()
     const booking = await bookingsCol.findOne({ _id: bookingObjId })
 
@@ -43,8 +61,12 @@ export async function GET(request: Request, context: RouteContext) {
         session?.expertId &&
         session.expertId === booking.expertId.toString()
       )
-    const isClientOwner =
-      session?.userId && booking.clientId && session.userId === booking.clientId.toString()
+    const isClientOwner = Boolean(
+      (session?.userId && booking.clientId && session.userId === booking.clientId.toString()) ||
+      (session?.email &&
+        booking.clientEmail &&
+        session.email.toLowerCase().trim() === booking.clientEmail.toLowerCase().trim())
+    )
 
     if (!isTokenAuthorized && !isAdmin && !isExpertOwner && !isClientOwner) {
       return NextResponse.json(
@@ -114,6 +136,9 @@ export async function GET(request: Request, context: RouteContext) {
 
     const userRoleInView = tokenRole ?? (isAdmin ? 'admin' : isExpertOwner ? 'expert' : 'client')
     const viewerToken = token && tokenRole ? token : undefined
+    const meetCloseAt = new Date(endAt.getTime() + MEET_GRACE_MINUTES_AFTER_END * 60 * 1000)
+    const isMeetWindowOpen =
+      booking.status === 'confirmed' && now >= meetUnlockAt && now <= meetCloseAt
 
     return NextResponse.json({
       success: true,
@@ -134,7 +159,8 @@ export async function GET(request: Request, context: RouteContext) {
         currency: booking.currency || 'EGP',
         status: booking.status,
         deliveryMode: booking.deliveryMode || 'ONLINE',
-        googleMeetLink: booking.googleMeetLink,
+        hasMeetLink: Boolean(booking.googleMeetLink),
+        googleMeetLink: isAdmin || isMeetWindowOpen ? booking.googleMeetLink : undefined,
         googleMeetUpdatedAt: booking.googleMeetUpdatedAt,
         timezone: booking.timezone || 'Africa/Cairo',
         sessionStartAt: startAt,

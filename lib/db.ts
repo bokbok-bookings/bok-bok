@@ -100,6 +100,8 @@ export interface UserDoc {
   emailVerified?: boolean
   emailVerificationToken?: string
   emailVerificationExpiresAt?: Date
+  resetPasswordToken?: string
+  resetPasswordExpiresAt?: Date
   createdAt: Date
   updatedAt: Date
   lastLoginAt?: Date
@@ -513,6 +515,7 @@ export interface EmailLogDoc {
   bookingId?: ObjectId
   emailType:
   | 'email_verification'
+  | 'password_reset'
   | 'booking_received'
   | 'booking_confirmed'
   | 'meet_link_updated'
@@ -690,6 +693,7 @@ export async function ensureDbIndexes(): Promise<void> {
       const db = await getDb()
       await Promise.all([
         safeCreateIndex(db.collection('users'), { email: 1 }, { unique: true }),
+        safeCreateIndex(db.collection('users'), { resetPasswordToken: 1 }, { sparse: true }),
         safeCreateIndex(db.collection('users'), { role: 1 }),
         safeCreateIndex(db.collection('users'), { expertId: 1 }),
         safeCreateIndex(db.collection('experts'), { tags: 1 }, { name: 'tags_1' }),

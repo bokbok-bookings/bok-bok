@@ -124,6 +124,57 @@ This link is valid for 24 hours. If you didn't create an account, you can ignore
 }
 
 /**
+ * 0.1. Password Reset Request Email
+ */
+export function renderPasswordResetEmail(params: {
+  name: string
+  resetUrl: string
+}): { subject: string; html: string; text: string } {
+  const { name, resetUrl } = params
+  const subject = 'Reset your password - Bok Bok'
+
+  const contentHtml = `
+    <h2 class="h1">Reset Your Password</h2>
+    <p class="p">
+      Hello ${name}, we received a request to reset your password for your Bok Bok account. Click the button below to choose a new password.
+    </p>
+
+    <div style="text-align: center; margin: 32px 0;">
+      <a href="${resetUrl}" target="_blank" class="btn">Reset Password</a>
+    </div>
+
+    <div class="alert-box">
+      <strong>Important:</strong> This password reset link is valid for 1 hour. If you did not request this password reset, please ignore this email or contact support if you have concerns. Your password will remain unchanged until you access the link above and create a new one.
+    </div>
+
+    <p class="p" style="font-size: 12px; color: #8b94a1; word-break: break-all;">
+      If the button above does not work, copy and paste this link into your browser:<br/>
+      <a href="${resetUrl}" style="color: #142D4E;">${resetUrl}</a>
+    </p>
+  `
+
+  const text = `Reset Your Password - Bok Bok
+Hello ${name},
+
+We received a request to reset your password for your Bok Bok account.
+
+To reset your password, visit the following link:
+${resetUrl}
+
+This link is valid for 1 hour. If you did not request a password reset, you can safely ignore this email.`
+
+  return {
+    subject,
+    html: emailLayout({
+      title: subject,
+      preheader: 'Reset your password for Bok Bok.',
+      contentHtml,
+    }),
+    text,
+  }
+}
+
+/**
  * 0.5. Booking Received (Awaiting Verification) Email
  */
 export function renderBookingReceivedEmail(params: {

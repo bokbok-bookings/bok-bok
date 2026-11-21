@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 import { NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
-import { getBookingsCollection, toObjectId } from '@/lib/db'
+import { getBookingsCollection, getServicesCollection, toObjectId } from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
 import {
   resolveExpertContact,
@@ -32,6 +32,45 @@ function isValidHttpsUrl(raw?: string): boolean {
     return parsed.protocol === 'https:'
   } catch {
     return false
+  }
+}
+
+async function decrementEventRegisteredCount(serviceId: any) {
+  if (!serviceId) return
+  try {
+    const sId = toObjectId(serviceId)
+    const servicesCol = await getServicesCollection()
+    await servicesCol.updateOne(
+      {
+        _id: sId,
+        bookingType: { $in: ['WORKSHOP', 'WEBINAR'] },
+        'event.registeredCount': { $gt: 0 },
+      },
+      {
+        $inc: { 'event.registeredCount': -1 },
+      }
+    )
+  } catch (err) {
+    console.error('[Event Seat Decrement Failed]:', err)
+  }
+}
+
+async function incrementEventRegisteredCount(serviceId: any) {
+  if (!serviceId) return
+  try {
+    const sId = toObjectId(serviceId)
+    const servicesCol = await getServicesCollection()
+    await servicesCol.updateOne(
+      {
+        _id: sId,
+        bookingType: { $in: ['WORKSHOP', 'WEBINAR'] },
+      },
+      {
+        $inc: { 'event.registeredCount': 1 },
+      }
+    )
+  } catch (err) {
+    console.error('[Event Seat Increment Failed]:', err)
   }
 }
 
@@ -316,6 +355,16 @@ export async function PATCH(request: Request) {
     }
 
     if (action === 'approve') {
+      if (auth.session.role !== 'admin') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Access denied: Only platform administrators can verify payment receipts and approve bookings.',
+          },
+          { status: 403 },
+        )
+      }
+
       const manualLink = (googleMeetLink || '').trim()
       if (manualLink && !isValidHttpsUrl(manualLink)) {
         return NextResponse.json(
@@ -623,6 +672,10 @@ export async function PATCH(request: Request) {
 
       await bookingsCol.updateOne({ _id: bookingObjId }, { $set: updateDoc })
 
+      if (existing.status !== 'cancelled' && existing.status !== 'rejected' && existing.serviceId) {
+        await decrementEventRegisteredCount(existing.serviceId)
+      }
+
       if (existing.googleCalendarEventId) {
         try {
           await deleteCalendarEvent(existing.googleCalendarEventId)
@@ -637,6 +690,10 @@ export async function PATCH(request: Request) {
 
       await bookingsCol.updateOne({ _id: bookingObjId }, { $set: updateDoc })
 
+      if (existing.status !== 'cancelled' && existing.status !== 'rejected' && existing.serviceId) {
+        await decrementEventRegisteredCount(existing.serviceId)
+      }
+
       if (existing.googleCalendarEventId) {
         try {
           await deleteCalendarEvent(existing.googleCalendarEventId)
@@ -645,6 +702,15 @@ export async function PATCH(request: Request) {
         }
       }
     } else if (action === 'edit') {
+      if (auth.session.role !== 'admin') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Access denied: Only platform administrators can edit booking details.',
+          },
+          { status: 403 },
+        )
+      }
       const { updates } = body
       if (updates && typeof updates === 'object') {
         if (updates.clientName) updateDoc.clientName = String(updates.clientName).trim()
@@ -659,6 +725,20 @@ export async function PATCH(request: Request) {
           updateDoc.status = updates.status
           if (updates.status === 'confirmed' && !existing.sessionStartAt) {
             updateDoc.attendanceStatus = 'pending'
+          }
+          if (
+            (updates.status === 'cancelled' || updates.status === 'rejected') &&
+            existing.status !== 'cancelled' &&
+            existing.status !== 'rejected' &&
+            existing.serviceId
+          ) {
+            await decrementEventRegisteredCount(existing.serviceId)
+          } else if (
+            updates.status === 'confirmed' &&
+            (existing.status === 'cancelled' || existing.status === 'rejected') &&
+            existing.serviceId
+          ) {
+            await incrementEventRegisteredCount(existing.serviceId)
           }
         }
         if (updates.paymentStatus) updateDoc.paymentStatus = updates.paymentStatus
@@ -718,6 +798,10 @@ export async function DELETE(request: Request) {
     const existing = await bookingsCol.findOne({ _id: bookingObjId })
     if (!existing) {
       return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 })
+    }
+
+    if (existing.status !== 'cancelled' && existing.status !== 'rejected' && existing.serviceId) {
+      await decrementEventRegisteredCount(existing.serviceId)
     }
 
     if (existing.googleCalendarEventId) {

@@ -36,7 +36,10 @@ export interface ClientBooking {
   durationMinutes: number
   amount?: number
   currency?: string
-  googleMeetLink?: string
+  hasMeetLink?: boolean
+  meetJoinUrl?: string
+  sessionStartAt?: string
+  sessionEndAt?: string
   rescheduleToken?: string
   createdAt: string
   isPast: boolean
@@ -101,6 +104,12 @@ export function ClientAccountManager({ user }: ClientAccountManagerProps) {
   const [bookings, setBookings] = useState<ClientBooking[]>([])
   const [activeTab, setActiveTab] = useState<'all' | 'upcoming' | 'completed' | 'issues'>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [currentTime, setCurrentTime] = useState<number>(() => Date.now())
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(Date.now()), 15000)
+    return () => clearInterval(timer)
+  }, [])
 
   // Modal states
   const [reviewModalBooking, setReviewModalBooking] = useState<ClientBooking | null>(null)
@@ -509,8 +518,8 @@ export function ClientAccountManager({ user }: ClientAccountManagerProps) {
               type="button"
               onClick={() => setActiveTab('all')}
               className={`rounded-xl px-4 py-2 text-xs font-bold transition whitespace-nowrap ${activeTab === 'all'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-muted-foreground hover:text-primary'
+                ? 'bg-primary text-white shadow-xs'
+                : 'text-muted-foreground hover:text-primary'
                 }`}
             >
               {isAr ? `كل الحجوزات (${bookings.length})` : `All Bookings (${bookings.length})`}
@@ -519,8 +528,8 @@ export function ClientAccountManager({ user }: ClientAccountManagerProps) {
               type="button"
               onClick={() => setActiveTab('upcoming')}
               className={`rounded-xl px-4 py-2 text-xs font-bold transition whitespace-nowrap ${activeTab === 'upcoming'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-muted-foreground hover:text-primary'
+                ? 'bg-primary text-white shadow-xs'
+                : 'text-muted-foreground hover:text-primary'
                 }`}
             >
               {isAr ? `القادمة (${stats.upcomingCount})` : `Upcoming (${stats.upcomingCount})`}
@@ -529,8 +538,8 @@ export function ClientAccountManager({ user }: ClientAccountManagerProps) {
               type="button"
               onClick={() => setActiveTab('completed')}
               className={`rounded-xl px-4 py-2 text-xs font-bold transition whitespace-nowrap ${activeTab === 'completed'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-muted-foreground hover:text-primary'
+                ? 'bg-primary text-white shadow-xs'
+                : 'text-muted-foreground hover:text-primary'
                 }`}
             >
               {isAr ? `المكتملة (${stats.completedCount})` : `Completed (${stats.completedCount})`}
@@ -539,8 +548,8 @@ export function ClientAccountManager({ user }: ClientAccountManagerProps) {
               type="button"
               onClick={() => setActiveTab('issues')}
               className={`rounded-xl px-4 py-2 text-xs font-bold transition whitespace-nowrap ${activeTab === 'issues'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-muted-foreground hover:text-primary'
+                ? 'bg-primary text-white shadow-xs'
+                : 'text-muted-foreground hover:text-primary'
                 }`}
             >
               {isAr ? `المشكلات والمعلقة (${stats.issuesCount + stats.pendingVerificationCount})` : `Issues & Pending (${stats.issuesCount + stats.pendingVerificationCount})`}
@@ -670,30 +679,49 @@ export function ClientAccountManager({ user }: ClientAccountManagerProps) {
                       </div>
                     </div>
 
-                    {/* Join Google Meet Button if active */}
+                    {/* Join Google Meet Button (strictly gated by 15m unlock window & routed through tracked /join) */}
                     <div className="flex items-center gap-2">
-                      {b.status === 'confirmed' && b.googleMeetLink ? (
-                        <a
-                          href={b.googleMeetLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`inline-flex items-center gap-2 rounded-2xl px-5 py-3 text-xs font-bold transition shadow-xs ${b.isJoinable
-                              ? 'bg-emerald-600 text-white hover:bg-emerald-700 animate-pulse'
-                              : 'bg-primary text-white hover:bg-primary/90'
-                            }`}
-                        >
-                          <Video size={16} />
-                          <span>
-                            {b.isJoinable
-                              ? isAr
-                                ? 'انضم للجلسة الآن'
-                                : 'Join Google Meet Now'
-                              : isAr
-                                ? 'رابط جوجل ميت'
-                                : 'Google Meet Link'}
-                          </span>
-                        </a>
-                      ) : null}
+                      {b.status === 'confirmed' && b.hasMeetLink ? (() => {
+                        const startMs = b.sessionStartAt ? new Date(b.sessionStartAt).getTime() : null
+                        const endMs = b.sessionEndAt ? new Date(b.sessionEndAt).getTime() : null
+                        const isLiveJoinable =
+                          startMs !== null && endMs !== null
+                            ? currentTime >= startMs - 15 * 60 * 1000 &&
+                            currentTime <= endMs + 30 * 60 * 1000
+                            : b.isJoinable
+                        const isEnded = endMs !== null ? currentTime > endMs + 30 * 60 * 1000 : b.isPast
+
+                        if (isLiveJoinable) {
+                          const joinHref =
+                            b.meetJoinUrl ||
+                            `/api/bookings/${b._id}/join${b.rescheduleToken ? `?token=${encodeURIComponent(b.rescheduleToken)}` : ''
+                            }`
+                          return (
+                            <a
+                              href={joinHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 rounded-2xl px-5 py-3 text-xs font-bold transition shadow-xs bg-emerald-600 text-white hover:bg-emerald-700 animate-pulse"
+                            >
+                              <Video size={16} />
+                              <span>{isAr ? 'انضم للجلسة الآن' : 'Join Google Meet Now'}</span>
+                            </a>
+                          )
+                        }
+
+                        if (!isEnded) {
+                          return (
+                            <div className="inline-flex items-center gap-1.5 rounded-2xl border border-accent/40 bg-secondary/70 px-4 py-2.5 text-xs font-bold text-primary select-none">
+                              <Clock size={14} className="text-accent" />
+                              <span>
+                                {isAr ? 'يتاح قبل الجلسة بـ 15 دقيقة' : 'Unlocks 15m before session'}
+                              </span>
+                            </div>
+                          )
+                        }
+
+                        return null
+                      })() : null}
                     </div>
                   </div>
 
@@ -1173,10 +1201,10 @@ export function ClientAccountManager({ user }: ClientAccountManagerProps) {
                         disabled={!d.hasSlots}
                         onClick={() => setSelectedDate(d.date)}
                         className={`shrink-0 rounded-2xl border px-3.5 py-2.5 text-center text-xs font-bold transition ${selectedDate === d.date
-                            ? 'border-accent bg-accent text-primary shadow-xs'
-                            : d.hasSlots
-                              ? 'border-border bg-background text-primary hover:border-accent'
-                              : 'border-border/40 bg-surface/50 text-muted-foreground/40 cursor-not-allowed'
+                          ? 'border-accent bg-accent text-primary shadow-xs'
+                          : d.hasSlots
+                            ? 'border-border bg-background text-primary hover:border-accent'
+                            : 'border-border/40 bg-surface/50 text-muted-foreground/40 cursor-not-allowed'
                           }`}
                       >
                         {formatDateLabel(d.date, isAr ? 'ar' : 'en')}
@@ -1209,10 +1237,10 @@ export function ClientAccountManager({ user }: ClientAccountManagerProps) {
                           disabled={!s.available}
                           onClick={() => setSelectedTime(s.time)}
                           className={`rounded-xl border py-2 text-center text-xs font-bold transition ${selectedTime === s.time
-                              ? 'border-primary bg-primary text-white shadow-xs'
-                              : s.available
-                                ? 'border-border bg-background text-primary hover:border-primary'
-                                : 'border-border/40 bg-surface/50 text-muted-foreground/40 cursor-not-allowed'
+                            ? 'border-primary bg-primary text-white shadow-xs'
+                            : s.available
+                              ? 'border-border bg-background text-primary hover:border-primary'
+                              : 'border-border/40 bg-surface/50 text-muted-foreground/40 cursor-not-allowed'
                             }`}
                         >
                           {formatSlotLabel(s.time, isAr ? 'ar' : 'en')}

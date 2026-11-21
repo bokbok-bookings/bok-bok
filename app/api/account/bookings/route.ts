@@ -3,8 +3,13 @@ import { ObjectId } from 'mongodb'
 import { getBookingsCollection, getExpertsCollection, getServicesCollection, getReviewsCollection, getComplaintsCollection } from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
 import { computeSessionBounds } from '@/lib/email/scheduler'
+import { MEET_UNLOCK_MINUTES_BEFORE, MEET_GRACE_MINUTES_AFTER_END } from '@/lib/booking/access'
 
 export const dynamic = 'force-dynamic'
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
 
 export async function GET(request: Request) {
   try {
@@ -22,11 +27,13 @@ export async function GET(request: Request) {
     const reviewsCol = await getReviewsCollection()
     const complaintsCol = await getComplaintsCollection()
 
-    // Find all bookings where client is the user or matched by email
+    // Find all bookings where client is the user or matched by email (case-insensitive for legacy bookings)
     const filterQuery: any = {
       $or: [
         { clientId: userObjId },
-        ...(userEmail ? [{ clientEmail: userEmail }] : []),
+        ...(userEmail
+          ? [{ clientEmail: { $regex: `^${escapeRegex(userEmail)}$`, $options: 'i' } }]
+          : []),
       ],
     }
 
@@ -102,14 +109,14 @@ export async function GET(request: Request) {
       const isCancelled = booking.status === 'cancelled' || booking.status === 'rejected'
       const isDisputed = booking.attendanceStatus === 'disputed' || Boolean(existingComplaint)
 
-      // Active 15 minutes before session until session ends
+      // Active 15 minutes before session until 30 minutes after session end (matching /api/bookings/[id]/join)
       const isJoinable = Boolean(
         isConfirmed &&
         booking.googleMeetLink &&
         sessionStart &&
         sessionEnd &&
-        now.getTime() >= sessionStart.getTime() - 15 * 60 * 1000 &&
-        now.getTime() <= sessionEnd.getTime()
+        now.getTime() >= sessionStart.getTime() - MEET_UNLOCK_MINUTES_BEFORE * 60 * 1000 &&
+        now.getTime() <= sessionEnd.getTime() + MEET_GRACE_MINUTES_AFTER_END * 60 * 1000
       )
 
       // Reschedule eligibility: upcoming, confirmed or pending, not cancelled, and within expert deadline window
@@ -158,7 +165,15 @@ export async function GET(request: Request) {
         durationMinutes: booking.durationMinutes || 45,
         amount: booking.amount,
         currency: booking.currency || 'EGP',
-        googleMeetLink: booking.googleMeetLink,
+        hasMeetLink: Boolean(booking.googleMeetLink),
+        meetJoinUrl:
+          isConfirmed && booking.googleMeetLink
+            ? `/api/bookings/${booking._id!.toString()}/join${
+                booking.rescheduleToken ? `?token=${encodeURIComponent(booking.rescheduleToken)}` : ''
+              }`
+            : undefined,
+        sessionStartAt: sessionStart?.toISOString(),
+        sessionEndAt: sessionEnd?.toISOString(),
         rescheduleToken: booking.rescheduleToken,
         createdAt: booking.createdAt,
         isPast,

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { uploadBuffer } from '@/lib/cloudinary'
+import { getSession } from '@/lib/auth/session'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -11,6 +12,15 @@ const ALLOWED_MIME_TYPES = new Set([
   'image/webp',
   'image/gif',
   'application/pdf',
+])
+
+const VALID_UPLOAD_TYPES = new Set([
+  'avatar',
+  'service_thumbnail',
+  'id_document',
+  'certificate',
+  'receipt',
+  'intake_doc',
 ])
 
 function hasValidMagicBytes(buffer: Buffer, mimeType: string): boolean {
@@ -61,26 +71,60 @@ function hasValidMagicBytes(buffer: Buffer, mimeType: string): boolean {
 export async function POST(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const type = searchParams.get('type') || 'receipt' // 'avatar' | 'receipt' | 'id_document' | 'certificate' | 'general'
+    const rawType = searchParams.get('type') || 'receipt'
+
+    if (!VALID_UPLOAD_TYPES.has(rawType)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid upload type specified' },
+        { status: 400 },
+      )
+    }
+
+    const session = await getSession()
+
+    // Enforce authorization per upload type:
+    // 1. National IDs and certificates require an active expert or admin session
+    if (rawType === 'id_document' || rawType === 'certificate') {
+      if (!session || (session.role !== 'expert' && session.role !== 'admin')) {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized: Only experts or administrators can upload verification documents' },
+          { status: 403 },
+        )
+      }
+    }
+
+    // 2. Profile avatars and service thumbnails require an authenticated session
+    if (rawType === 'avatar' || rawType === 'service_thumbnail') {
+      if (!session) {
+        return NextResponse.json(
+          { success: false, error: 'Unauthorized: Please log in to upload profile or service media' },
+          { status: 401 },
+        )
+      }
+    }
 
     let folder = 'bokbok/receipts'
     let maxWidth = 1600
     let maxHeight = 2000
 
-    if (type === 'avatar') {
+    if (rawType === 'avatar') {
       folder = 'bokbok/avatars'
       maxWidth = 800
       maxHeight = 800
-    } else if (type === 'service_thumbnail') {
+    } else if (rawType === 'service_thumbnail') {
       folder = 'bokbok/service_thumbnails'
       maxWidth = 1280
       maxHeight = 800
-    } else if (type === 'id_document') {
+    } else if (rawType === 'id_document') {
       folder = 'bokbok/national_ids'
       maxWidth = 1800
       maxHeight = 1800
-    } else if (type === 'certificate') {
+    } else if (rawType === 'certificate') {
       folder = 'bokbok/certificates'
+      maxWidth = 1800
+      maxHeight = 1800
+    } else if (rawType === 'intake_doc') {
+      folder = 'bokbok/intake_docs'
       maxWidth = 1800
       maxHeight = 1800
     }

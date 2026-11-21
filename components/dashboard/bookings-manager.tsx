@@ -917,17 +917,23 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                           b.status,
                         ) && (
                             <>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setApprovalMeetLink(b.googleMeetLink || '')
-                                  setApprovalBooking(b)
-                                }}
-                                disabled={isRowLoading}
-                                className="rounded-full bg-[#14243b] px-3 py-1 text-[10px] font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
-                              >
-                                Approve
-                              </button>
+                              {isAdmin ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setApprovalMeetLink(b.googleMeetLink || '')
+                                    setApprovalBooking(b)
+                                  }}
+                                  disabled={isRowLoading}
+                                  className="rounded-full bg-[#14243b] px-3 py-1 text-[10px] font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                                >
+                                  Approve
+                                </button>
+                              ) : (
+                                <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200">
+                                  Awaiting Admin Review
+                                </span>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1314,16 +1320,18 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                     >
                       Decline
                     </button>
-                    <button
-                      type="button"
-                      disabled={actionLoadingId === selectedReceipt._id}
-                      onClick={() => executeBookingAction(selectedReceipt._id, 'approve')}
-                      className="rounded-full bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
-                    >
-                      {actionLoadingId === selectedReceipt._id
-                        ? 'Approving...'
-                        : 'Approve & Create Meet'}
-                    </button>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        disabled={actionLoadingId === selectedReceipt._id}
+                        onClick={() => executeBookingAction(selectedReceipt._id, 'approve')}
+                        className="rounded-full bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                      >
+                        {actionLoadingId === selectedReceipt._id
+                          ? 'Approving...'
+                          : 'Approve & Create Meet'}
+                      </button>
+                    )}
                   </>
                 ) : (
                   <button
