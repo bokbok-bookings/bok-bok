@@ -15,6 +15,7 @@ import {
   renderBookingConfirmationEmail,
   renderBeforeSessionReminderEmail,
   renderMeetLinkUpdatedEmail,
+  renderEventWaitlistPromotedEmail,
 } from '@/lib/email/templates'
 import {
   confirmBookingAndCreateCalendar,
@@ -118,6 +119,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const statusParam = searchParams.get('status')
+    const serviceIdParam = searchParams.get('serviceId')
     const includeCalendarStatus = searchParams.get('includeCalendarStatus') === 'true'
     const refreshCalendarStatus = searchParams.get('refreshCalendarStatus') === 'true'
     const limit = Math.min(Math.max(Number(searchParams.get('limit')) || 50, 1), 200)
@@ -127,6 +129,10 @@ export async function GET(request: Request) {
 
     if (auth.expertId) {
       filter.expertId = auth.expertId
+    }
+
+    if (serviceIdParam && ObjectId.isValid(serviceIdParam)) {
+      filter.serviceId = toObjectId(serviceIdParam)
     }
 
     if (statusParam === 'awaiting_verification' || statusParam === 'pending') {
@@ -354,12 +360,20 @@ export async function PATCH(request: Request) {
       updatedAt: now,
     }
 
+    const isFreeEventBooking =
+      (existing.bookingType === 'WORKSHOP' ||
+        existing.bookingType === 'WEBINAR' ||
+        existing.reference?.startsWith('EV-')) &&
+      Number(existing.amount || 0) <= 0
+
     if (action === 'approve') {
-      if (auth.session.role !== 'admin') {
+      const canExpertApproveFreeEvent = auth.session.role === 'expert' && isFreeEventBooking
+      if (auth.session.role !== 'admin' && !canExpertApproveFreeEvent) {
         return NextResponse.json(
           {
             success: false,
-            error: 'Access denied: Only platform administrators can verify payment receipts and approve bookings.',
+            error:
+              'Access denied: Only platform administrators can approve paid bookings. Experts can approve free workshop/webinar registrations.',
           },
           { status: 403 },
         )
@@ -665,14 +679,113 @@ export async function PATCH(request: Request) {
         googleMeetLink: trimmedLink,
         message: 'Google Meet link saved and emailed to attendees.',
       })
+    } else if (action === 'promote_waitlist') {
+      const canExpertPromoteFree = auth.session.role === 'expert' && isFreeEventBooking
+      if (auth.session.role !== 'admin' && !canExpertPromoteFree) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Access denied: Only admins (or experts for free events) can promote from waitlist.',
+          },
+          { status: 403 },
+        )
+      }
+      if (existing.status !== 'waitlisted') {
+        return NextResponse.json(
+          { success: false, error: 'Only waitlisted registrations can be promoted.' },
+          { status: 400 },
+        )
+      }
+
+      if (existing.serviceId) {
+        const servicesCol = await getServicesCollection()
+        const srv = await servicesCol.findOne({ _id: toObjectId(existing.serviceId) })
+        const cap = srv?.event?.capacity || 0
+        if (cap > 0) {
+          const seatInc = await servicesCol.updateOne(
+            {
+              _id: toObjectId(existing.serviceId),
+              $or: [
+                { 'event.registeredCount': { $lt: cap } },
+                { 'event.registeredCount': { $exists: false } },
+              ],
+            },
+            { $inc: { 'event.registeredCount': 1 } },
+          )
+          if (seatInc.modifiedCount === 0) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: 'Event is currently at full capacity. Increase capacity or release a seat first.',
+              },
+              { status: 409 },
+            )
+          }
+        }
+        if (!existing.googleMeetLink && srv?.event?.joinUrl && srv.deliveryMode !== 'IN_PERSON') {
+          updateDoc.googleMeetLink = srv.event.joinUrl
+        }
+      }
+
+      updateDoc.status = 'confirmed'
+      updateDoc.registrationType = 'seat'
+      updateDoc.paymentStatus = isFreeEventBooking ? 'verified' : existing.paymentStatus || 'pending'
+      updateDoc.verifiedBy = new ObjectId(auth.session.userId)
+      updateDoc.verifiedAt = now
+      await bookingsCol.updateOne({ _id: bookingObjId }, { $set: updateDoc })
+
+      try {
+        if (existing.clientEmail) {
+          const promotedBooking = { ...existing, ...updateDoc }
+          const emailData = renderEventWaitlistPromotedEmail({
+            booking: promotedBooking,
+            expertName,
+            clientName: existing.clientName,
+            serviceTitle,
+            bookingUrl: clientPageUrl,
+          })
+          await sendTransactionalEmail({
+            bookingId: existing._id,
+            emailType: 'event_waitlist_promoted',
+            recipientEmail: existing.clientEmail,
+            recipientName: existing.clientName,
+            recipientRole: 'client',
+            subject: emailData.subject,
+            html: emailData.html,
+            text: emailData.text,
+          })
+        }
+      } catch (emailErr) {
+        console.error('[Email Notification] Failed to send waitlist promotion email:', emailErr)
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Attendee promoted from waitlist and notified by email.',
+      })
     } else if (action === 'reject') {
+      const canExpertRejectFree = auth.session.role === 'expert' && isFreeEventBooking
+      if (auth.session.role !== 'admin' && !canExpertRejectFree) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Access denied: Only administrators can reject paid bookings.',
+          },
+          { status: 403 },
+        )
+      }
       updateDoc.status = 'rejected'
-      updateDoc.paymentStatus = 'rejected'
-      updateDoc.adminNotes = adminNotes || 'Payment receipt not accepted'
+      updateDoc.paymentStatus = isFreeEventBooking ? 'pending' : 'rejected'
+      updateDoc.adminNotes = adminNotes || (isFreeEventBooking ? 'Registration declined' : 'Payment receipt not accepted')
 
       await bookingsCol.updateOne({ _id: bookingObjId }, { $set: updateDoc })
 
-      if (existing.status !== 'cancelled' && existing.status !== 'rejected' && existing.serviceId) {
+      if (
+        existing.status !== 'cancelled' &&
+        existing.status !== 'rejected' &&
+        existing.status !== 'waitlisted' &&
+        existing.serviceId
+      ) {
         await decrementEventRegisteredCount(existing.serviceId)
       }
 
@@ -690,7 +803,12 @@ export async function PATCH(request: Request) {
 
       await bookingsCol.updateOne({ _id: bookingObjId }, { $set: updateDoc })
 
-      if (existing.status !== 'cancelled' && existing.status !== 'rejected' && existing.serviceId) {
+      if (
+        existing.status !== 'cancelled' &&
+        existing.status !== 'rejected' &&
+        existing.status !== 'waitlisted' &&
+        existing.serviceId
+      ) {
         await decrementEventRegisteredCount(existing.serviceId)
       }
 

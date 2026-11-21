@@ -8,7 +8,10 @@ export interface BookingDocItem {
   _id: string
   reference?: string
   expertId: string
+  serviceId?: string
   serviceTitle?: { en: string; ar: string }
+  bookingType?: 'APPOINTMENT' | 'WORKSHOP' | 'WEBINAR'
+  registrationType?: 'seat' | 'waitlist' | 'interest'
   clientName: string
   clientEmail: string
   clientPhone?: string
@@ -71,7 +74,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
   const [bookings, setBookings] = useState<BookingDocItem[]>([])
   const [calendarStatus, setCalendarStatus] = useState<CalendarConnectionStatus | null>(null)
   const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState<'awaiting_verification' | 'confirmed' | 'all'>(
+  const [statusFilter, setStatusFilter] = useState<'awaiting_verification' | 'confirmed' | 'events' | 'all'>(
     'awaiting_verification',
   )
   const [selectedReceipt, setSelectedReceipt] = useState<BookingDocItem | null>(null)
@@ -132,7 +135,12 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
       try {
         const url = new URL('/api/dashboard/bookings', window.location.origin)
         if (expertId) url.searchParams.set('expertId', expertId)
-        if (statusFilter !== 'all') url.searchParams.set('status', statusFilter)
+        if (statusFilter === 'events') {
+          url.searchParams.set('status', 'all')
+          url.searchParams.set('limit', '200')
+        } else if (statusFilter !== 'all') {
+          url.searchParams.set('status', statusFilter)
+        }
         if (isAdmin) {
           url.searchParams.set('includeCalendarStatus', 'true')
           if (refreshCalendar) {
@@ -438,6 +446,75 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
     }
   }
 
+  const handlePromoteWaitlist = async (booking: BookingDocItem) => {
+    setActionLoadingId(booking._id)
+    setFeedback(null)
+    try {
+      const res = await fetch('/api/dashboard/bookings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: booking._id, action: 'promote_waitlist' }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setFeedback({ type: 'success', text: json.message || 'Promoted from waitlist.' })
+        await loadBookings()
+      } else {
+        setFeedback({ type: 'error', text: json.error || 'Failed to promote attendee.' })
+      }
+    } catch {
+      setFeedback({ type: 'error', text: 'Network error while promoting attendee.' })
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
+  const handleQuickApproveFreeEvent = async (booking: BookingDocItem) => {
+    setActionLoadingId(booking._id)
+    setFeedback(null)
+    try {
+      const res = await fetch('/api/dashboard/bookings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: booking._id, action: 'approve' }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setFeedback({ type: 'success', text: json.message || 'Free event registration approved.' })
+        await loadBookings()
+      } else {
+        setFeedback({ type: 'error', text: json.error || 'Failed to approve registration.' })
+      }
+    } catch {
+      setFeedback({ type: 'error', text: 'Network error while approving registration.' })
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
+  const handleExportEventCsv = (eventTitle: string, attendees: BookingDocItem[]) => {
+    const header = ['Reference', 'Name', 'Email', 'Phone', 'Status', 'Type', 'Registered At']
+    const rows = attendees.map((a) => [
+      a.reference || '',
+      a.clientName || '',
+      a.clientEmail || '',
+      a.clientPhone || '',
+      a.status || '',
+      a.registrationType || 'seat',
+      a.createdAt ? new Date(a.createdAt).toISOString() : '',
+    ])
+    const csv = [header, ...rows]
+      .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${eventTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-roster.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   const handleCopyMeet = async (bookingId: string, link: string) => {
     try {
       await navigator.clipboard.writeText(link)
@@ -594,6 +671,16 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
           </button>
           <button
             type="button"
+            onClick={() => setStatusFilter('events')}
+            className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${statusFilter === 'events'
+                ? 'bg-[#14243b] text-white'
+                : 'text-[#637084] hover:text-[#14243b]'
+              }`}
+          >
+            Event Roster
+          </button>
+          <button
+            type="button"
             onClick={() => setStatusFilter('all')}
             className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${statusFilter === 'all'
                 ? 'bg-[#14243b] text-white'
@@ -609,7 +696,172 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
         <div className="p-12 text-center text-xs font-semibold text-[#8b94a1]">
           Loading bookings...
         </div>
-      ) : bookings.length === 0 ? (
+      ) : statusFilter === 'events' ? (() => {
+        const eventBookings = bookings.filter(
+          (b) =>
+            b.bookingType === 'WORKSHOP' ||
+            b.bookingType === 'WEBINAR' ||
+            b.reference?.startsWith('EV-'),
+        )
+        const grouped = new Map<string, { title: string; date: string; time: string; isFree: boolean; items: BookingDocItem[] }>()
+        for (const b of eventBookings) {
+          const key = b.serviceId || b.serviceTitle?.en || b.reference || b._id
+          const existingGroup = grouped.get(key)
+          if (existingGroup) {
+            existingGroup.items.push(b)
+          } else {
+            grouped.set(key, {
+              title: b.serviceTitle?.en || b.serviceTitle?.ar || 'Workshop / Webinar',
+              date: b.date,
+              time: b.time,
+              isFree: Number(b.amount || 0) <= 0,
+              items: [b],
+            })
+          }
+        }
+        const groups = Array.from(grouped.entries())
+
+        if (groups.length === 0) {
+          return (
+            <div className="rounded-3xl border border-dashed border-[#dedbd5] bg-white p-12 text-center">
+              <p className="text-base font-bold text-[#14243b]">No workshop or webinar registrations yet</p>
+              <p className="mt-1 text-xs text-[#637084]">
+                Registrations, approval requests, and waitlists for your events will appear grouped here.
+              </p>
+            </div>
+          )
+        }
+
+        return (
+          <div className="space-y-5">
+            {groups.map(([groupKey, group]) => {
+              const confirmedCount = group.items.filter((i) => i.status === 'confirmed').length
+              const pendingCount = group.items.filter((i) => ['pending', 'awaiting_verification', 'awaiting_payment'].includes(i.status)).length
+              const waitlistCount = group.items.filter((i) => i.status === 'waitlisted').length
+              const canManageGroup = isAdmin || group.isFree
+
+              return (
+                <div key={groupKey} className="rounded-3xl border border-[#e7e2da] bg-white p-5 shadow-xs space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeeae4] pb-3.5">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-base font-bold text-[#14243b]">{group.title}</h3>
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                            group.isFree ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {group.isFree ? 'Free Event' : 'Paid Event'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#637084] mt-0.5">
+                        {group.date} · {group.time} ·{' '}
+                        <strong className="text-emerald-700">{confirmedCount} Confirmed</strong> ·{' '}
+                        <strong className="text-amber-700">{pendingCount} Pending</strong> ·{' '}
+                        <strong className="text-indigo-700">{waitlistCount} Waitlisted</strong>
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleExportEventCsv(group.title, group.items)}
+                      className="rounded-full border border-[#d6d0c7] bg-[#faf8f5] px-4 py-1.5 text-xs font-bold text-[#14243b] hover:bg-[#14243b] hover:text-white transition"
+                    >
+                      Export CSV ({group.items.length})
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-[#eeeae4] text-[11px] uppercase text-[#8b94a1]">
+                          <th className="py-2 pr-3">Ref</th>
+                          <th className="py-2 pr-3">Attendee</th>
+                          <th className="py-2 pr-3">Contact</th>
+                          <th className="py-2 pr-3">Status</th>
+                          <th className="py-2 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#f2efe9]">
+                        {group.items.map((att) => {
+                          const isPending = ['pending', 'awaiting_verification', 'awaiting_payment'].includes(att.status)
+                          const isWaitlisted = att.status === 'waitlisted'
+                          return (
+                            <tr key={att._id} className="hover:bg-[#faf8f5]/70">
+                              <td className="py-2.5 pr-3 font-mono font-bold text-[#14243b]">{att.reference || '—'}</td>
+                              <td className="py-2.5 pr-3 font-bold text-[#14243b]">{att.clientName}</td>
+                              <td className="py-2.5 pr-3 text-[#637084]">
+                                <div>{att.clientEmail}</div>
+                                {att.clientPhone && <div className="text-[11px]">{att.clientPhone}</div>}
+                              </td>
+                              <td className="py-2.5 pr-3">
+                                <span
+                                  className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+                                    att.status === 'confirmed'
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : isWaitlisted
+                                        ? 'bg-indigo-100 text-indigo-800'
+                                        : isPending
+                                          ? 'bg-amber-100 text-amber-800'
+                                          : 'bg-slate-100 text-slate-600'
+                                  }`}
+                                >
+                                  {att.status === 'waitlisted' && att.registrationType === 'interest'
+                                    ? 'notify list'
+                                    : att.status}
+                                </span>
+                              </td>
+                              <td className="py-2.5 text-right">
+                                <div className="inline-flex items-center gap-1.5">
+                                  {canManageGroup && isPending && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        disabled={actionLoadingId === att._id}
+                                        onClick={() => handleQuickApproveFreeEvent(att)}
+                                        className="rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                                      >
+                                        Approve
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={actionLoadingId === att._id}
+                                        onClick={() => {
+                                          setActionModal({ booking: att, action: 'reject' })
+                                          setDeclineNotes('')
+                                        }}
+                                        className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                                      >
+                                        Reject
+                                      </button>
+                                    </>
+                                  )}
+                                  {canManageGroup && isWaitlisted && (
+                                    <button
+                                      type="button"
+                                      disabled={actionLoadingId === att._id}
+                                      onClick={() => handlePromoteWaitlist(att)}
+                                      className="rounded-full bg-indigo-600 px-3 py-1 text-[11px] font-bold text-white hover:bg-indigo-700 disabled:opacity-50"
+                                    >
+                                      Promote Seat
+                                    </button>
+                                  )}
+                                  {!canManageGroup && isPending && (
+                                    <span className="text-[11px] text-[#8b94a1] italic">Admin verification</span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      })() : bookings.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-[#dedbd5] bg-white p-12 text-center">
           <p className="text-base font-bold text-[#14243b]">No bookings found</p>
           <p className="mt-1 text-xs text-[#637084]">

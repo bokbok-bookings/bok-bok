@@ -202,6 +202,26 @@ export interface ServiceLocation {
   googleMapsUrl?: string
 }
 
+export type EventStatus = 'open' | 'coming_soon' | 'closed'
+export type EventRegistrationMode = 'approval_required' | 'instant'
+
+export interface EventSessionItem {
+  id: string
+  title: LocalizedText
+  date: string
+  startTime: string
+  endTime: string
+  includes?: LocalizedText[]
+  description?: LocalizedText
+}
+
+export interface EventMaterialItem {
+  id: string
+  title: string
+  url: string
+  type: 'pdf' | 'link' | 'video'
+}
+
 export interface ServiceEventDetails {
   date: string // YYYY-MM-DD
   startTime: string // HH:mm
@@ -211,6 +231,14 @@ export interface ServiceEventDetails {
   registeredCount: number
   joinUrl?: string
   platform?: string
+  eventStatus?: EventStatus
+  registrationMode?: EventRegistrationMode
+  allowWaitlist?: boolean
+  sessions?: EventSessionItem[]
+  galleryUrls?: string[]
+  cancellationPolicy?: LocalizedText
+  recordingUrl?: string
+  materials?: EventMaterialItem[]
 }
 
 export interface ServiceIntakeQuestion {
@@ -312,8 +340,11 @@ export type BookingStatus =
   | 'awaiting_payment'
   | 'awaiting_verification'
   | 'confirmed'
+  | 'waitlisted'
   | 'cancelled'
   | 'rejected'
+
+export type EventRegistrationType = 'seat' | 'waitlist' | 'interest'
 
 export type PaymentStatus = 'pending' | 'receipt_uploaded' | 'verified' | 'rejected'
 
@@ -409,6 +440,8 @@ export interface BookingDoc {
   expertSlug?: string
   serviceId?: ObjectId // Native BSON ObjectId!
   serviceTitle?: LocalizedText
+  bookingType?: BookingType
+  registrationType?: EventRegistrationType
   clientId?: ObjectId
   clientName: string
   clientEmail: string
@@ -518,6 +551,9 @@ export interface EmailLogDoc {
   | 'password_reset'
   | 'booking_received'
   | 'booking_confirmed'
+  | 'event_registration_received'
+  | 'event_waitlist_joined'
+  | 'event_waitlist_promoted'
   | 'meet_link_updated'
   | 'missing_meet_link_alert'
   | 'reminder_day_of'

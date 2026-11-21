@@ -8,12 +8,18 @@ import {
   getCanonicalExpertId,
   getCanonicalExpertObjectId,
 } from '@/lib/availability-server'
-import { toObjectId, getServicesCollection, getExpertsCollection } from '@/lib/db'
+import { toObjectId, getServicesCollection, getExpertsCollection, getBookingsCollection } from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
 import { isAllowedMvpCategory, isAllowedMvpSubcategory } from '@/lib/data/categories'
 import { computeSessionBounds, getAppBaseUrl, resolveExpertContact } from '@/lib/email/scheduler'
 import { sendTransactionalEmail } from '@/lib/email/mailer'
-import { renderBookingReceivedEmail } from '@/lib/email/templates'
+import {
+  renderBookingReceivedEmail,
+  renderBookingConfirmationEmail,
+  renderEventRegistrationReceivedEmail,
+  renderEventWaitlistJoinedEmail,
+} from '@/lib/email/templates'
+import { getBookingRoleLinks } from '@/lib/booking/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -172,20 +178,126 @@ export async function POST(request: Request) {
 
       // If it's a WORKSHOP or WEBINAR, event registration logic applies
       if (serviceDoc.bookingType === 'WORKSHOP' || serviceDoc.bookingType === 'WEBINAR') {
-        const eventDate = serviceDoc.event?.date
-        const eventTime = serviceDoc.event?.startTime || '18:00'
-        const capacity = serviceDoc.event?.capacity || 20
-        const registered = serviceDoc.event?.registeredCount || 0
+        const eventMeta = serviceDoc.event
+        const eventStatus = eventMeta?.eventStatus || 'open'
+        const eventDate = eventMeta?.date || date
+        const eventTime = eventMeta?.startTime || '18:00'
+        const capacity = eventMeta?.capacity || 20
+        const allowWaitlist = eventMeta?.allowWaitlist !== false
+        const isFreeEvent = verifiedAmount <= 0
+        const finalDuration = serviceDoc.durationMinutes || 60
+        const eventTimezone = eventMeta?.timezone || 'Africa/Cairo'
 
-        if (registered >= capacity) {
+        if (eventStatus === 'closed') {
           return NextResponse.json(
-            { success: false, error: 'This event has reached full capacity.' },
+            { success: false, error: 'Registration for this event is closed.' },
             { status: 400 },
           )
         }
 
-        // Atomically increment registeredCount
-        await servicesCol.updateOne(
+        const bounds = computeSessionBounds(eventDate, eventTime, finalDuration, eventTimezone)
+        if (eventStatus !== 'coming_soon' && bounds.sessionStartAt.getTime() < Date.now()) {
+          return NextResponse.json(
+            { success: false, error: 'This event has already started or ended.' },
+            { status: 400 },
+          )
+        }
+
+        // Duplicate registration guard (case-insensitive email per event)
+        if (normalizedClientEmail) {
+          const bookingsCol = await getBookingsCollection()
+          const escapedEmail = normalizedClientEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          const duplicate = await bookingsCol.findOne({
+            serviceId: serviceDoc._id,
+            clientEmail: { $regex: `^${escapedEmail}$`, $options: 'i' },
+            status: { $in: ['pending', 'awaiting_payment', 'awaiting_verification', 'confirmed', 'waitlisted'] },
+          })
+          if (duplicate) {
+            return NextResponse.json(
+              {
+                success: false,
+                error:
+                  duplicate.status === 'waitlisted'
+                    ? 'You are already on the waitlist for this event.'
+                    : 'You have already registered for this event.',
+              },
+              { status: 409 },
+            )
+          }
+        }
+
+        const reference = `EV-${Math.floor(1000 + Math.random() * 9000)}`
+        const rescheduleToken = crypto.randomBytes(24).toString('hex')
+        const baseUrl = getAppBaseUrl()
+        const eventUrl = `${baseUrl}/services/${serviceDoc.slug || serviceDoc._id.toString()}`
+        const title = verifiedServiceTitle?.en || verifiedServiceTitle?.ar || 'Event Session'
+
+        // 1. Coming Soon → Early-interest / Notify-Me list (no seat reserved, no payment)
+        if (eventStatus === 'coming_soon') {
+          const booking = await createExpertBooking({
+            reference,
+            expertId,
+            expertSlug,
+            serviceId: serviceDoc._id,
+            serviceTitle: verifiedServiceTitle,
+            bookingType: serviceDoc.bookingType,
+            registrationType: 'interest',
+            date: eventDate,
+            time: eventTime,
+            ...(clientObjId ? { clientId: clientObjId } : {}),
+            clientName: clientName.trim(),
+            clientEmail: normalizedClientEmail,
+            clientPhone: (clientPhone || '').trim(),
+            durationMinutes: finalDuration,
+            amount: verifiedAmount,
+            currency: verifiedCurrency,
+            deliveryMode: serviceDoc.deliveryMode || 'ONLINE',
+            location: serviceDoc.deliveryMode === 'IN_PERSON' ? serviceDoc.location : undefined,
+            timezone: eventTimezone,
+            sessionStartAt: bounds.sessionStartAt,
+            sessionEndAt: bounds.sessionEndAt,
+            rescheduleToken,
+            attendanceStatus: 'pending',
+            status: 'waitlisted',
+            ...(Array.isArray(intakeAnswers) ? { intakeAnswers } : {}),
+          })
+
+          try {
+            const { expertName } = await resolveExpertContact(expertObjId)
+            if (normalizedClientEmail) {
+              const emailData = renderEventWaitlistJoinedEmail({
+                clientName: clientName.trim(),
+                expertName,
+                serviceTitle: title,
+                date: eventDate,
+                isComingSoon: true,
+                eventUrl,
+              })
+              await sendTransactionalEmail({
+                bookingId: booking._id,
+                emailType: 'event_waitlist_joined',
+                recipientEmail: normalizedClientEmail,
+                recipientName: clientName.trim(),
+                recipientRole: 'client',
+                subject: emailData.subject,
+                html: emailData.html,
+                text: emailData.text,
+              })
+            }
+          } catch (emailErr) {
+            console.error('Failed to send coming-soon notification email:', emailErr)
+          }
+
+          return NextResponse.json({
+            success: true,
+            booking,
+            reference,
+            registrationType: 'interest',
+          })
+        }
+
+        // 2. Atomically attempt to reserve a seat (prevents overbooking race condition)
+        const seatUpdate = await servicesCol.updateOne(
           {
             _id: serviceDoc._id,
             $or: [
@@ -196,12 +308,96 @@ export async function POST(request: Request) {
           { $inc: { 'event.registeredCount': 1 } },
         )
 
-        const reference = `EV-${Math.floor(1000 + Math.random() * 9000)}`
-        const finalDate = eventDate || date
-        const finalTime = eventTime
-        const finalDuration = serviceDoc.durationMinutes || 60
-        const bounds = computeSessionBounds(finalDate, finalTime, finalDuration, 'Africa/Cairo')
-        const rescheduleToken = crypto.randomBytes(24).toString('hex')
+        if (seatUpdate.modifiedCount === 0) {
+          // Event is full — route to waitlist if enabled
+          if (!allowWaitlist) {
+            return NextResponse.json(
+              { success: false, error: 'This event has reached full capacity.' },
+              { status: 400 },
+            )
+          }
+
+          const booking = await createExpertBooking({
+            reference,
+            expertId,
+            expertSlug,
+            serviceId: serviceDoc._id,
+            serviceTitle: verifiedServiceTitle,
+            bookingType: serviceDoc.bookingType,
+            registrationType: 'waitlist',
+            date: eventDate,
+            time: eventTime,
+            ...(clientObjId ? { clientId: clientObjId } : {}),
+            clientName: clientName.trim(),
+            clientEmail: normalizedClientEmail,
+            clientPhone: (clientPhone || '').trim(),
+            durationMinutes: finalDuration,
+            amount: verifiedAmount,
+            currency: verifiedCurrency,
+            deliveryMode: serviceDoc.deliveryMode || 'ONLINE',
+            location: serviceDoc.deliveryMode === 'IN_PERSON' ? serviceDoc.location : undefined,
+            timezone: eventTimezone,
+            sessionStartAt: bounds.sessionStartAt,
+            sessionEndAt: bounds.sessionEndAt,
+            rescheduleToken,
+            attendanceStatus: 'pending',
+            status: 'waitlisted',
+            ...(Array.isArray(intakeAnswers) ? { intakeAnswers } : {}),
+          })
+
+          try {
+            const { expertName } = await resolveExpertContact(expertObjId)
+            if (normalizedClientEmail) {
+              const emailData = renderEventWaitlistJoinedEmail({
+                clientName: clientName.trim(),
+                expertName,
+                serviceTitle: title,
+                date: eventDate,
+                isComingSoon: false,
+                eventUrl,
+              })
+              await sendTransactionalEmail({
+                bookingId: booking._id,
+                emailType: 'event_waitlist_joined',
+                recipientEmail: normalizedClientEmail,
+                recipientName: clientName.trim(),
+                recipientRole: 'client',
+                subject: emailData.subject,
+                html: emailData.html,
+                text: emailData.text,
+              })
+            }
+          } catch (emailErr) {
+            console.error('Failed to send waitlist confirmation email:', emailErr)
+          }
+
+          return NextResponse.json({
+            success: true,
+            booking,
+            reference,
+            registrationType: 'waitlist',
+          })
+        }
+
+        // 3. Seat reserved! Validate receipt for PAID events (FREE events never require receipt)
+        if (!isFreeEvent && !paymentReceiptUrl) {
+          await servicesCol.updateOne(
+            { _id: serviceDoc._id, 'event.registeredCount': { $gt: 0 } },
+            { $inc: { 'event.registeredCount': -1 } },
+          )
+          return NextResponse.json(
+            { success: false, error: 'Payment receipt is required for paid events.' },
+            { status: 400 },
+          )
+        }
+
+        // Free events default to approval_required (expert or admin approves); instant mode confirms immediately
+        const isInstantFree = isFreeEvent && eventMeta?.registrationMode === 'instant'
+        const bookingStatus = isInstantFree
+          ? 'confirmed'
+          : isFreeEvent
+            ? 'pending'
+            : 'awaiting_verification'
 
         const booking = await createExpertBooking({
           reference,
@@ -209,8 +405,10 @@ export async function POST(request: Request) {
           expertSlug,
           serviceId: serviceDoc._id,
           serviceTitle: verifiedServiceTitle,
-          date: finalDate,
-          time: finalTime,
+          bookingType: serviceDoc.bookingType,
+          registrationType: 'seat',
+          date: eventDate,
+          time: eventTime,
           ...(clientObjId ? { clientId: clientObjId } : {}),
           clientName: clientName.trim(),
           clientEmail: normalizedClientEmail,
@@ -220,7 +418,7 @@ export async function POST(request: Request) {
           currency: verifiedCurrency,
           deliveryMode: serviceDoc.deliveryMode || 'ONLINE',
           location: serviceDoc.deliveryMode === 'IN_PERSON' ? serviceDoc.location : undefined,
-          timezone: 'Africa/Cairo',
+          timezone: eventTimezone,
           sessionStartAt: bounds.sessionStartAt,
           sessionEndAt: bounds.sessionEndAt,
           rescheduleToken,
@@ -228,24 +426,65 @@ export async function POST(request: Request) {
           attendanceStatus: 'pending',
           googleMeetLink:
             serviceDoc.deliveryMode !== 'IN_PERSON'
-              ? serviceDoc.event?.joinUrl || expertDoc?.defaultGoogleMeetLink || undefined
+              ? eventMeta?.joinUrl || expertDoc?.defaultGoogleMeetLink || undefined
               : undefined,
-          paymentMethod: 'instapay',
-          paymentStatus: paymentReceiptUrl ? 'receipt_uploaded' : 'pending',
-          paymentReceiptUrl: paymentReceiptUrl || undefined,
-          paymentReceiptPublicId: paymentReceiptPublicId || undefined,
-          status: paymentReceiptUrl ? 'awaiting_verification' : 'pending',
+          ...(isFreeEvent ? {} : { paymentMethod: 'instapay' }),
+          paymentStatus: isFreeEvent ? 'verified' : paymentReceiptUrl ? 'receipt_uploaded' : 'pending',
+          paymentReceiptUrl: isFreeEvent ? undefined : paymentReceiptUrl || undefined,
+          paymentReceiptPublicId: isFreeEvent ? undefined : paymentReceiptPublicId || undefined,
+          status: bookingStatus,
           ...(Array.isArray(intakeAnswers) ? { intakeAnswers } : {}),
         })
 
-        // Trigger booking received email notifications (to client and expert)
+        // Trigger email notifications to registrant and expert
         try {
-          const baseUrl = getAppBaseUrl()
           const { expertName, expertEmail } = await resolveExpertContact(expertObjId)
-          const bookingUrl = `${baseUrl}/bookings/${booking._id}?token=${rescheduleToken}`
-          const title = verifiedServiceTitle?.en || verifiedServiceTitle?.ar || 'Consultation Session'
+          const { clientPageUrl, clientJoinUrl } = await getBookingRoleLinks(baseUrl, booking)
 
-          // Note: Client is only emailed when the booking is confirmed by admin, not upon initial submission.
+          if (normalizedClientEmail) {
+            if (isInstantFree) {
+              const confirmEmail = renderBookingConfirmationEmail({
+                booking,
+                expertName,
+                clientName: clientName.trim(),
+                serviceTitle: title,
+                recipientRole: 'client',
+                rescheduleUrl: clientPageUrl,
+                bookingUrl: clientPageUrl,
+                meetLink: clientJoinUrl,
+              })
+              await sendTransactionalEmail({
+                bookingId: booking._id,
+                emailType: 'booking_confirmed',
+                recipientEmail: normalizedClientEmail,
+                recipientName: clientName.trim(),
+                recipientRole: 'client',
+                subject: confirmEmail.subject,
+                html: confirmEmail.html,
+                text: confirmEmail.text,
+              })
+            } else {
+              const reqEmail = renderEventRegistrationReceivedEmail({
+                booking,
+                expertName,
+                clientName: clientName.trim(),
+                serviceTitle: title,
+                isFree: isFreeEvent,
+                bookingUrl: clientPageUrl,
+              })
+              await sendTransactionalEmail({
+                bookingId: booking._id,
+                emailType: 'event_registration_received',
+                recipientEmail: normalizedClientEmail,
+                recipientName: clientName.trim(),
+                recipientRole: 'client',
+                subject: reqEmail.subject,
+                html: reqEmail.html,
+                text: reqEmail.text,
+              })
+            }
+          }
+
           if (expertEmail) {
             const expertEmailData = renderBookingReceivedEmail({
               booking,
@@ -253,7 +492,7 @@ export async function POST(request: Request) {
               clientName: clientName.trim(),
               serviceTitle: title,
               recipientRole: 'expert',
-              bookingUrl,
+              bookingUrl: clientPageUrl,
             })
             await sendTransactionalEmail({
               bookingId: booking._id,
@@ -267,10 +506,16 @@ export async function POST(request: Request) {
             })
           }
         } catch (emailErr) {
-          console.error('Failed to send booking notification email:', emailErr)
+          console.error('Failed to send event booking notification email:', emailErr)
         }
 
-        return NextResponse.json({ success: true, booking, reference })
+        return NextResponse.json({
+          success: true,
+          booking,
+          reference,
+          registrationType: 'seat',
+          status: bookingStatus,
+        })
       }
     }
 

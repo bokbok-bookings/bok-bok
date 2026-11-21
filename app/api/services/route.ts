@@ -11,6 +11,16 @@ import { stripUnverifiedAccreditationClaims } from '@/lib/services/service-valid
 
 export const dynamic = 'force-dynamic'
 
+function sanitizePublicEvent(event: any) {
+  if (!event || typeof event !== 'object') return undefined
+  const { joinUrl, recordingUrl, materials, ...safeEvent } = event
+  return {
+    ...safeEvent,
+    hasRecording: Boolean(recordingUrl),
+    materialsCount: Array.isArray(materials) ? materials.length : 0,
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -21,6 +31,7 @@ export async function GET(request: Request) {
     const subcategoryParam = searchParams.get('subcategory')
     const tagParam = searchParams.get('tag')
     const searchParam = searchParams.get('q')
+    const includePast = searchParams.get('includePast') === 'true'
 
     // Professional / General Services are outside the MVP
     if (viewParam === 'services') {
@@ -113,12 +124,33 @@ export async function GET(request: Request) {
       .sort({ sortOrder: 1, createdAt: 1 })
       .toArray()
 
-    // Strictly verify subcategory membership in allowed MVP taxonomy
-    const services = rawServices.filter(
-      (s) =>
-        isAllowedMvpCategory(s.categorySlug) &&
-        isAllowedMvpSubcategory(s.categorySlug, s.subcategorySlug)
-    )
+    // Strictly verify subcategory membership in allowed MVP taxonomy & optionally hide past events
+    const todayCairoISO = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Africa/Cairo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date())
+
+    const isEventListing = viewParam === 'workshops' || viewParam === 'webinars'
+
+    const services = rawServices.filter((s) => {
+      if (
+        !isAllowedMvpCategory(s.categorySlug) ||
+        !isAllowedMvpSubcategory(s.categorySlug, s.subcategorySlug)
+      ) {
+        return false
+      }
+      if (!includePast && (s.bookingType === 'WORKSHOP' || s.bookingType === 'WEBINAR')) {
+        if (s.event?.eventStatus === 'coming_soon') return true
+        if (s.event?.date && s.event.date < todayCairoISO) return false
+      }
+      return true
+    })
+
+    if (isEventListing) {
+      services.sort((a, b) => (a.event?.date || '9999-99-99').localeCompare(b.event?.date || '9999-99-99'))
+    }
 
     // Enrich with expert info if querying across platform
     const expertIds = [...new Set(services.map((s) => s.expertId.toString()))]
@@ -146,6 +178,7 @@ export async function GET(request: Request) {
 
       return {
         ...s,
+        ...(s.event ? { event: sanitizePublicEvent(s.event) } : {}),
         title: safeTitle,
         description: safeDescription,
         adultsOnly: true,

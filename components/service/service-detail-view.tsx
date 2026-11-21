@@ -92,6 +92,10 @@ export function ServiceDetailView({
   const [booked, setBooked] = useState(false)
   const [bookingReference, setBookingReference] = useState('')
   const [bookingSuccessMsg, setBookingSuccessMsg] = useState('')
+  const [bookingResultType, setBookingResultType] = useState<'seat' | 'waitlist' | 'interest'>('seat')
+  const [bookingResultStatus, setBookingResultStatus] = useState<string>('pending')
+  const [openSessionId, setOpenSessionId] = useState<string | null>(null)
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null)
 
   useEffect(() => {
     if (initialService && (initialService.slug === serviceSlug || initialService._id === serviceSlug)) {
@@ -162,6 +166,18 @@ export function ServiceDetailView({
   }
 
   const handleBook = async () => {
+    const computedPrice =
+      service?.pricing?.prices?.EGP ??
+      service?.pricing?.prices?.[service?.pricing?.baseCurrency || 'EGP'] ??
+      0
+    const isFreeOffer = Number(computedPrice) <= 0
+    const evStatus = service?.event?.eventStatus || 'open'
+    const spotsLeft = service?.event
+      ? Math.max(0, (service.event.capacity || 0) - (service.event.registeredCount || 0))
+      : 1
+    const isWaitlistFlow = isEvent && (evStatus === 'coming_soon' || spotsLeft <= 0)
+    const needsReceipt = !isFreeOffer && !isWaitlistFlow
+
     if (!clientName.trim() || !clientEmail.trim()) {
       alert(isAr ? 'يرجى إدخال الاسم والبريد الإلكتروني' : 'Please enter your full name and email address')
       return
@@ -170,7 +186,7 @@ export function ServiceDetailView({
       alert(isAr ? 'يرجى اختيار التاريخ والوقت المناسب' : 'Please select a date and time slot')
       return
     }
-    if (!receiptUrl) {
+    if (needsReceipt && !receiptUrl) {
       alert(isAr ? 'يرجى رفع إيصال تحويل إنستاباي لإتمام الحجز' : 'Please upload your InstaPay transfer receipt to complete the booking')
       return
     }
@@ -226,15 +242,26 @@ export function ServiceDetailView({
       if (data.success) {
         setBooked(true)
         setBookingReference(data.reference || data.booking?.reference || 'BK-PROCESSED')
+        const regType: 'seat' | 'waitlist' | 'interest' = data.registrationType || 'seat'
+        setBookingResultType(regType)
+        setBookingResultStatus(data.status || data.booking?.status || 'pending')
         const titleText = isAr ? (service.title?.ar || service.title?.en) : (service.title?.en || service.title?.ar)
         setBookingSuccessMsg(
-          isEvent
+          regType === 'interest'
             ? isAr
-              ? `تم حجز مقعدك في "${titleText}" بنجاح!`
-              : `Your seat for "${titleText}" has been reserved!`
-            : isAr
-              ? `تم تقديم طلب الحجز بنجاح لتاريخ ${formatDateLabel(selectedDate)} في تمام ${formatSlotLabel(selectedTime)}.`
-              : `Your booking request has been submitted for ${formatDateLabel(selectedDate)} at ${formatSlotLabel(selectedTime)}.`
+              ? `تم تسجيل اهتمامك في "${titleText}" بنجاح! سنبلغك فور فتح التسجيل.`
+              : `You're on the early-notification list for "${titleText}"! We'll email you when registration opens.`
+            : regType === 'waitlist'
+              ? isAr
+                ? `تمت إضافتك لقائمة الانتظار في "${titleText}". سنراسلك فوراً عند توفر مقعد.`
+                : `You've been added to the waitlist for "${titleText}". We'll notify you if a spot opens up.`
+              : isEvent
+                ? isAr
+                  ? `تم تقديم طلب تسجيل مقعدك في "${titleText}" بنجاح!`
+                  : `Your seat request for "${titleText}" has been submitted!`
+                : isAr
+                  ? `تم تقديم طلب الحجز بنجاح لتاريخ ${formatDateLabel(selectedDate)} في تمام ${formatSlotLabel(selectedTime)}.`
+                  : `Your booking request has been submitted for ${formatDateLabel(selectedDate)} at ${formatSlotLabel(selectedTime)}.`
         )
       } else {
         alert(data.error || (isAr ? 'تعذر إتمام الحجز' : 'Failed to complete booking'))
@@ -505,6 +532,141 @@ export function ServiceDetailView({
                 </div>
               )}
 
+              {/* Multi-Session Workshop Schedule & Syllabus Accordion */}
+              {isEvent && Array.isArray(service.event?.sessions) && service.event.sessions.length > 0 && (
+                <div className="mt-6 rounded-3xl border border-border bg-surface p-5 sm:p-6 space-y-3 shadow-2xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-base font-bold text-primary flex items-center gap-2">
+                      <Calendar size={16} className="text-accent" />
+                      <span>
+                        {isAr
+                          ? `جدول الجلسات (${service.event.sessions.length} جلسات)`
+                          : `Workshop Schedule (${service.event.sessions.length} Sessions)`}
+                      </span>
+                    </h2>
+                    <span className="rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-bold text-primary">
+                      {service.event.timezone || 'Africa/Cairo'}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {service.event.sessions.map((sess: any, idx: number) => {
+                      const sId = sess.id || `sess_${idx}`
+                      const isOpen = openSessionId === sId || (openSessionId === null && idx === 0)
+                      const sTitle = isAr
+                        ? sess.title?.ar || sess.title?.en || `الجلسة ${idx + 1}`
+                        : sess.title?.en || sess.title?.ar || `Session ${idx + 1}`
+                      const sDesc = isAr
+                        ? sess.description?.ar || sess.description?.en || ''
+                        : sess.description?.en || sess.description?.ar || ''
+                      return (
+                        <div key={sId} className="rounded-2xl border border-border bg-background overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setOpenSessionId(isOpen ? '' : sId)}
+                            className="w-full flex items-center justify-between gap-3 px-4 py-3 text-start hover:bg-secondary/30 transition"
+                          >
+                            <div className="min-w-0">
+                              <span className="text-[11px] font-bold text-accent uppercase tracking-wider">
+                                {isAr ? `الجلسة ${idx + 1}` : `Session ${idx + 1}`} · {sess.date} · {sess.startTime} – {sess.endTime}
+                              </span>
+                              <p className="text-xs sm:text-sm font-bold text-primary truncate mt-0.5">{sTitle}</p>
+                            </div>
+                            <ChevronRight
+                              size={16}
+                              className={`text-muted-foreground shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                            />
+                          </button>
+                          {isOpen && (sDesc || (Array.isArray(sess.includes) && sess.includes.length > 0)) && (
+                            <div className="px-4 pb-4 pt-1 border-t border-border/60 space-y-2 text-xs text-muted-foreground">
+                              {sDesc && <p className="leading-relaxed whitespace-pre-line">{sDesc}</p>}
+                              {Array.isArray(sess.includes) && sess.includes.length > 0 && (
+                                <ul className="space-y-1 pt-1">
+                                  {sess.includes.map((inc: any, iIdx: number) => {
+                                    const incText = typeof inc === 'string' ? inc : isAr ? inc?.ar || inc?.en : inc?.en || inc?.ar
+                                    if (!incText) return null
+                                    return (
+                                      <li key={iIdx} className="flex items-start gap-2 text-foreground">
+                                        <span className="mt-1.5 size-1.5 rounded-full bg-accent shrink-0" />
+                                        <span>{incText}</span>
+                                      </li>
+                                    )
+                                  })}
+                                </ul>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Workshop / Event Photo Gallery with Lightbox */}
+              {isEvent && Array.isArray(service.event?.galleryUrls) && service.event.galleryUrls.length > 0 && (
+                <div className="mt-6 rounded-3xl border border-border bg-surface p-5 sm:p-6 space-y-3 shadow-2xs">
+                  <h2 className="text-base font-bold text-primary">
+                    {isAr ? 'معرض الصور' : 'Workshop Gallery'}
+                  </h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    {service.event.galleryUrls.map((imgUrl: string, idx: number) => (
+                      <button
+                        key={`${imgUrl}-${idx}`}
+                        type="button"
+                        onClick={() => setLightboxImage(imgUrl)}
+                        className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-border bg-secondary group"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={imgUrl}
+                          alt={`${displayTitle} gallery ${idx + 1}`}
+                          className="size-full object-cover group-hover:scale-105 transition duration-300"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Webinar Post-Event Resources Notice */}
+              {isEvent && (service.event?.hasRecording || (service.event?.materialsCount || 0) > 0) && (
+                <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-xs text-emerald-900 flex items-start gap-2.5">
+                  <Sparkles size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold">
+                      {isAr ? 'محتوى إضافي متاح للمسجلين المؤكدين' : 'Included for Confirmed Attendees'}
+                    </p>
+                    <p className="text-emerald-800/90 mt-0.5">
+                      {service.event?.hasRecording && (service.event?.materialsCount || 0) > 0
+                        ? isAr
+                          ? 'يشمل هذا الحدث تسجيلاً للجلسة ومواد تدريبية قابلة للتحميل عبر حسابك بعد انتهاء الجلسة.'
+                          : 'Includes session recording and downloadable materials in your Bok Bok account after the session.'
+                        : service.event?.hasRecording
+                          ? isAr
+                            ? 'يشمل تسجيلاً للجلسة متاحاً للمسجلين المؤكدين عبر حسابك بعد انتهاء الجلسة.'
+                            : 'Includes session recording accessible in your Bok Bok account after the session.'
+                          : isAr
+                            ? `يشمل ${service.event.materialsCount} ملفات/مواد تعليمية متاحة للمسجلين المؤكدين.`
+                            : `Includes ${service.event.materialsCount} downloadable resource(s) for confirmed attendees.`}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Cancellation / Refund Policy */}
+              {isEvent && service.event?.cancellationPolicy && (
+                <div className="mt-6 rounded-2xl border border-border bg-surface p-4 text-xs space-y-1">
+                  <p className="font-bold text-primary">
+                    {isAr ? 'سياسة الإلغاء والاسترداد' : 'Cancellation & Attendance Policy'}
+                  </p>
+                  <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
+                    {isAr
+                      ? service.event.cancellationPolicy.ar || service.event.cancellationPolicy.en
+                      : service.event.cancellationPolicy.en || service.event.cancellationPolicy.ar}
+                  </p>
+                </div>
+              )}
+
               {/* In-Person Venue & Directions Card */}
               {service.deliveryMode !== 'ONLINE' && service.location && (
                 <div className="mt-6 rounded-3xl border border-border bg-surface p-5 sm:p-6 space-y-3 shadow-2xs">
@@ -622,35 +784,146 @@ export function ServiceDetailView({
           </div>
 
           {/* Right Column: Live Booking & Payment Card */}
+          {(() => {
+            const isFree = Number(price) <= 0
+            const evStatus = service.event?.eventStatus || 'open'
+            const evCapacity = service.event?.capacity || 0
+            const evRegistered = service.event?.registeredCount || 0
+            const evSpotsLeft = isEvent ? Math.max(0, evCapacity - evRegistered) : 1
+            const evAllowWaitlist = service.event?.allowWaitlist !== false
+            const isComingSoon = isEvent && evStatus === 'coming_soon'
+            const isEventClosed = isEvent && evStatus === 'closed'
+            const isEventPast = Boolean(
+              isEvent &&
+                !isComingSoon &&
+                service.event?.date &&
+                new Date(`${service.event.date}T${service.event.startTime || '23:59'}:00`).getTime() < Date.now()
+            )
+            const isEventFull = isEvent && !isComingSoon && evCapacity > 0 && evSpotsLeft <= 0
+            const isWaitlistMode = isEvent && (isComingSoon || (isEventFull && evAllowWaitlist))
+            const isBlockedEvent = isEvent && (isEventClosed || isEventPast || (isEventFull && !evAllowWaitlist))
+            const showInstaPay = !isFree && !isWaitlistMode && !isBlockedEvent
+
+            return (
           <aside className="sticky top-10 rounded-[32px] bg-primary p-5 sm:p-7 text-white shadow-xl min-w-0 w-full max-w-full">
-            <div className="flex items-baseline justify-between border-b border-white/10 pb-5 min-w-0">
+            <div className="flex items-baseline justify-between gap-2 border-b border-white/10 pb-5 min-w-0">
               <div className="min-w-0">
-                <span className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                  {price} {baseCurrency}
-                </span>
+                {isFree ? (
+                  <span className="inline-flex items-center gap-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-300">
+                    {isAr ? 'مجاني' : 'Free'}
+                  </span>
+                ) : (
+                  <span className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                    {price} {baseCurrency}
+                  </span>
+                )}
                 <span className="ms-2 text-xs text-white/70">
                   {isEvent
-                    ? isAr ? '/ تذكرة حضور' : '/ attendee ticket'
+                    ? isAr ? '/ مقعد حضور' : '/ attendee seat'
                     : isAr ? `/ جلسة ${service.durationMinutes} دقيقة` : `/ ${service.durationMinutes} min session`}
                 </span>
               </div>
+              {isEvent && (
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${
+                    isComingSoon
+                      ? 'bg-amber-400/20 text-amber-200 border border-amber-400/30'
+                      : isBlockedEvent
+                        ? 'bg-rose-400/20 text-rose-200 border border-rose-400/30'
+                        : isEventFull
+                          ? 'bg-amber-400/20 text-amber-200 border border-amber-400/30'
+                          : 'bg-emerald-400/20 text-emerald-200 border border-emerald-400/30'
+                  }`}
+                >
+                  {isComingSoon
+                    ? isAr ? 'قريباً' : 'Coming Soon'
+                    : isEventPast
+                      ? isAr ? 'انتهى الحدث' : 'Ended'
+                      : isEventClosed
+                        ? isAr ? 'مغلق' : 'Closed'
+                        : isEventFull
+                          ? isAr ? 'قائمة الانتظار' : 'Waitlist'
+                          : isAr
+                            ? `${evSpotsLeft} مقاعد متبقية`
+                            : `${evSpotsLeft} spots left`}
+                </span>
+              )}
             </div>
+
+            {/* Event Seat Progress Bar */}
+            {isEvent && !isComingSoon && evCapacity > 0 && (
+              <div className="mt-4 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] text-white/75">
+                  <span>{isAr ? 'حالة المقاعد' : 'Seat Availability'}</span>
+                  <span className="font-bold text-white">
+                    {Math.min(evRegistered, evCapacity)} / {evCapacity} {isAr ? 'مسجل' : 'registered'}
+                  </span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      isEventFull ? 'bg-amber-400' : 'bg-accent'
+                    }`}
+                    style={{ width: `${Math.min(100, Math.round((evRegistered / evCapacity) * 100))}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
             {booked ? (
               <div className="mt-6 rounded-2xl bg-emerald-900/60 border border-emerald-500/40 p-5 text-center space-y-3">
                 <span className="text-2xl">✓</span>
                 <h3 className="text-base font-bold text-emerald-300">
-                  {isAr ? 'تم استلام طلب التسجيل' : 'Registration Complete'}
+                  {bookingResultType === 'interest'
+                    ? isAr ? 'تم تسجيل اهتمامك' : 'Added to Notification List'
+                    : bookingResultType === 'waitlist'
+                      ? isAr ? 'تمت إضافتك لقائمة الانتظار' : 'Added to Waitlist'
+                      : bookingResultStatus === 'confirmed'
+                        ? isAr ? 'تم تأكيد مقعدك!' : 'Seat Confirmed!'
+                        : isAr ? 'تم استلام طلب التسجيل' : 'Registration Request Received'}
                 </h3>
                 <p className="text-xs text-white/90 leading-relaxed">{bookingSuccessMsg}</p>
                 <div className="rounded-xl bg-black/40 p-2.5 font-mono text-xs font-bold text-emerald-200">
                   {isAr ? 'رقم الحجز:' : 'Reference:'} {bookingReference}
                 </div>
                 <p className="text-[11px] text-white/70">
-                  {isAr
-                    ? 'سيقوم فريقنا بالتحقق من تحويل إنستاباي وستصلك كافة التعليمات ورابط الجلسة عبر البريد الإلكتروني.'
-                    : 'Our team will verify the InstaPay transfer and you will receive full instructions and calendar invite by email.'}
+                  {bookingResultType !== 'seat'
+                    ? isAr
+                      ? 'سنراسلك عبر البريد الإلكتروني فور توفر مقعد أو فتح باب التسجيل.'
+                      : 'We will email you as soon as a spot opens up or registration begins.'
+                    : isFree
+                      ? bookingResultStatus === 'confirmed'
+                        ? isAr
+                          ? 'تم إرسال تفاصيل الجلسة ورابط الانضمام إلى بريدك الإلكتروني وحسابك.'
+                          : 'Confirmation and session details have been sent to your email and account.'
+                        : isAr
+                          ? 'سيقوم الخبير أو الإدارة بمراجعة طلبك وإرسال تأكيد الحضور ورابط الجلسة عبر البريد الإلكتروني.'
+                          : 'The host or admin team will review your request and email your confirmation and session link.'
+                      : isAr
+                        ? 'سيقوم فريقنا بالتحقق من تحويل إنستاباي وستصلك كافة التعليمات ورابط الجلسة عبر البريد الإلكتروني.'
+                        : 'Our team will verify the InstaPay transfer and you will receive full instructions and calendar invite by email.'}
                 </p>
+              </div>
+            ) : isBlockedEvent ? (
+              <div className="mt-6 rounded-2xl bg-white/5 border border-white/15 p-5 text-center space-y-2">
+                <p className="text-sm font-bold text-white">
+                  {isEventPast
+                    ? isAr ? 'انتهى موعد هذا الحدث' : 'This Event Has Ended'
+                    : isEventClosed
+                      ? isAr ? 'التسجيل مغلق حالياً' : 'Registration Is Closed'
+                      : isAr ? 'اكتمل العدد بالكامل' : 'Event Is Full'}
+                </p>
+                <p className="text-xs text-white/70">
+                  {isAr
+                    ? 'يمكنك تصفح ورش العمل والندوات القادمة المتاحة الآن.'
+                    : 'Browse other upcoming workshops and webinars currently open for registration.'}
+                </p>
+                <Link
+                  href={localeHref(service.bookingType === 'WORKSHOP' ? '/workshops' : '/webinars')}
+                  className="inline-block mt-2 rounded-full bg-accent px-5 py-2 text-xs font-bold text-primary hover:bg-accent-hover transition"
+                >
+                  {isAr ? 'تصفح الفعاليات القادمة' : 'Browse Upcoming Events'}
+                </Link>
               </div>
             ) : (
               <div className="mt-6 space-y-5 min-w-0 w-full">
@@ -1018,7 +1291,8 @@ export function ServiceDetailView({
                   </div>
                 )}
 
-                {/* Step 3: InstaPay Transfer Instructions */}
+                {/* Step 3: InstaPay Transfer Instructions (Paid seats only; Free & Waitlist skip payment) */}
+                {showInstaPay ? (
                 <div className="border-t border-white/10 pt-4 space-y-3">
                   <div className="rounded-2xl bg-white/5 border border-white/10 p-3.5 text-xs space-y-1">
                     <p className="font-bold text-accent">
@@ -1108,6 +1382,23 @@ export function ServiceDetailView({
                     )}
                   </div>
                 </div>
+                ) : isWaitlistMode ? (
+                  <div className="rounded-2xl bg-amber-500/15 border border-amber-400/30 p-3.5 text-xs text-amber-100 leading-relaxed">
+                    {isComingSoon
+                      ? isAr
+                        ? 'هذا الحدث قادم قريباً! سجّل بياناتك بدون دفع وسنبلغك فور فتح باب التسجيل.'
+                        : 'This event is Coming Soon! Leave your details (no payment required) and we will notify you as soon as registration opens.'
+                      : isAr
+                        ? 'اكتملت المقاعد حالياً — انضم لقائمة الانتظار مجاناً وسنبلغك فور توفر مقعد.'
+                        : 'All seats are currently taken — join the waitlist (no payment needed) and we will notify you if a spot opens up.'}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl bg-emerald-500/15 border border-emerald-400/30 p-3.5 text-xs text-emerald-100 leading-relaxed">
+                    {isAr
+                      ? 'هذا الحدث مجاني بالكامل! لا حاجة لتحويل أو إيصال دفع — قدّم طلبك وسيتم مراجعته واعتماده عبر الخبير أو الإدارة.'
+                      : 'This event is completely free! No payment or receipt is required — submit your registration request for host/admin approval.'}
+                  </div>
+                )}
 
                 {/* Submit Booking */}
                 <button
@@ -1116,23 +1407,29 @@ export function ServiceDetailView({
                     bookingLoading ||
                     uploadingReceipt ||
                     Object.values(uploadingIntake).some(Boolean) ||
-                    !receiptUrl ||
+                    (showInstaPay && !receiptUrl) ||
                     (!isEvent && (!selectedDate || !selectedTime))
                   }
                   onClick={handleBook}
                   className="w-full rounded-full bg-accent hover:bg-accent-hover py-3.5 text-xs font-bold text-primary shadow-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {bookingLoading
-                    ? (isAr ? 'جاري معالجة الطلب...' : 'Processing Booking...')
+                    ? (isAr ? 'جاري معالجة الطلب...' : 'Processing...')
                     : uploadingReceipt
                       ? (isAr ? 'جاري رفع إيصال الدفع...' : 'Uploading Receipt...')
                       : Object.values(uploadingIntake).some(Boolean)
                         ? (isAr ? 'جاري رفع الملفات المرفقة...' : 'Uploading files...')
-                        : !receiptUrl
+                        : showInstaPay && !receiptUrl
                           ? (isAr ? 'يرجى إرفاق إيصال التحويل أولاً' : 'Upload Receipt to Proceed')
-                          : isEvent
-                            ? (isAr ? 'تأكيد التسجيل في الجلسة' : 'Confirm Registration')
-                            : (isAr ? 'تأكيد وحجز الموعد' : 'Confirm & Request Session')}
+                          : isComingSoon
+                            ? (isAr ? 'أبلغني عند فتح التسجيل' : 'Notify Me When Open')
+                            : isEventFull
+                              ? (isAr ? 'انضم لقائمة الانتظار' : 'Join Waitlist')
+                              : isEvent && isFree
+                                ? (isAr ? 'تقديم طلب تسجيل مجاني' : 'Request Free Seat')
+                                : isEvent
+                                  ? (isAr ? 'تأكيد التسجيل في الجلسة' : 'Confirm Registration')
+                                  : (isAr ? 'تأكيد وحجز الموعد' : 'Confirm & Request Session')}
                 </button>
 
                 <div className="flex items-center justify-center gap-2 text-[11px] text-white/50 pt-1">
@@ -1142,8 +1439,35 @@ export function ServiceDetailView({
               </div>
             )}
           </aside>
+            )
+          })()}
         </div>
       </div>
+
+      {/* Lightbox Modal for Workshop Gallery */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs"
+          onClick={() => setLightboxImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[85vh] w-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={lightboxImage}
+              alt="Gallery preview"
+              className="max-h-[85vh] max-w-full rounded-2xl object-contain shadow-2xl"
+            />
+            <button
+              type="button"
+              onClick={() => setLightboxImage(null)}
+              className="absolute -top-3 -right-3 size-9 rounded-full bg-white text-primary font-bold shadow-lg hover:bg-secondary transition"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

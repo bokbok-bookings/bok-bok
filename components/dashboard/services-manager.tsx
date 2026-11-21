@@ -53,6 +53,19 @@ export interface ServiceItem {
     registeredCount: number
     joinUrl?: string
     platform?: string
+    eventStatus?: 'open' | 'coming_soon' | 'closed'
+    registrationMode?: 'approval_required' | 'instant'
+    allowWaitlist?: boolean
+    sessions?: Array<{
+      id: string
+      title: { en: string; ar: string }
+      date: string
+      startTime: string
+      endTime: string
+      description?: { en: string; ar: string }
+    }>
+    cancellationPolicy?: { en: string; ar: string }
+    recordingUrl?: string
   }
   durationMinutes: number
   breakAfterMinutes: number
@@ -143,6 +156,14 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
   const [eventCapacity, setEventCapacity] = useState(25)
   const [eventJoinUrl, setEventJoinUrl] = useState('')
   const [eventPlatform, setEventPlatform] = useState('Zoom')
+  const [eventStatus, setEventStatus] = useState<'open' | 'coming_soon' | 'closed'>('open')
+  const [eventAllowWaitlist, setEventAllowWaitlist] = useState(true)
+  const [eventSessions, setEventSessions] = useState<
+    Array<{ id: string; titleEn: string; titleAr: string; date: string; startTime: string; endTime: string; descEn: string }>
+  >([])
+  const [eventPolicyEn, setEventPolicyEn] = useState('')
+  const [eventPolicyAr, setEventPolicyAr] = useState('')
+  const [eventRecordingUrl, setEventRecordingUrl] = useState('')
 
   // Pricing
   const [priceEGP, setPriceEGP] = useState(500)
@@ -282,9 +303,15 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
     setEventStartTime('18:00')
     setEventEndTime('20:00')
     setEventCapacity(25)
-    setEventJoinUrl('https://zoom.us/j/123456789')
-    setEventPlatform('Zoom')
-    setPriceEGP(500)
+    setEventJoinUrl('')
+    setEventPlatform('Google Meet')
+    setEventStatus('open')
+    setEventAllowWaitlist(true)
+    setEventSessions([])
+    setEventPolicyEn('')
+    setEventPolicyAr('')
+    setEventRecordingUrl('')
+    setPriceEGP(0)
     setPriceUSD(20)
     setPriceSAR(75)
     setIsActive(true)
@@ -342,7 +369,25 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
     setEventEndTime(s.event?.endTime || '20:00')
     setEventCapacity(s.event?.capacity || 25)
     setEventJoinUrl(s.event?.joinUrl || '')
-    setEventPlatform(s.event?.platform || 'Zoom')
+    setEventPlatform(s.event?.platform || 'Google Meet')
+    setEventStatus(s.event?.eventStatus || 'open')
+    setEventAllowWaitlist(s.event?.allowWaitlist !== false)
+    setEventSessions(
+      Array.isArray(s.event?.sessions)
+        ? s.event.sessions.map((sess, idx) => ({
+            id: sess.id || `sess_${idx + 1}`,
+            titleEn: sess.title?.en || '',
+            titleAr: sess.title?.ar || '',
+            date: sess.date || '',
+            startTime: sess.startTime || '18:00',
+            endTime: sess.endTime || '20:00',
+            descEn: sess.description?.en || '',
+          }))
+        : []
+    )
+    setEventPolicyEn(s.event?.cancellationPolicy?.en || '')
+    setEventPolicyAr(s.event?.cancellationPolicy?.ar || '')
+    setEventRecordingUrl(s.event?.recordingUrl || '')
     setPriceEGP(s.pricing?.prices?.EGP ?? 500)
     setPriceUSD(s.pricing?.prices?.USD ?? 20)
     setPriceSAR(s.pricing?.prices?.SAR ?? 75)
@@ -424,6 +469,35 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
           capacity: Number(eventCapacity),
           joinUrl: eventJoinUrl || undefined,
           platform: eventPlatform || undefined,
+          eventStatus,
+          registrationMode: 'approval_required',
+          allowWaitlist: eventAllowWaitlist,
+          ...(eventSessions.length > 0
+            ? {
+                sessions: eventSessions.map((sess, idx) => ({
+                  id: sess.id || `sess_${idx + 1}`,
+                  title: {
+                    en: sess.titleEn.trim() || `Session ${idx + 1}`,
+                    ar: sess.titleAr.trim() || sess.titleEn.trim() || `الجلسة ${idx + 1}`,
+                  },
+                  date: sess.date,
+                  startTime: sess.startTime,
+                  endTime: sess.endTime,
+                  ...(sess.descEn.trim()
+                    ? { description: { en: sess.descEn.trim(), ar: sess.descEn.trim() } }
+                    : {}),
+                })),
+              }
+            : {}),
+          ...(eventPolicyEn.trim() || eventPolicyAr.trim()
+            ? {
+                cancellationPolicy: {
+                  en: eventPolicyEn.trim() || eventPolicyAr.trim(),
+                  ar: eventPolicyAr.trim() || eventPolicyEn.trim(),
+                },
+              }
+            : {}),
+          ...(eventRecordingUrl.trim() ? { recordingUrl: eventRecordingUrl.trim() } : {}),
         }
       }
 
@@ -1277,16 +1351,182 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                       />
                     </label>
                     <label className="text-xs font-bold text-[#101F49] sm:col-span-2">
-                      {isAr ? 'رابط الانضمام عبر الإنترنت' : 'Online Joining URL'} {offeringType === 'WEBINAR' && deliveryMode === 'ONLINE' && '*'}
+                      {isAr ? 'رابط الانضمام عبر الإنترنت' : 'Online Joining URL'} {offeringType === 'WEBINAR' && deliveryMode === 'ONLINE' && eventStatus !== 'coming_soon' && '*'}
                       <input
                         type="url"
-                        required={offeringType === 'WEBINAR' && deliveryMode === 'ONLINE'}
+                        required={offeringType === 'WEBINAR' && deliveryMode === 'ONLINE' && eventStatus !== 'coming_soon'}
                         value={eventJoinUrl}
                         onChange={(e) => setEventJoinUrl(e.target.value)}
-                        placeholder="https://zoom.us/j/..."
+                        placeholder="https://meet.google.com/..."
                         className="mt-1 w-full rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                       />
                     </label>
+                  </div>
+
+                  {/* Status & Waitlist Controls */}
+                  <div className="grid gap-3 sm:grid-cols-3 pt-1">
+                    <label className="text-xs font-bold text-[#101F49]">
+                      Event Status
+                      <select
+                        value={eventStatus}
+                        onChange={(e) => setEventStatus(e.target.value as 'open' | 'coming_soon' | 'closed')}
+                        className="mt-1 w-full rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
+                      >
+                        <option value="open">Open for Registration</option>
+                        <option value="coming_soon">Coming Soon (Notify Me)</option>
+                        <option value="closed">Registration Closed</option>
+                      </select>
+                    </label>
+                    <label className="text-xs font-bold text-[#101F49] sm:col-span-2">
+                      Recording URL (Optional — shown to confirmed attendees after session)
+                      <input
+                        type="url"
+                        value={eventRecordingUrl}
+                        onChange={(e) => setEventRecordingUrl(e.target.value)}
+                        placeholder="https://..."
+                        className="mt-1 w-full rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
+                      />
+                    </label>
+                  </div>
+
+                  <label className="flex items-center gap-2 text-xs font-semibold text-[#101F49] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={eventAllowWaitlist}
+                      onChange={(e) => setEventAllowWaitlist(e.target.checked)}
+                      className="rounded border-[#E8E2D8]"
+                    />
+                    Enable Waitlist automatically when all seats are full
+                  </label>
+
+                  {/* Multi-Session Builder (Workshops) */}
+                  {offeringType === 'WORKSHOP' && (
+                    <div className="rounded-xl border border-[#E8E2D8] bg-white p-3 space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-[#101F49]">
+                          Multi-Session Schedule (Optional — {eventSessions.length} sessions)
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEventSessions((prev) => [
+                              ...prev,
+                              {
+                                id: `sess_${Date.now()}`,
+                                titleEn: `Session ${prev.length + 1}`,
+                                titleAr: `الجلسة ${prev.length + 1}`,
+                                date: eventDate,
+                                startTime: eventStartTime,
+                                endTime: eventEndTime,
+                                descEn: '',
+                              },
+                            ])
+                          }
+                          className="rounded-full bg-[#101F49] px-3 py-1 text-[11px] font-bold text-white hover:bg-[#2855C5] transition"
+                        >
+                          + Add Session
+                        </button>
+                      </div>
+                      {eventSessions.map((sess, idx) => (
+                        <div key={sess.id} className="rounded-xl border border-[#eeeae4] bg-[#faf8f5] p-2.5 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-bold text-[#2855C5]">Session #{idx + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => setEventSessions((prev) => prev.filter((_, i) => i !== idx))}
+                              className="text-[11px] font-bold text-rose-600 hover:underline"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <input
+                              type="text"
+                              value={sess.titleEn}
+                              onChange={(e) =>
+                                setEventSessions((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, titleEn: e.target.value } : item))
+                                )
+                              }
+                              placeholder="Session title (English)"
+                              className="rounded-lg border border-[#E8E2D8] bg-white px-2.5 py-1.5 text-xs outline-none"
+                            />
+                            <input
+                              type="text"
+                              value={sess.titleAr}
+                              onChange={(e) =>
+                                setEventSessions((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, titleAr: e.target.value } : item))
+                                )
+                              }
+                              placeholder="عنوان الجلسة (عربي)"
+                              className="rounded-lg border border-[#E8E2D8] bg-white px-2.5 py-1.5 text-xs outline-none"
+                            />
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            <input
+                              type="date"
+                              value={sess.date}
+                              onChange={(e) =>
+                                setEventSessions((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, date: e.target.value } : item))
+                                )
+                              }
+                              className="rounded-lg border border-[#E8E2D8] bg-white px-2.5 py-1.5 text-xs outline-none"
+                            />
+                            <input
+                              type="time"
+                              value={sess.startTime}
+                              onChange={(e) =>
+                                setEventSessions((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, startTime: e.target.value } : item))
+                                )
+                              }
+                              className="rounded-lg border border-[#E8E2D8] bg-white px-2.5 py-1.5 text-xs outline-none"
+                            />
+                            <input
+                              type="time"
+                              value={sess.endTime}
+                              onChange={(e) =>
+                                setEventSessions((prev) =>
+                                  prev.map((item, i) => (i === idx ? { ...item, endTime: e.target.value } : item))
+                                )
+                              }
+                              className="rounded-lg border border-[#E8E2D8] bg-white px-2.5 py-1.5 text-xs outline-none"
+                            />
+                          </div>
+                          <input
+                            type="text"
+                            value={sess.descEn}
+                            onChange={(e) =>
+                              setEventSessions((prev) =>
+                                prev.map((item, i) => (i === idx ? { ...item, descEn: e.target.value } : item))
+                              )
+                            }
+                            placeholder="Brief syllabus / topics covered (optional)"
+                            className="w-full rounded-lg border border-[#E8E2D8] bg-white px-2.5 py-1.5 text-xs outline-none"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Cancellation Policy */}
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <input
+                      type="text"
+                      value={eventPolicyEn}
+                      onChange={(e) => setEventPolicyEn(e.target.value)}
+                      placeholder="Cancellation policy EN (optional)"
+                      className="rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
+                    />
+                    <input
+                      type="text"
+                      value={eventPolicyAr}
+                      onChange={(e) => setEventPolicyAr(e.target.value)}
+                      placeholder="سياسة الإلغاء بالعربية (اختياري)"
+                      className="rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
+                    />
                   </div>
                 </div>
               )}

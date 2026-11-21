@@ -44,11 +44,18 @@ export interface ClientBooking {
   createdAt: string
   isPast: boolean
   isJoinable: boolean
+  isEventBooking?: boolean
+  bookingType?: 'APPOINTMENT' | 'WORKSHOP' | 'WEBINAR'
+  registrationType?: 'seat' | 'waitlist' | 'interest'
   canReschedule: boolean
+  canCancelRegistration?: boolean
   canReview: boolean
   canComplain: boolean
   deadlineHours: number
   rescheduleDeadlineAt?: string
+  eventSessions?: Array<{ id: string; title: { en: string; ar: string }; date: string; startTime: string; endTime: string }>
+  recordingUrl?: string
+  materials?: Array<{ id: string; title: string; url: string; type: 'pdf' | 'link' | 'video' }>
   expert: {
     id: string
     name: string
@@ -141,6 +148,41 @@ export function ClientAccountManager({ user }: ClientAccountManagerProps) {
   const [rescheduleReason, setRescheduleReason] = useState('')
   const [submittingReschedule, setSubmittingReschedule] = useState(false)
   const [rescheduleError, setRescheduleError] = useState<string | null>(null)
+  const [cancellingEventId, setCancellingEventId] = useState<string | null>(null)
+
+  const handleCancelEventRegistration = async (booking: ClientBooking) => {
+    const confirmMsg =
+      booking.status === 'waitlisted'
+        ? isAr
+          ? 'هل تريد الانسحاب من قائمة الانتظار؟'
+          : 'Are you sure you want to leave the waitlist?'
+        : isAr
+          ? 'هل تريد إلغاء تسجيلك في هذا الحدث وإتاحة مقعدك؟'
+          : 'Are you sure you want to cancel your registration and release your seat?'
+    if (!window.confirm(confirmMsg)) return
+
+    setCancellingEventId(booking._id)
+    try {
+      const res = await fetch('/api/account/bookings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: booking._id,
+          action: 'cancel_event_registration',
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        await fetchBookings()
+      } else {
+        alert(data.error || (isAr ? 'تعذر إلغاء التسجيل' : 'Failed to cancel registration'))
+      }
+    } catch {
+      alert(isAr ? 'حدث خطأ أثناء إلغاء التسجيل' : 'Error cancelling registration')
+    } finally {
+      setCancellingEventId(null)
+    }
+  }
 
   // Load Bookings & Stats
   const fetchBookings = async () => {
@@ -399,11 +441,23 @@ export function ClientAccountManager({ user }: ClientAccountManagerProps) {
         </span>
       )
     }
+    if (b.status === 'waitlisted') {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700 border border-indigo-200">
+          <Hourglass size={13} />
+          {b.registrationType === 'interest'
+            ? isAr ? 'قائمة التنبيه (قريباً)' : 'Notify List'
+            : isAr ? 'قائمة الانتظار' : 'Waitlisted'}
+        </span>
+      )
+    }
     if (['awaiting_verification', 'pending', 'awaiting_payment'].includes(b.status)) {
       return (
         <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800 border border-amber-200">
           <Hourglass size={13} />
-          {isAr ? 'قيد المراجعة / الدفع' : 'Pending Verification'}
+          {b.isEventBooking && Number(b.amount || 0) <= 0
+            ? isAr ? 'بانتظار موافقة الخبير / الإدارة' : 'Pending Approval'
+            : isAr ? 'قيد المراجعة / الدفع' : 'Pending Verification'}
         </span>
       )
     }
@@ -725,6 +779,40 @@ export function ClientAccountManager({ user }: ClientAccountManagerProps) {
                     </div>
                   </div>
 
+                  {/* Post-Event Recording & Materials (Confirmed Attendees Only) */}
+                  {(b.recordingUrl || (Array.isArray(b.materials) && b.materials.length > 0)) && (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 text-xs space-y-2">
+                      <p className="font-bold text-emerald-900">
+                        {isAr ? 'تسجيل ومواد الحدث المتاحة لك:' : 'Session Recording & Resources:'}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {b.recordingUrl && (
+                          <a
+                            href={b.recordingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-700 px-3.5 py-2 font-bold text-white hover:bg-emerald-800 transition"
+                          >
+                            <Video size={13} />
+                            <span>{isAr ? 'مشاهدة التسجيل ↗' : 'Watch Recording ↗'}</span>
+                          </a>
+                        )}
+                        {b.materials?.map((mat) => (
+                          <a
+                            key={mat.id}
+                            href={mat.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-white px-3.5 py-2 font-bold text-emerald-900 hover:bg-emerald-100 transition"
+                          >
+                            <ExternalLink size={12} />
+                            <span>{mat.title}</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Review / Complaint info if already submitted */}
                   {b.review && (
                     <div className="rounded-2xl border border-border bg-background p-4 text-xs space-y-1.5">
@@ -782,7 +870,7 @@ export function ClientAccountManager({ user }: ClientAccountManagerProps) {
                   {/* Actions Footer */}
                   <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4 text-xs">
                     <div className="flex flex-wrap items-center gap-2">
-                      {/* Reschedule Button */}
+                      {/* Reschedule Button (1-on-1 Consultations only) */}
                       {b.canReschedule ? (
                         <button
                           type="button"
@@ -792,7 +880,23 @@ export function ClientAccountManager({ user }: ClientAccountManagerProps) {
                           <RotateCcw size={13} />
                           <span>{isAr ? 'إعادة جدولة' : 'Reschedule'}</span>
                         </button>
-                      ) : !b.isPast && b.status === 'confirmed' ? (
+                      ) : b.canCancelRegistration ? (
+                        <button
+                          type="button"
+                          disabled={cancellingEventId === b._id}
+                          onClick={() => handleCancelEventRegistration(b)}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/70 px-3.5 py-2 font-bold text-rose-700 hover:bg-rose-100 transition disabled:opacity-50"
+                        >
+                          <XCircle size={13} />
+                          <span>
+                            {cancellingEventId === b._id
+                              ? isAr ? 'جاري الإلغاء...' : 'Cancelling...'
+                              : b.status === 'waitlisted'
+                                ? isAr ? 'مغادرة قائمة الانتظار' : 'Leave Waitlist'
+                                : isAr ? 'إلغاء التسجيل' : 'Cancel Registration'}
+                          </span>
+                        </button>
+                      ) : !b.isEventBooking && !b.isPast && b.status === 'confirmed' ? (
                         <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                           <Info size={12} />
                           {isAr

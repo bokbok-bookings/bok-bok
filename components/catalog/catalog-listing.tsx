@@ -28,6 +28,10 @@ export interface CatalogItem {
     endTime: string
     capacity: number
     registeredCount: number
+    eventStatus?: 'open' | 'coming_soon' | 'closed'
+    allowWaitlist?: boolean
+    sessions?: Array<{ id?: string; date: string; startTime: string; endTime: string }>
+    galleryUrls?: string[]
   }
   pricing: {
     baseCurrency: string
@@ -403,10 +407,19 @@ function CatalogListingContent({ view, title, subtitle }: CatalogListingProps) {
                             )}
                           </span>
 
-                          <span className="rounded-2xl bg-white/95 backdrop-blur-xs px-3 py-1 text-xs font-black text-[#101F49] shadow-sm shrink-0">
-                            {item.pricing?.prices?.[item.pricing?.baseCurrency || 'EGP'] ?? 0}{' '}
-                            {item.pricing?.baseCurrency || 'EGP'}
-                          </span>
+                          {(() => {
+                            const itemPrice = item.pricing?.prices?.[item.pricing?.baseCurrency || 'EGP'] ?? 0
+                            const isFreeItem = Number(itemPrice) <= 0
+                            return isFreeItem ? (
+                              <span className="rounded-2xl bg-emerald-600 px-3 py-1 text-xs font-black text-white shadow-sm shrink-0">
+                                {isAr ? 'مجاني' : 'Free'}
+                              </span>
+                            ) : (
+                              <span className="rounded-2xl bg-white/95 backdrop-blur-xs px-3 py-1 text-xs font-black text-[#101F49] shadow-sm shrink-0">
+                                {itemPrice} {item.pricing?.baseCurrency || 'EGP'}
+                              </span>
+                            )
+                          })()}
                         </div>
                       </Link>
 
@@ -435,19 +448,38 @@ function CatalogListingContent({ view, title, subtitle }: CatalogListingProps) {
                         )}
 
                         {/* Event or Duration info */}
-                        {item.event ? (
-                          <div className="mt-4 rounded-xl bg-secondary/80 border border-accent/30 p-2.5 text-[11px] text-primary space-y-1">
-                            <div className="flex items-center justify-between text-primary/80">
-                              <span className="font-semibold">
-                                {item.event.startTime} - {item.event.endTime}
-                              </span>
-                              <span className="font-bold">
-                                {item.event.capacity - (item.event.registeredCount || 0)}{' '}
-                                {isAr ? 'أماكن متبقية' : 'spots left'}
-                              </span>
+                        {item.event ? (() => {
+                          const evSpotsLeft = Math.max(0, (item.event.capacity || 0) - (item.event.registeredCount || 0))
+                          const isComingSoon = item.event.eventStatus === 'coming_soon'
+                          const isFull = !isComingSoon && (item.event.capacity || 0) > 0 && evSpotsLeft <= 0
+                          const sessionsCount = Array.isArray(item.event.sessions) ? item.event.sessions.length : 0
+                          return (
+                            <div className="mt-4 rounded-xl bg-secondary/80 border border-accent/30 p-2.5 text-[11px] text-primary space-y-1">
+                              <div className="flex items-center justify-between gap-2 text-primary/80">
+                                <span className="font-semibold">
+                                  {sessionsCount > 1
+                                    ? isAr ? `${sessionsCount} جلسات` : `${sessionsCount} Sessions`
+                                    : `${item.event.startTime} - ${item.event.endTime}`}
+                                </span>
+                                {isComingSoon ? (
+                                  <span className="rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold">
+                                    {isAr ? 'قريباً' : 'Coming Soon'}
+                                  </span>
+                                ) : isFull ? (
+                                  <span className="rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold">
+                                    {item.event.allowWaitlist !== false
+                                      ? isAr ? 'قائمة الانتظار' : 'Waitlist Open'
+                                      : isAr ? 'مكتمل' : 'Full'}
+                                  </span>
+                                ) : (
+                                  <span className="font-bold">
+                                    {evSpotsLeft} {isAr ? 'أماكن متبقية' : 'spots left'}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ) : (
+                          )
+                        })() : (
                           <div className="mt-3.5 flex items-center justify-between text-[11px] text-muted-foreground">
                             <span className="flex items-center gap-1.5">
                               <Clock size={13} />
@@ -481,7 +513,14 @@ function CatalogListingContent({ view, title, subtitle }: CatalogListingProps) {
                           href={localeHref(`/services/${item.slug || item._id}`)}
                           className="rounded-full bg-accent hover:bg-accent-hover text-primary font-bold px-4 py-1.5 text-xs transition shadow-xs"
                         >
-                          {t.catalog.bookNow} {isAr ? '←' : '→'}
+                          {item.event?.eventStatus === 'coming_soon'
+                            ? isAr ? 'أبلغني' : 'Notify Me'
+                            : item.event &&
+                                (item.event.capacity || 0) > 0 &&
+                                (item.event.capacity || 0) - (item.event.registeredCount || 0) <= 0
+                              ? isAr ? 'قائمة الانتظار' : 'Join Waitlist'
+                              : t.catalog.bookNow}{' '}
+                          {isAr ? '←' : '→'}
                         </Link>
                       </div>
                     </div>

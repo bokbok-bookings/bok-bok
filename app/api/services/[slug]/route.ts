@@ -65,8 +65,20 @@ export async function GET(request: Request, { params }: RouteProps) {
           ar: stripUnverifiedAccreditationClaims(serviceDoc.description?.ar || ''),
         }
 
+    const safeEvent = serviceDoc.event
+      ? (() => {
+          const { joinUrl, recordingUrl, materials, ...rest } = serviceDoc.event
+          return {
+            ...rest,
+            hasRecording: Boolean(recordingUrl),
+            materialsCount: Array.isArray(materials) ? materials.length : 0,
+          }
+        })()
+      : undefined
+
     const formatted = {
       ...serviceDoc,
+      ...(safeEvent ? { event: safeEvent } : {}),
       title: safeTitle,
       description: safeDescription,
       adultsOnly: true,

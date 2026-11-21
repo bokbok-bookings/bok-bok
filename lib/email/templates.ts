@@ -175,6 +175,171 @@ This link is valid for 1 hour. If you did not request a password reset, you can 
 }
 
 /**
+ * 0.2. Event Registration Request Received Email (to Registrant)
+ */
+export function renderEventRegistrationReceivedEmail(params: {
+  booking: BookingDoc
+  expertName: string
+  clientName: string
+  serviceTitle: string
+  isFree: boolean
+  bookingUrl: string
+}): { subject: string; html: string; text: string } {
+  const { booking, expertName, clientName, serviceTitle, isFree, bookingUrl } = params
+  const subject = `Registration Request Received: ${serviceTitle} [${booking.reference || 'EV'}]`
+
+  const contentHtml = `
+    <h2 class="h1">We Received Your Registration Request!</h2>
+    <p class="p">
+      Hello ${clientName}, your spot for <strong>${serviceTitle}</strong> with <strong>${expertName}</strong> is currently reserved pending ${isFree ? 'host/admin approval' : 'payment verification'}.
+    </p>
+
+    <div class="highlight-card">
+      <div class="meta-row"><span class="meta-label">Reference</span><span class="meta-val">${booking.reference || 'EV'}</span></div>
+      <div class="meta-row"><span class="meta-label">Event</span><span class="meta-val">${serviceTitle}</span></div>
+      <div class="meta-row"><span class="meta-label">Date</span><span class="meta-val">${booking.date}</span></div>
+      <div class="meta-row"><span class="meta-label">Time</span><span class="meta-val">${booking.time} (${booking.timezone || 'Africa/Cairo'})</span></div>
+      <div class="meta-row"><span class="meta-label">Fee</span><span class="meta-val">${isFree ? 'Free' : `${booking.amount} ${booking.currency || 'EGP'}`}</span></div>
+    </div>
+
+    <div class="alert-box">
+      <strong>What happens next?</strong> Once your registration is approved, we will send you a confirmation email with your session access details.
+    </div>
+
+    <div style="text-align: center; margin: 24px 0;">
+      <a href="${bookingUrl}" target="_blank" class="btn">View Registration Status</a>
+    </div>
+  `
+
+  const text = `Registration Request Received - Bok Bok
+Hello ${clientName},
+
+Your registration request for "${serviceTitle}" with ${expertName} (${booking.date} at ${booking.time}) has been received.
+Reference: ${booking.reference || 'EV'}
+Status: Pending ${isFree ? 'host/admin approval' : 'payment verification'}
+
+View status: ${bookingUrl}`
+
+  return {
+    subject,
+    html: emailLayout({
+      title: subject,
+      preheader: `Your registration request for ${serviceTitle} has been received.`,
+      contentHtml,
+    }),
+    text,
+  }
+}
+
+/**
+ * 0.3. Event Waitlist / Notify-Me Confirmation Email (to Registrant)
+ */
+export function renderEventWaitlistJoinedEmail(params: {
+  clientName: string
+  expertName: string
+  serviceTitle: string
+  date?: string
+  isComingSoon?: boolean
+  eventUrl: string
+}): { subject: string; html: string; text: string } {
+  const { clientName, expertName, serviceTitle, date, isComingSoon, eventUrl } = params
+  const subject = isComingSoon
+    ? `You're on the Early-Access List: ${serviceTitle}`
+    : `You're on the Waitlist: ${serviceTitle}`
+
+  const contentHtml = `
+    <h2 class="h1">${isComingSoon ? "You're on the Notification List!" : "You're on the Waitlist!"}</h2>
+    <p class="p">
+      Hello ${clientName}, thank you for your interest in <strong>${serviceTitle}</strong> with <strong>${expertName}</strong>${date ? ` (${date})` : ''}.
+    </p>
+    <div class="alert-box">
+      ${
+        isComingSoon
+          ? 'This event is currently marked as <strong>Coming Soon</strong>. We will notify you as soon as registration opens!'
+          : 'This event is currently at full capacity. If a seat opens up or additional spots are added, you will be notified by email.'
+      }
+    </div>
+    <div style="text-align: center; margin: 24px 0;">
+      <a href="${eventUrl}" target="_blank" class="btn">View Event Details</a>
+    </div>
+  `
+
+  const text = `${subject}
+Hello ${clientName},
+
+${
+  isComingSoon
+    ? `We've added you to the early notification list for "${serviceTitle}" with ${expertName}.`
+    : `We've added you to the waitlist for "${serviceTitle}" with ${expertName}. We'll email you if a spot opens up.`
+}
+
+Event page: ${eventUrl}`
+
+  return {
+    subject,
+    html: emailLayout({
+      title: subject,
+      preheader: subject,
+      contentHtml,
+    }),
+    text,
+  }
+}
+
+/**
+ * 0.4. Waitlist Promoted to Confirmed Seat Email
+ */
+export function renderEventWaitlistPromotedEmail(params: {
+  booking: BookingDoc
+  expertName: string
+  clientName: string
+  serviceTitle: string
+  bookingUrl: string
+}): { subject: string; html: string; text: string } {
+  const { booking, expertName, clientName, serviceTitle, bookingUrl } = params
+  const subject = `Good News! Your Seat is Confirmed: ${serviceTitle} [${booking.reference || 'EV'}]`
+
+  const contentHtml = `
+    <h2 class="h1">A Seat Opened Up — You're In!</h2>
+    <p class="p">
+      Hello ${clientName}, great news! You have been promoted from the waitlist and your seat for <strong>${serviceTitle}</strong> with <strong>${expertName}</strong> is now <strong>confirmed</strong>.
+    </p>
+
+    <div class="highlight-card">
+      <div class="meta-row"><span class="meta-label">Reference</span><span class="meta-val">${booking.reference || 'EV'}</span></div>
+      <div class="meta-row"><span class="meta-label">Date</span><span class="meta-val">${booking.date}</span></div>
+      <div class="meta-row"><span class="meta-label">Time</span><span class="meta-val">${booking.time} (${booking.timezone || 'Africa/Cairo'})</span></div>
+    </div>
+
+    <div class="success-box">
+      Your joining link will unlock automatically 15 minutes before the session starts on your booking page and in your Bok Bok account.
+    </div>
+
+    <div style="text-align: center; margin: 24px 0;">
+      <a href="${bookingUrl}" target="_blank" class="btn">Open Your Booking Hub</a>
+    </div>
+  `
+
+  const text = `Good News! Your Seat is Confirmed - Bok Bok
+Hello ${clientName},
+
+You have been promoted from the waitlist for "${serviceTitle}" with ${expertName} (${booking.date} at ${booking.time}).
+Reference: ${booking.reference || 'EV'}
+
+Open your booking hub: ${bookingUrl}`
+
+  return {
+    subject,
+    html: emailLayout({
+      title: subject,
+      preheader: `You have been promoted from the waitlist for ${serviceTitle}!`,
+      contentHtml,
+    }),
+    text,
+  }
+}
+
+/**
  * 0.5. Booking Received (Awaiting Verification) Email
  */
 export function renderBookingReceivedEmail(params: {

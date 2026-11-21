@@ -38,8 +38,28 @@ export interface ServiceLocation {
   googleMapsUrl?: string
 }
 
-export interface ServiceEventDetails {
+export type EventStatus = 'open' | 'coming_soon' | 'closed'
+export type EventRegistrationMode = 'approval_required' | 'instant'
+
+export interface EventSessionItem {
+  id: string
+  title: LocalizedValue
   date: string // YYYY-MM-DD
+  startTime: string // HH:mm
+  endTime: string // HH:mm
+  includes?: LocalizedValue[]
+  description?: LocalizedValue
+}
+
+export interface EventMaterialItem {
+  id: string
+  title: string
+  url: string
+  type: 'pdf' | 'link' | 'video'
+}
+
+export interface ServiceEventDetails {
+  date: string // YYYY-MM-DD (first session or single event date)
   startTime: string // HH:mm
   endTime: string // HH:mm
   timezone: string // IANA, e.g. Africa/Cairo
@@ -47,6 +67,14 @@ export interface ServiceEventDetails {
   registeredCount: number
   joinUrl?: string // never exposed publicly
   platform?: string
+  eventStatus?: EventStatus
+  registrationMode?: EventRegistrationMode
+  allowWaitlist?: boolean
+  sessions?: EventSessionItem[]
+  galleryUrls?: string[]
+  cancellationPolicy?: LocalizedValue
+  recordingUrl?: string // never exposed publicly (confirmed attendees only)
+  materials?: EventMaterialItem[] // confirmed attendees only
 }
 
 export type LicensingReviewStatus =
@@ -554,14 +582,92 @@ export function validateServiceInput(
     // ---- workshop / webinar -----------------------------------------------
     unset.push('serviceKind')
     const rawEvent = { ...(existing.event || {}), ...(input.event || {}) }
-    const date = str(rawEvent.date)
-    const startTime = str(rawEvent.startTime)
-    const endTime = str(rawEvent.endTime)
+    const rawEventStatus = str(rawEvent.eventStatus)
+    const eventStatus: EventStatus =
+      rawEventStatus === 'coming_soon' || rawEventStatus === 'closed' ? rawEventStatus : 'open'
+    const rawRegMode = str(rawEvent.registrationMode)
+    const registrationMode: EventRegistrationMode =
+      rawRegMode === 'instant' ? 'instant' : 'approval_required'
+    const allowWaitlist = rawEvent.allowWaitlist === undefined ? true : Boolean(rawEvent.allowWaitlist)
+
+    // Normalize optional multi-session schedule (primarily for Workshops)
+    let sessions: EventSessionItem[] | undefined
+    if (Array.isArray(rawEvent.sessions) && rawEvent.sessions.length > 0) {
+      const normalizedSessions: EventSessionItem[] = []
+      rawEvent.sessions.forEach((s: any, idx: number) => {
+        if (!s || typeof s !== 'object') return
+        const sDate = str(s.date)
+        const sStart = str(s.startTime)
+        const sEnd = str(s.endTime)
+        const rawSTitle = s.title
+        const sTitleEn = typeof rawSTitle === 'string' ? rawSTitle.trim() : str(rawSTitle?.en)
+        const sTitleAr = typeof rawSTitle === 'string' ? rawSTitle.trim() : str(rawSTitle?.ar)
+        const titleLoc: LocalizedValue = {
+          en: sTitleEn || sTitleAr || `Session ${idx + 1}`,
+          ar: sTitleAr || sTitleEn || `الجلسة ${idx + 1}`,
+        }
+        if (!isValidISODate(sDate)) {
+          errors.push(`Session ${idx + 1}: valid date (YYYY-MM-DD) is required`)
+        }
+        if (!isValidTimeString(sStart) || !isValidTimeString(sEnd)) {
+          errors.push(`Session ${idx + 1}: valid start and end times (HH:mm) are required`)
+        } else if (parseTimeToMinutes(sEnd) <= parseTimeToMinutes(sStart)) {
+          errors.push(`Session ${idx + 1}: end time must be after start time`)
+        }
+        let includes: LocalizedValue[] | undefined
+        if (Array.isArray(s.includes)) {
+          const parsedInc = s.includes
+            .map((inc: any) => {
+              if (typeof inc === 'string') {
+                const v = inc.trim()
+                return v ? { en: v, ar: v } : null
+              }
+              if (inc && typeof inc === 'object') {
+                const en = str(inc.en)
+                const ar = str(inc.ar)
+                return en || ar ? { en: en || ar, ar: ar || en } : null
+              }
+              return null
+            })
+            .filter((x: LocalizedValue | null): x is LocalizedValue => Boolean(x))
+          if (parsedInc.length > 0) includes = parsedInc
+        }
+        let sDesc: LocalizedValue | undefined
+        if (s.description) {
+          if (typeof s.description === 'string' && s.description.trim()) {
+            sDesc = { en: s.description.trim(), ar: s.description.trim() }
+          } else if (typeof s.description === 'object') {
+            const en = str(s.description.en)
+            const ar = str(s.description.ar)
+            if (en || ar) sDesc = { en: en || ar, ar: ar || en }
+          }
+        }
+        normalizedSessions.push({
+          id: str(s.id) || `sess_${idx + 1}`,
+          title: titleLoc,
+          date: sDate,
+          startTime: sStart,
+          endTime: sEnd,
+          ...(includes ? { includes } : {}),
+          ...(sDesc ? { description: sDesc } : {}),
+        })
+      })
+      if (normalizedSessions.length > 0) {
+        normalizedSessions.sort((a, b) => `${a.date}T${a.startTime}`.localeCompare(`${b.date}T${b.startTime}`))
+        sessions = normalizedSessions
+      }
+    }
+
+    const firstSession = sessions?.[0]
+    const date = str(rawEvent.date) || firstSession?.date || ''
+    const startTime = str(rawEvent.startTime) || firstSession?.startTime || ''
+    const endTime = str(rawEvent.endTime) || firstSession?.endTime || ''
     const timezone = str(rawEvent.timezone) || DEFAULT_EVENT_TIMEZONE
     const capacity = Number(rawEvent.capacity)
     const registeredCount = Math.max(0, Number(existing.event?.registeredCount) || 0)
     const joinUrl = str(rawEvent.joinUrl)
     const platform = str(rawEvent.platform)
+    const recordingUrl = str(rawEvent.recordingUrl)
 
     if (!isValidISODate(date)) {
       errors.push('Event date is required (YYYY-MM-DD)')
@@ -579,16 +685,69 @@ export function validateServiceInput(
     } else if (capacity < registeredCount) {
       errors.push(`Capacity cannot be lower than the ${registeredCount} seats already registered`)
     }
-    if (bookingType === 'WEBINAR' && deliveryMode === 'ONLINE' && !joinUrl) {
+    if (bookingType === 'WEBINAR' && deliveryMode === 'ONLINE' && eventStatus !== 'coming_soon' && !joinUrl) {
       errors.push('A joining link is required for online webinars')
     }
     if (joinUrl && !isHttpUrl(joinUrl)) {
       errors.push('Joining link must be a valid http(s) URL')
     }
+    if (recordingUrl && !isHttpUrl(recordingUrl)) {
+      errors.push('Recording URL must be a valid http(s) URL')
+    }
 
-    if (isValidTimeString(startTime) && isValidTimeString(endTime)) {
+    // Optional gallery images (max 6)
+    let galleryUrls: string[] | undefined
+    if (Array.isArray(rawEvent.galleryUrls)) {
+      const validUrls = rawEvent.galleryUrls
+        .map((u: any) => str(u))
+        .filter((u: string) => u && (isHttpUrl(u) || u.startsWith('/')))
+        .slice(0, 6)
+      if (validUrls.length > 0) galleryUrls = validUrls
+    }
+
+    // Optional cancellation policy
+    let cancellationPolicy: LocalizedValue | undefined
+    if (rawEvent.cancellationPolicy) {
+      if (typeof rawEvent.cancellationPolicy === 'string' && rawEvent.cancellationPolicy.trim()) {
+        const p = rawEvent.cancellationPolicy.trim()
+        cancellationPolicy = { en: p, ar: p }
+      } else if (typeof rawEvent.cancellationPolicy === 'object') {
+        const en = str(rawEvent.cancellationPolicy.en)
+        const ar = str(rawEvent.cancellationPolicy.ar)
+        if (en || ar) cancellationPolicy = { en: en || ar, ar: ar || en }
+      }
+    }
+
+    // Optional post-event materials/resources
+    let materials: EventMaterialItem[] | undefined
+    if (Array.isArray(rawEvent.materials)) {
+      const validMats: EventMaterialItem[] = []
+      rawEvent.materials.forEach((m: any, idx: number) => {
+        if (!m || typeof m !== 'object') return
+        const mTitle = str(m.title)
+        const mUrl = str(m.url)
+        if (!mTitle || !mUrl) return
+        if (!isHttpUrl(mUrl)) {
+          errors.push(`Material "${mTitle}" must have a valid http(s) URL`)
+          return
+        }
+        const mType = m.type === 'pdf' || m.type === 'video' ? m.type : 'link'
+        validMats.push({ id: str(m.id) || `mat_${idx + 1}`, title: mTitle, url: mUrl, type: mType })
+      })
+      if (validMats.length > 0) materials = validMats
+    }
+
+    if (sessions && sessions.length > 0) {
+      durationMinutes = sessions.reduce((sum, s) => {
+        if (isValidTimeString(s.startTime) && isValidTimeString(s.endTime)) {
+          return sum + Math.max(0, parseTimeToMinutes(s.endTime) - parseTimeToMinutes(s.startTime))
+        }
+        return sum
+      }, 0)
+    } else if (isValidTimeString(startTime) && isValidTimeString(endTime)) {
       durationMinutes = Math.max(0, parseTimeToMinutes(endTime) - parseTimeToMinutes(startTime))
     }
+
     event = {
       date,
       startTime,
@@ -596,8 +755,16 @@ export function validateServiceInput(
       timezone,
       capacity: Number.isInteger(capacity) ? capacity : 0,
       registeredCount,
+      eventStatus,
+      registrationMode,
+      allowWaitlist,
       ...(joinUrl ? { joinUrl } : {}),
       ...(platform ? { platform } : {}),
+      ...(sessions ? { sessions } : {}),
+      ...(galleryUrls ? { galleryUrls } : {}),
+      ...(cancellationPolicy ? { cancellationPolicy } : {}),
+      ...(recordingUrl ? { recordingUrl } : {}),
+      ...(materials ? { materials } : {}),
     }
   }
 
