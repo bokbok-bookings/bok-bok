@@ -38,7 +38,7 @@ const ACTIVE_COMPLAINT_STATUSES = new Set(['pending', 'under_review'])
 export function evaluateReviewEligibility(params: {
   booking: Pick<
     BookingDoc,
-    'status' | 'attendanceStatus' | 'hasReview' | 'hasComplaint'
+    'status' | 'attendanceStatus' | 'hasReview' | 'hasComplaint' | 'clientAttendanceReport'
   >
   sessionEndAt: Date | null | undefined
   complaint?: Pick<ComplaintDoc, 'status'> | null
@@ -92,6 +92,19 @@ export function evaluateReviewEligibility(params: {
       opensAt,
       reportingWindowHours,
       isOnHold: true,
+    }
+  }
+
+  // If the client explicitly confirmed that the session took place with no problem,
+  // open the review window immediately without waiting for the session end time or the 24-hour dispute period to end.
+  const clientConfirmedNoProblem = booking.clientAttendanceReport?.response === 'attended'
+  if (clientConfirmedNoProblem) {
+    return {
+      isOpen: true,
+      reason: 'open',
+      opensAt,
+      reportingWindowHours,
+      isOnHold: false,
     }
   }
 

@@ -7,6 +7,7 @@ import {
   type ComplaintCategory,
 } from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
+import { resolveTokenRole } from '@/lib/booking/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,12 +23,9 @@ const VALID_CATEGORIES: ComplaintCategory[] = [
 export async function POST(request: Request) {
   try {
     const session = await getSession()
-    if (!session?.userId) {
-      return NextResponse.json({ success: false, error: 'Unauthorized: Please log in' }, { status: 401 })
-    }
 
     const body = await request.json()
-    const { bookingId, category, subject, description } = body
+    const { bookingId, token, category, subject, description } = body
 
     if (!bookingId) {
       return NextResponse.json({ success: false, error: 'Booking ID is required' }, { status: 400 })
@@ -65,16 +63,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Booking not found' }, { status: 404 })
     }
 
-    const userMatchesId = booking.clientId && booking.clientId.toString() === session.userId
-    const userMatchesEmail =
-      booking.clientEmail &&
-      session.email &&
-      booking.clientEmail.toLowerCase() === session.email.toLowerCase()
+    const isClientTokenValid = resolveTokenRole(booking, token) === 'client'
+    const userMatchesId = Boolean(
+      session?.userId && booking.clientId && booking.clientId.toString() === session.userId
+    )
+    const userMatchesEmail = Boolean(
+      session?.email &&
+        booking.clientEmail &&
+        booking.clientEmail.toLowerCase() === session.email.toLowerCase()
+    )
 
-    if (!userMatchesId && !userMatchesEmail) {
+    if (!session?.userId && !isClientTokenValid) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: Please log in' }, { status: 401 })
+    }
+
+    if (!userMatchesId && !userMatchesEmail && !isClientTokenValid) {
       return NextResponse.json(
         { success: false, error: 'You are not authorized to submit a complaint for this booking' },
         { status: 403 }
+      )
+    }
+
+    if (booking.clientAttendanceReport?.response === 'attended') {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'You have already confirmed that this session was completed with no problems. Dispute window is closed.',
+        },
+        { status: 400 }
       )
     }
 
@@ -90,9 +107,9 @@ export async function POST(request: Request) {
     const now = new Date()
     const complaintDoc = {
       bookingId: bookingObjId,
-      clientId: new ObjectId(session.userId),
-      clientName: session.displayName || booking.clientName || 'Client',
-      clientEmail: (session.email || booking.clientEmail).toLowerCase(),
+      clientId: session?.userId ? new ObjectId(session.userId) : booking.clientId || new ObjectId(),
+      clientName: session?.displayName || booking.clientName || 'Client',
+      clientEmail: (session?.email || booking.clientEmail).toLowerCase(),
       expertId: booking.expertId,
       serviceId: booking.serviceId,
       category,

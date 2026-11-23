@@ -200,11 +200,14 @@ export async function submitAttendanceReport(
 
   const previousStatus: AttendanceStatus = booking.attendanceStatus || 'pending'
   const now = new Date()
-  const sessionEndAt = booking.sessionEndAt || new Date(booking.date + 'T' + booking.time)
+  const sessionStartAt = booking.sessionStartAt || new Date(booking.date + 'T' + booking.time)
+  const sessionEndAt =
+    booking.sessionEndAt ||
+    new Date(sessionStartAt.getTime() + (booking.durationMinutes || 45) * 60000)
 
-  // Check if session has actually taken place
-  if (now < sessionEndAt && input.userRole !== 'admin') {
-    throw new Error('Attendance can only be reported after the scheduled session ends')
+  // Check if session has started (reporting & dispute opens immediately at session start)
+  if (now < sessionStartAt && input.userRole !== 'admin') {
+    throw new Error('Attendance can only be reported once the scheduled session starts')
   }
 
   // Check reporting deadline window for non-admins

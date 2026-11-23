@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react'
+import { CheckCircle2, AlertCircle } from 'lucide-react'
 import type {
   DaySchedule,
   BreakInterval,
@@ -13,6 +14,67 @@ import {
 } from '@/lib/data/availability'
 import { EXPERTS } from '@/lib/data/experts'
 import { useLanguage } from '@/lib/i18n/language-context'
+
+interface AutoSaveToastHandle {
+  show: (message: string, type?: 'success' | 'error') => void
+}
+
+/**
+ * Isolated floating toast popup so showing/hiding save confirmation
+ * never re-renders the availability form or shifts layout.
+ */
+const AutoSaveToast = forwardRef<AutoSaveToastHandle, { dir?: string }>(function AutoSaveToast(
+  { dir },
+  ref
+) {
+  const [toast, setToast] = useState<{
+    message: string
+    type: 'success' | 'error'
+    id: number
+  } | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useImperativeHandle(ref, () => ({
+    show(message: string, type: 'success' | 'error' = 'success') {
+      if (timerRef.current) clearTimeout(timerRef.current)
+      setToast({ message, type, id: Date.now() })
+      timerRef.current = setTimeout(() => {
+        setToast(null)
+      }, 2600)
+    },
+  }))
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [])
+
+  if (!toast) return null
+
+  const isError = toast.type === 'error'
+
+  return (
+    <div
+      key={toast.id}
+      dir={dir}
+      role="status"
+      aria-live="polite"
+      className={`fixed bottom-6 end-6 z-50 flex items-center gap-2.5 rounded-2xl border px-4 py-3 text-xs font-bold shadow-lg backdrop-blur-xs transition-all duration-200 animate-in fade-in slide-in-from-bottom-2 ${
+        isError
+          ? 'border-rose-200 bg-rose-50/95 text-rose-800'
+          : 'border-emerald-200 bg-white/95 text-[#101F49]'
+      }`}
+    >
+      {isError ? (
+        <AlertCircle size={16} className="shrink-0 text-rose-600" />
+      ) : (
+        <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
+      )}
+      <span>{toast.message}</span>
+    </div>
+  )
+})
 
 const WEEKDAYS = [
   { day: 0, name: 'Sunday', arName: 'الأحد' },
@@ -74,10 +136,93 @@ export function AvailabilityManager({
   const [defaultGoogleMeetLink, setDefaultGoogleMeetLink] = useState<string>('')
   const [overrides, setOverrides] = useState<DateOverrideItem[]>(initialOverrides || [])
 
-  const [loadingExpertData, setLoadingExpertData] = useState(false)
-  const [savingSchedule, setSavingSchedule] = useState(false)
-  const [scheduleSuccess, setScheduleSuccess] = useState<string | null>(null)
   const [scheduleError, setScheduleError] = useState<string | null>(null)
+  const toastRef = useRef<AutoSaveToastHandle>(null)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const saveSeqRef = useRef(0)
+
+  // Keep latest values in a ref so debounced background auto-save never triggers extra form renders
+  const latestStateRef = useRef({
+    expertId: selectedExpertId,
+    expertSlug,
+    weeklySchedule,
+    slotInterval,
+    rescheduleDeadlineHours,
+    defaultGoogleMeetLink,
+  })
+  latestStateRef.current = {
+    expertId: selectedExpertId,
+    expertSlug,
+    weeklySchedule,
+    slotInterval,
+    rescheduleDeadlineHours,
+    defaultGoogleMeetLink,
+  }
+
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [])
+
+  const queueAutoSave = useCallback(
+    (
+      nextOverrides?: Partial<{
+        weeklySchedule: Record<number, DaySchedule>
+        slotInterval: number
+        rescheduleDeadlineHours: number
+      }>,
+      delayMs = 300
+    ) => {
+      if ( nextOverrides ) {
+        latestStateRef.current = {
+          ...latestStateRef.current,
+          ...nextOverrides,
+        }
+      }
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+      }
+      const seq = ++saveSeqRef.current
+      saveTimerRef.current = setTimeout(async () => {
+        const snapshot = latestStateRef.current
+        try {
+          const res = await fetch('/api/dashboard/availability', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              expertId: snapshot.expertId,
+              expertSlug: snapshot.expertSlug,
+              weeklySchedule: snapshot.weeklySchedule,
+              slotIntervalMinutes: snapshot.slotInterval,
+              rescheduleDeadlineHours: snapshot.rescheduleDeadlineHours,
+              defaultGoogleMeetLink: snapshot.defaultGoogleMeetLink,
+            }),
+          })
+          const data = await res.json()
+          if (seq !== saveSeqRef.current) return
+          if (data.success) {
+            toastRef.current?.show(
+              isAr ? 'تم حفظ التغييرات بنجاح' : 'Changes have been saved successfully',
+              'success'
+            )
+          } else {
+            toastRef.current?.show(
+              data.error || (isAr ? 'فشل حفظ التغييرات' : 'Failed to save changes'),
+              'error'
+            )
+          }
+        } catch (err: any) {
+          if (seq !== saveSeqRef.current) return
+          toastRef.current?.show(
+            err.message || (isAr ? 'حدث خطأ أثناء الحفظ' : 'Failed to save changes'),
+            'error'
+          )
+        }
+      }, delayMs)
+    },
+    [isAr]
+  )
 
   // Override Modal State
   const [isOverrideModalOpen, setIsOverrideModalOpen] = useState(false)
@@ -128,8 +273,6 @@ export function AvailabilityManager({
   useEffect(() => {
     let ignore = false
     async function loadData() {
-      setLoadingExpertData(true)
-      setScheduleSuccess(null)
       setScheduleError(null)
       try {
         const res = await fetch(`/api/dashboard/availability?expertId=${selectedExpertId}`)
@@ -145,10 +288,6 @@ export function AvailabilityManager({
         if (!ignore) {
           setScheduleError(isAr ? 'تعذر تحميل جدول الخبير' : 'Failed to load expert schedule')
         }
-      } finally {
-        if (!ignore) {
-          setLoadingExpertData(false)
-        }
       }
     }
 
@@ -161,26 +300,30 @@ export function AvailabilityManager({
   const handleToggleDay = (dayIndex: number) => {
     setWeeklySchedule((prev) => {
       const current = prev[dayIndex] || DEFAULT_WEEKLY_SCHEDULE[dayIndex]
-      return {
+      const next = {
         ...prev,
         [dayIndex]: {
           ...current,
           enabled: !current.enabled,
         },
       }
+      queueAutoSave({ weeklySchedule: next }, 200)
+      return next
     })
   }
 
   const handleTimeChange = (dayIndex: number, field: 'startTime' | 'endTime', value: string) => {
     setWeeklySchedule((prev) => {
       const current = prev[dayIndex] || DEFAULT_WEEKLY_SCHEDULE[dayIndex]
-      return {
+      const next = {
         ...prev,
         [dayIndex]: {
           ...current,
           [field]: value,
         },
       }
+      queueAutoSave({ weeklySchedule: next }, 550)
+      return next
     })
   }
 
@@ -193,13 +336,15 @@ export function AvailabilityManager({
         end: '14:00',
         label: isAr ? 'استراحة غداء' : 'Lunch Break',
       }
-      return {
+      const next = {
         ...prev,
         [dayIndex]: {
           ...current,
           breaks: [...(current.breaks || []), newBreak],
         },
       }
+      queueAutoSave({ weeklySchedule: next }, 200)
+      return next
     })
   }
 
@@ -211,7 +356,7 @@ export function AvailabilityManager({
   ) => {
     setWeeklySchedule((prev) => {
       const current = prev[dayIndex] || DEFAULT_WEEKLY_SCHEDULE[dayIndex]
-      return {
+      const next = {
         ...prev,
         [dayIndex]: {
           ...current,
@@ -220,57 +365,24 @@ export function AvailabilityManager({
           ),
         },
       }
+      queueAutoSave({ weeklySchedule: next }, 600)
+      return next
     })
   }
 
   const handleRemoveBreak = (dayIndex: number, breakId: string) => {
     setWeeklySchedule((prev) => {
       const current = prev[dayIndex] || DEFAULT_WEEKLY_SCHEDULE[dayIndex]
-      return {
+      const next = {
         ...prev,
         [dayIndex]: {
           ...current,
           breaks: (current.breaks || []).filter((b) => b.id !== breakId),
         },
       }
+      queueAutoSave({ weeklySchedule: next }, 200)
+      return next
     })
-  }
-
-  const handleSaveSchedule = async () => {
-    setSavingSchedule(true)
-    setScheduleSuccess(null)
-    setScheduleError(null)
-
-    try {
-      const res = await fetch('/api/dashboard/availability', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          expertId: selectedExpertId,
-          expertSlug: expertSlug,
-          weeklySchedule,
-          slotIntervalMinutes: slotInterval,
-          rescheduleDeadlineHours,
-          defaultGoogleMeetLink,
-        }),
-      })
-
-      const data = await res.json()
-      if (data.success) {
-        setScheduleSuccess(
-          isAr
-            ? 'تم حفظ الجدول الأسبوعي بنجاح.'
-            : `Schedule saved for ${expertName || 'expert'}.`,
-        )
-        setTimeout(() => setScheduleSuccess(null), 4500)
-      } else {
-        setScheduleError(data.error || (isAr ? 'فشل حفظ الجدول' : 'Failed to save schedule'))
-      }
-    } catch (err: any) {
-      setScheduleError(err.message || 'An unexpected error occurred')
-    } finally {
-      setSavingSchedule(false)
-    }
   }
 
   const handleSaveOverride = async (e: React.FormEvent) => {
@@ -309,6 +421,10 @@ export function AvailabilityManager({
         setOverrideDate('')
         setOverrideReason('')
         setOverrideBreaks([])
+        toastRef.current?.show(
+          isAr ? 'تم حفظ التغييرات بنجاح' : 'Changes have been saved successfully',
+          'success'
+        )
       } else {
         setOverrideError(data.error || 'Failed to save date override')
       }
@@ -336,6 +452,10 @@ export function AvailabilityManager({
       if (data.success) {
         setOverrides((prev) =>
           prev.filter((o) => o.id !== idOrDate && o._id !== idOrDate && o.date !== idOrDate),
+        )
+        toastRef.current?.show(
+          isAr ? 'تم حفظ التغييرات بنجاح' : 'Changes have been saved successfully',
+          'success'
         )
       } else {
         alert(data.error || 'Failed to delete override')
@@ -404,11 +524,7 @@ export function AvailabilityManager({
       </div>
 
       {/* Status Notifications */}
-      {scheduleSuccess && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3.5 text-sm font-medium text-emerald-800">
-          {scheduleSuccess}
-        </div>
-      )}
+      <AutoSaveToast ref={toastRef} dir={dir} />
 
       {scheduleError && (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3.5 text-sm font-medium text-rose-800">
@@ -438,7 +554,11 @@ export function AvailabilityManager({
           <div className="flex items-center gap-3">
             <select
               value={rescheduleDeadlineHours}
-              onChange={(e) => setRescheduleDeadlineHours(Number(e.target.value))}
+              onChange={(e) => {
+                const nextVal = Number(e.target.value)
+                setRescheduleDeadlineHours(nextVal)
+                queueAutoSave({ rescheduleDeadlineHours: nextVal }, 150)
+              }}
               className="rounded-xl border border-border bg-background px-4 py-2.5 text-xs font-bold text-primary outline-none focus:border-accent"
             >
               <option value={6}>{isAr ? 'قبل الجلسة بـ 6 ساعات' : '6 hours before session'}</option>
@@ -469,7 +589,11 @@ export function AvailabilityManager({
           <div className="flex items-center gap-3">
             <select
               value={slotInterval}
-              onChange={(e) => setSlotInterval(Number(e.target.value))}
+              onChange={(e) => {
+                const nextVal = Number(e.target.value)
+                setSlotInterval(nextVal)
+                queueAutoSave({ slotInterval: nextVal }, 150)
+              }}
               className="rounded-xl border border-border bg-background px-4 py-2.5 text-xs font-bold text-primary outline-none focus:border-accent"
             >
               <option value={15}>{isAr ? 'كل 15 دقيقة' : 'Every 15 minutes'}</option>
@@ -758,29 +882,6 @@ export function AvailabilityManager({
             </div>
           )}
         </div>
-      </div>
-
-      {/* Bottom Save Action Bar */}
-      <div className="flex flex-col gap-4 pt-6 border-t border-border sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-muted-foreground">
-          {isAr
-            ? 'احرص على حفظ التغييرات بعد تعديل الجدول الأسبوعي أو الفواصل الزمنية أو سياسة إعادة الجدولة.'
-            : 'Make sure to save your changes after updating weekly hours, slot intervals, or rescheduling policy.'}
-        </p>
-        <button
-          type="button"
-          onClick={handleSaveSchedule}
-          disabled={savingSchedule || loadingExpertData}
-          className="inline-flex items-center justify-center rounded-full bg-primary px-8 py-3.5 text-sm font-bold text-white transition hover:opacity-95 disabled:opacity-50"
-        >
-          {savingSchedule
-            ? isAr
-              ? 'جاري الحفظ...'
-              : 'Saving...'
-            : isAr
-              ? 'حفظ الجدول الأسبوعي'
-              : 'Save weekly schedule'}
-        </button>
       </div>
 
       {/* Modal: Add Date Override */}

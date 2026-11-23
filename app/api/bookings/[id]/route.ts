@@ -15,7 +15,11 @@ import {
 import { resolveTokenRole, MEET_UNLOCK_MINUTES_BEFORE, MEET_GRACE_MINUTES_AFTER_END } from '@/lib/booking/access'
 import { applyJoinTrackingAttendance } from '@/lib/booking/attendance'
 import { evaluateReviewEligibility } from '@/lib/booking/review-eligibility'
-import { syncBookingMeetTelemetry, ensureBookingMeetDirectEntry } from '@/lib/google-calendar'
+import {
+  syncBookingMeetTelemetry,
+  ensureBookingMeetDirectEntry,
+  matchParticipantsToRoles,
+} from '@/lib/google-calendar'
 import { checkRateLimit } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
@@ -129,11 +133,11 @@ export async function GET(request: Request, context: RouteContext) {
       booking.status !== 'rejected' &&
       now < rescheduleDeadlineAt
 
-    // Check attendance reporting window (also the post-session issue/refund period)
+    // Check attendance reporting window (opens when session starts and extends through the dispute/refund window)
     const platformSettings = await getPlatformMeetingSettings()
     const reportingWindowHours = platformSettings.attendanceReportingWindowHours || 24
     const reportingDeadlineAt = new Date(endAt.getTime() + reportingWindowHours * 60 * 60 * 1000)
-    const isAttendanceReportingOpen = now >= endAt && now <= reportingDeadlineAt
+    const isAttendanceReportingOpen = now >= startAt && now <= reportingDeadlineAt
 
     // Sync Google Meet conferenceRecords & participantSessions (join, leave, duration)
     // once the 15-minute pre-session window opens or when explicitly requested (?syncMeet=1)
@@ -202,6 +206,7 @@ export async function GET(request: Request, context: RouteContext) {
         minNoticeHours:
           serviceDoc?.minNoticeHours !== undefined ? Number(serviceDoc.minNoticeHours) : 24,
         serviceTitle: booking.serviceTitle,
+        serviceImage: serviceDoc?.thumbnailUrl || null,
         expertId: booking.expertId.toString(),
         expertName,
         expertRole: expertDoc?.role,
@@ -230,11 +235,55 @@ export async function GET(request: Request, context: RouteContext) {
         reportingDeadlineAt,
         expertAttendanceReport: booking.expertAttendanceReport,
         clientAttendanceReport: booking.clientAttendanceReport,
-        meetingJoins: {
-          client: booking.meetingJoins?.client || null,
-          expert: booking.meetingJoins?.expert || null,
-        },
-        googleMeetTelemetry: booking.googleMeetTelemetry || null,
+        ...(() => {
+          let telemetry = booking.googleMeetTelemetry || null
+          if (telemetry?.participants?.length) {
+            telemetry = {
+              ...telemetry,
+              participants: matchParticipantsToRoles({
+                participants: telemetry.participants,
+                clientName: booking.clientName,
+                expertName,
+                clientJoin: booking.meetingJoins?.client,
+                expertJoin: booking.meetingJoins?.expert,
+              }),
+            }
+          }
+
+          const resolvedJoins = {
+            client: booking.meetingJoins?.client ? { ...booking.meetingJoins.client } : null,
+            expert: booking.meetingJoins?.expert ? { ...booking.meetingJoins.expert } : null,
+          }
+
+          if (telemetry?.participants?.length) {
+            const expertParts = telemetry.participants.filter((p: any) => p.matchedRole === 'expert')
+            if (expertParts.length > 0 && resolvedJoins.expert) {
+              const totalJoins = expertParts.reduce((acc: number, p: any) => acc + (p.sessionsCount || 1), 0)
+              resolvedJoins.expert.joinCount = Math.max(resolvedJoins.expert.joinCount || 0, totalJoins, expertParts.length)
+              const totalDurationSec = expertParts.reduce((acc: number, p: any) => acc + (p.durationSeconds || 0), 0)
+              if (totalDurationSec > (resolvedJoins.expert.durationSeconds || 0)) {
+                resolvedJoins.expert.durationSeconds = totalDurationSec
+                resolvedJoins.expert.durationMinutes = Math.max(1, Math.round(totalDurationSec / 60))
+              }
+            }
+
+            const clientParts = telemetry.participants.filter((p: any) => p.matchedRole === 'client')
+            if (clientParts.length > 0 && resolvedJoins.client) {
+              const totalJoins = clientParts.reduce((acc: number, p: any) => acc + (p.sessionsCount || 1), 0)
+              resolvedJoins.client.joinCount = Math.max(resolvedJoins.client.joinCount || 0, totalJoins, clientParts.length)
+              const totalDurationSec = clientParts.reduce((acc: number, p: any) => acc + (p.durationSeconds || 0), 0)
+              if (totalDurationSec > (resolvedJoins.client.durationSeconds || 0)) {
+                resolvedJoins.client.durationSeconds = totalDurationSec
+                resolvedJoins.client.durationMinutes = Math.max(1, Math.round(totalDurationSec / 60))
+              }
+            }
+          }
+
+          return {
+            meetingJoins: resolvedJoins,
+            googleMeetTelemetry: telemetry,
+          }
+        })(),
         meetJoinUrl: `/api/bookings/${booking._id?.toString()}/join${viewerToken ? `?token=${encodeURIComponent(viewerToken)}` : ''
           }`,
         rescheduleHistory: booking.rescheduleHistory || [],

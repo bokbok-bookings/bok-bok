@@ -1150,62 +1150,72 @@ export function matchParticipantsToRoles(params: {
   if (!participants.length) return []
 
   const scored = participants.map((p, idx) => {
-    const clientScore =
-      computeNameSimilarity(p.displayName, clientName) +
-      computeJoinProximityScore(p.joinedAt, clientJoin)
-    const expertScore =
-      computeNameSimilarity(p.displayName, expertName) +
-      computeJoinProximityScore(p.joinedAt, expertJoin)
-    return { idx, p, clientScore, expertScore }
+    const clientNameSim = computeNameSimilarity(p.displayName, clientName)
+    const expertNameSim = computeNameSimilarity(p.displayName, expertName)
+    const clientProx = computeJoinProximityScore(p.joinedAt, clientJoin)
+    const expertProx = computeJoinProximityScore(p.joinedAt, expertJoin)
+
+    const clientScore = clientNameSim + clientProx
+    const expertScore = expertNameSim + expertProx
+    return { idx, p, clientNameSim, expertNameSim, clientScore, expertScore }
   })
 
-  let assignedClientIdx: number | null = null
-  let assignedExpertIdx: number | null = null
+  // Assign roles based on name similarity or score.
+  // Note: multiple participant entries can belong to the same person if they joined and left multiple times!
+  const assignments = new Map<number, 'client' | 'expert'>()
 
-  // Find best non-conflicting assignment across all pairs
-  let bestTotal = -1
-  for (let cIdx = -1; cIdx < scored.length; cIdx++) {
-    for (let eIdx = -1; eIdx < scored.length; eIdx++) {
-      if (cIdx !== -1 && cIdx === eIdx) continue
-      const cScore = cIdx >= 0 ? scored[cIdx].clientScore : 0
-      const eScore = eIdx >= 0 ? scored[eIdx].expertScore : 0
-      // Only assign a role if its score > 0 (or will be inferred below)
-      const effectiveC = cScore > 0 ? cScore : 0
-      const effectiveE = eScore > 0 ? eScore : 0
-      const total = effectiveC + effectiveE
-      if (total > bestTotal) {
-        bestTotal = total
-        assignedClientIdx = cIdx >= 0 && cScore > 0 ? cIdx : null
-        assignedExpertIdx = eIdx >= 0 && eScore > 0 ? eIdx : null
+  // 1. Direct name similarity or decisive score
+  for (const s of scored) {
+    if (s.expertNameSim >= 40 && s.expertNameSim >= s.clientNameSim + 15) {
+      assignments.set(s.idx, 'expert')
+    } else if (s.clientNameSim >= 40 && s.clientNameSim >= s.expertNameSim + 15) {
+      assignments.set(s.idx, 'client')
+    } else if (s.expertScore >= 50 && s.expertScore >= s.clientScore + 25) {
+      assignments.set(s.idx, 'expert')
+    } else if (s.clientScore >= 50 && s.clientScore >= s.expertScore + 25) {
+      assignments.set(s.idx, 'client')
+    }
+  }
+
+  // 2. Propagate matches to participants with identical or matching display names (e.g. re-joins)
+  for (const s of scored) {
+    if (!assignments.has(s.idx)) {
+      const matchSameName = scored.find(
+        (other) =>
+          other.idx !== s.idx &&
+          assignments.has(other.idx) &&
+          other.p.displayName.trim().length >= 3 &&
+          other.p.displayName.trim().toLowerCase() === s.p.displayName.trim().toLowerCase(),
+      )
+      if (matchSameName) {
+        assignments.set(s.idx, assignments.get(matchSameName.idx)!)
       }
     }
   }
 
-  // If exactly 2 participants attended the 1-on-1 call and one matched a role,
-  // the other participant in the private room is the counterpart.
+  // 3. Inference fallback for 1-on-1 private rooms
+  const assignedClient = Array.from(assignments.values()).some((r) => r === 'client')
+  const assignedExpert = Array.from(assignments.values()).some((r) => r === 'expert')
+
   if (participants.length === 2) {
-    if (assignedClientIdx !== null && assignedExpertIdx === null) {
-      assignedExpertIdx = assignedClientIdx === 0 ? 1 : 0
-    } else if (assignedExpertIdx !== null && assignedClientIdx === null) {
-      assignedClientIdx = assignedExpertIdx === 0 ? 1 : 0
+    if (assignedClient && !assignedExpert) {
+      const unassignedIdx = scored.findIndex((s) => !assignments.has(s.idx))
+      if (unassignedIdx >= 0) assignments.set(unassignedIdx, 'expert')
+    } else if (assignedExpert && !assignedClient) {
+      const unassignedIdx = scored.findIndex((s) => !assignments.has(s.idx))
+      if (unassignedIdx >= 0) assignments.set(unassignedIdx, 'client')
     }
-  } else if (participants.length === 1 && assignedClientIdx === null && assignedExpertIdx === null) {
-    // Single participant with no name match: check if only one party clicked Join on BokBok
+  } else if (participants.length === 1 && !assignedClient && !assignedExpert) {
     if (clientJoin?.firstJoinedAt && !expertJoin?.firstJoinedAt) {
-      assignedClientIdx = 0
+      assignments.set(0, 'client')
     } else if (expertJoin?.firstJoinedAt && !clientJoin?.firstJoinedAt) {
-      assignedExpertIdx = 0
+      assignments.set(0, 'expert')
     }
   }
 
   return participants.map((p, idx) => ({
     ...p,
-    matchedRole:
-      idx === assignedClientIdx
-        ? 'client'
-        : idx === assignedExpertIdx
-          ? 'expert'
-          : undefined,
+    matchedRole: assignments.get(idx),
   }))
 }
 
@@ -1385,46 +1395,98 @@ export async function syncBookingMeetTelemetry(
       expertJoin: booking.meetingJoins?.expert,
     })
 
-    const clientParticipant = matchedParticipants.find((p) => p.matchedRole === 'client')
-    const expertParticipant = matchedParticipants.find((p) => p.matchedRole === 'expert')
+    const clientParticipants = matchedParticipants.filter((p) => p.matchedRole === 'client')
+    const expertParticipants = matchedParticipants.filter((p) => p.matchedRole === 'expert')
 
     const updatedMeetingJoins: NonNullable<BookingDoc['meetingJoins']> = {
       ...(booking.meetingJoins || {}),
     }
 
-    if (clientParticipant) {
+    if (clientParticipants.length > 0) {
       const prev = updatedMeetingJoins.client
-      const firstJoinedAt =
-        prev?.firstJoinedAt && new Date(prev.firstJoinedAt) < clientParticipant.joinedAt
-          ? new Date(prev.firstJoinedAt)
-          : clientParticipant.joinedAt
+      const allStartTimes = clientParticipants.map((p) => new Date(p.joinedAt).getTime())
+      if (prev?.firstJoinedAt) allStartTimes.push(new Date(prev.firstJoinedAt).getTime())
+      const earliestStart = new Date(Math.min(...allStartTimes))
+
+      const allJoinTimes = clientParticipants.map((p) => new Date(p.joinedAt).getTime())
+      if (prev?.lastJoinedAt) allJoinTimes.push(new Date(prev.lastJoinedAt).getTime())
+      const latestJoin = new Date(Math.max(...allJoinTimes))
+
+      const anyActive = clientParticipants.some((p) => p.isActive)
+      const validEndTimes = clientParticipants
+        .map((p) => (p.leftAt ? new Date(p.leftAt).getTime() : null))
+        .filter((t): t is number => t !== null)
+      if (prev?.leftAt) validEndTimes.push(new Date(prev.leftAt).getTime())
+      const latestEnd = validEndTimes.length > 0 ? new Date(Math.max(...validEndTimes)) : undefined
+
+      const totalSessions = clientParticipants.reduce(
+        (acc, p) => acc + (p.sessionsCount || 1),
+        0,
+      )
+      const joinCount = Math.max(prev?.joinCount || 0, totalSessions, clientParticipants.length)
+
+      const totalDurationSec = clientParticipants.reduce(
+        (acc, p) => acc + (p.durationSeconds || 0),
+        0,
+      )
+      const durationSeconds = Math.max(prev?.durationSeconds || 0, totalDurationSec)
+      const durationMinutes = Math.max(1, Math.round(durationSeconds / 60))
+      const meetDisplayName =
+        clientParticipants.map((p) => p.displayName).find(Boolean) || prev?.meetDisplayName
+
       updatedMeetingJoins.client = {
-        firstJoinedAt,
-        lastJoinedAt: clientParticipant.joinedAt,
-        joinCount: Math.max(prev?.joinCount || 0, clientParticipant.sessionsCount),
-        leftAt: clientParticipant.leftAt,
-        durationSeconds: clientParticipant.durationSeconds,
-        durationMinutes: clientParticipant.durationMinutes,
-        meetDisplayName: clientParticipant.displayName,
-        inMeetingNow: clientParticipant.isActive,
+        firstJoinedAt: earliestStart,
+        lastJoinedAt: latestJoin,
+        joinCount,
+        leftAt: anyActive ? undefined : latestEnd,
+        durationSeconds,
+        durationMinutes,
+        meetDisplayName,
+        inMeetingNow: anyActive,
       }
     }
 
-    if (expertParticipant) {
+    if (expertParticipants.length > 0) {
       const prev = updatedMeetingJoins.expert
-      const firstJoinedAt =
-        prev?.firstJoinedAt && new Date(prev.firstJoinedAt) < expertParticipant.joinedAt
-          ? new Date(prev.firstJoinedAt)
-          : expertParticipant.joinedAt
+      const allStartTimes = expertParticipants.map((p) => new Date(p.joinedAt).getTime())
+      if (prev?.firstJoinedAt) allStartTimes.push(new Date(prev.firstJoinedAt).getTime())
+      const earliestStart = new Date(Math.min(...allStartTimes))
+
+      const allJoinTimes = expertParticipants.map((p) => new Date(p.joinedAt).getTime())
+      if (prev?.lastJoinedAt) allJoinTimes.push(new Date(prev.lastJoinedAt).getTime())
+      const latestJoin = new Date(Math.max(...allJoinTimes))
+
+      const anyActive = expertParticipants.some((p) => p.isActive)
+      const validEndTimes = expertParticipants
+        .map((p) => (p.leftAt ? new Date(p.leftAt).getTime() : null))
+        .filter((t): t is number => t !== null)
+      if (prev?.leftAt) validEndTimes.push(new Date(prev.leftAt).getTime())
+      const latestEnd = validEndTimes.length > 0 ? new Date(Math.max(...validEndTimes)) : undefined
+
+      const totalSessions = expertParticipants.reduce(
+        (acc, p) => acc + (p.sessionsCount || 1),
+        0,
+      )
+      const joinCount = Math.max(prev?.joinCount || 0, totalSessions, expertParticipants.length)
+
+      const totalDurationSec = expertParticipants.reduce(
+        (acc, p) => acc + (p.durationSeconds || 0),
+        0,
+      )
+      const durationSeconds = Math.max(prev?.durationSeconds || 0, totalDurationSec)
+      const durationMinutes = Math.max(1, Math.round(durationSeconds / 60))
+      const meetDisplayName =
+        expertParticipants.map((p) => p.displayName).find(Boolean) || prev?.meetDisplayName
+
       updatedMeetingJoins.expert = {
-        firstJoinedAt,
-        lastJoinedAt: expertParticipant.joinedAt,
-        joinCount: Math.max(prev?.joinCount || 0, expertParticipant.sessionsCount),
-        leftAt: expertParticipant.leftAt,
-        durationSeconds: expertParticipant.durationSeconds,
-        durationMinutes: expertParticipant.durationMinutes,
-        meetDisplayName: expertParticipant.displayName,
-        inMeetingNow: expertParticipant.isActive,
+        firstJoinedAt: earliestStart,
+        lastJoinedAt: latestJoin,
+        joinCount,
+        leftAt: anyActive ? undefined : latestEnd,
+        durationSeconds,
+        durationMinutes,
+        meetDisplayName,
+        inMeetingNow: anyActive,
       }
     }
 
