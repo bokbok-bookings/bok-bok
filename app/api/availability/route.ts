@@ -21,6 +21,7 @@ import {
 } from '@/lib/email/templates'
 import { getBookingRoleLinks } from '@/lib/booking/access'
 import { ensureEventServiceMeetLink, configureMeetSpaceOpenAccess } from '@/lib/google-calendar'
+import { createBookingRefundPolicySnapshot } from '@/lib/services/refund-policies'
 
 export const dynamic = 'force-dynamic'
 
@@ -247,6 +248,7 @@ export async function POST(request: Request) {
         const baseUrl = getAppBaseUrl()
         const eventUrl = `${baseUrl}/services/${serviceDoc.slug || serviceDoc._id.toString()}`
         const title = verifiedServiceTitle?.en || verifiedServiceTitle?.ar || 'Event Session'
+        const refundPolicySnapshot = createBookingRefundPolicySnapshot(serviceDoc?.refundPolicy)
 
         // 1. Coming Soon → Early-interest / Notify-Me list (no seat reserved, no payment)
         if (eventStatus === 'coming_soon') {
@@ -258,6 +260,7 @@ export async function POST(request: Request) {
             serviceTitle: verifiedServiceTitle,
             bookingType: serviceDoc.bookingType,
             registrationType: 'interest',
+            refundPolicy: refundPolicySnapshot,
             date: eventDate,
             time: eventTime,
             ...(clientObjId ? { clientId: clientObjId } : {}),
@@ -341,6 +344,7 @@ export async function POST(request: Request) {
             serviceTitle: verifiedServiceTitle,
             bookingType: serviceDoc.bookingType,
             registrationType: 'waitlist',
+            refundPolicy: refundPolicySnapshot,
             date: eventDate,
             time: eventTime,
             ...(clientObjId ? { clientId: clientObjId } : {}),
@@ -455,6 +459,7 @@ export async function POST(request: Request) {
           serviceTitle: verifiedServiceTitle,
           bookingType: serviceDoc.bookingType,
           registrationType: 'seat',
+          refundPolicy: refundPolicySnapshot,
           date: eventDate,
           time: eventTime,
           ...(clientObjId ? { clientId: clientObjId } : {}),
@@ -669,6 +674,7 @@ export async function POST(request: Request) {
     const reference = `BK-${Math.floor(1000 + Math.random() * 9000)}`
     const deliveryMode = serviceDoc?.deliveryMode || 'ONLINE'
     const rescheduleToken = crypto.randomBytes(24).toString('hex')
+    const refundPolicySnapshot = createBookingRefundPolicySnapshot(serviceDoc?.refundPolicy)
 
     const booking = await createExpertBooking({
       reference,
@@ -676,6 +682,7 @@ export async function POST(request: Request) {
       expertSlug,
       serviceId: serviceDoc ? serviceDoc._id : undefined,
       serviceTitle: verifiedServiceTitle,
+      refundPolicy: refundPolicySnapshot,
       date,
       time,
       ...(clientObjId ? { clientId: clientObjId } : {}),

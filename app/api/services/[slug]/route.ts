@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
-import { getServicesCollection, getExpertsCollection, toObjectId } from '@/lib/db'
+import { getServicesCollection, getExpertsCollection, getReviewsCollection, toObjectId } from '@/lib/db'
 import { isAllowedMvpCategory, isAllowedMvpSubcategory } from '@/lib/data/categories'
 import { stripUnverifiedAccreditationClaims } from '@/lib/services/service-validation'
 
@@ -49,7 +49,27 @@ export async function GET(request: Request, { params }: RouteProps) {
       )
     }
 
-    const expert = await expertsCol.findOne({ _id: serviceDoc.expertId })
+    const reviewsCol = await getReviewsCollection()
+    const [expert, serviceReviews] = await Promise.all([
+      expertsCol.findOne({ _id: serviceDoc.expertId }),
+      reviewsCol
+        .find({ serviceId: serviceDoc._id })
+        .sort({ createdAt: -1 })
+        .project({ clientEmail: 0, platformFeedback: 0 })
+        .toArray(),
+    ])
+
+    const computedReviewsCount =
+      serviceReviews.length > 0 ? serviceReviews.length : Number(serviceDoc.reviewsCount || 0)
+    const computedRating =
+      serviceReviews.length > 0
+        ? Number(
+            (
+              serviceReviews.reduce((sum, r) => sum + Number(r.serviceRating || r.expertRating || 5), 0) /
+              serviceReviews.length
+            ).toFixed(1)
+          )
+        : Number(serviceDoc.rating || 0)
 
     const verifiedAccreditation = Boolean(serviceDoc.hasVerifiedAccreditationAuthorization)
     const safeTitle = verifiedAccreditation
@@ -81,6 +101,16 @@ export async function GET(request: Request, { params }: RouteProps) {
       ...(safeEvent ? { event: safeEvent } : {}),
       title: safeTitle,
       description: safeDescription,
+      rating: computedRating,
+      reviewsCount: computedReviewsCount,
+      reviews: serviceReviews.map((r) => ({
+        ...r,
+        _id: r._id.toString(),
+        bookingId: r.bookingId?.toString(),
+        expertId: r.expertId?.toString(),
+        serviceId: r.serviceId?.toString(),
+        clientId: r.clientId?.toString(),
+      })),
       adultsOnly: true,
       minimumAge: 18,
       _id: serviceDoc._id.toString(),

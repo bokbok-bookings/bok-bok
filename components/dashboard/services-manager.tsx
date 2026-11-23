@@ -16,6 +16,12 @@ import {
   offeringTypeToModel,
   getOfferingType,
 } from '@/lib/services/service-types'
+import {
+  type RefundPolicyType,
+  REFUND_POLICY_OPTIONS,
+  getPredefinedRefundPolicy,
+  formatRefundPolicyDetails,
+} from '@/lib/services/refund-policies'
 import { Share2, Check, ShieldAlert, Users, Image as ImageIcon, Trash2, MapPin, ChevronUp, ChevronDown, GripVertical } from 'lucide-react'
 import { CloudinaryUploadWidget } from '@/components/ui/cloudinary-upload-widget'
 import { useLanguage } from '@/lib/i18n/language-context'
@@ -70,6 +76,11 @@ export interface ServiceItem {
   durationMinutes: number
   breakAfterMinutes: number
   minNoticeHours?: number
+  refundPolicy?: {
+    type: RefundPolicyType
+    name: string
+    rules: Array<{ refundPercentage: number; minimumHoursBefore: number }>
+  }
   pricing: {
     baseCurrency: string
     prices: Record<string, number>
@@ -142,6 +153,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
   const [duration, setDuration] = useState(45)
   const [breakAfter, setBreakAfter] = useState(10)
   const [minNoticeHours, setMinNoticeHours] = useState(24)
+  const [refundPolicyType, setRefundPolicyType] = useState<RefundPolicyType>('standard')
 
   // In-person location
   const [city, setCity] = useState('Cairo')
@@ -337,6 +349,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
     setDuration(45)
     setBreakAfter(10)
     setMinNoticeHours(24)
+    setRefundPolicyType('standard')
     setCity('Cairo')
     setAddress('')
     setAddressDescription('')
@@ -404,6 +417,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
     setDuration(s.durationMinutes || 45)
     setBreakAfter(s.breakAfterMinutes || 10)
     setMinNoticeHours(s.minNoticeHours !== undefined ? Number(s.minNoticeHours) : 24)
+    setRefundPolicyType(s.refundPolicy?.type || 'standard')
     setCity(s.location?.city || 'Cairo')
     setAddress(s.location?.address || '')
     setAddressDescription(s.location?.addressDescription || '')
@@ -454,6 +468,10 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
       alert('Please specify the intended audience in both English and Arabic.')
       return
     }
+    if (!refundPolicyType) {
+      alert(isAr ? 'يرجى اختيار سياسة الإلغاء والاسترداد للخدمة.' : 'Please select a refund policy for this service.')
+      return
+    }
 
     setSaving(true)
     try {
@@ -490,6 +508,8 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
         isActive,
         isMostBooked,
         minNoticeHours: Number(minNoticeHours),
+        refundPolicy: getPredefinedRefundPolicy(refundPolicyType),
+        refundPolicyType,
       }
 
       if (deliveryMode !== 'ONLINE') {
@@ -710,11 +730,22 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                       )}
                       <span className="rounded-md bg-sky-50 border border-sky-200 px-2 py-0.5 text-sky-800 font-bold">
                         {s.minNoticeHours === 0
-                          ? '⚡ Same Day'
+                          ? 'Same Day'
                           : (s.minNoticeHours === 24 || s.minNoticeHours === undefined)
-                            ? '🕒 24h Notice'
-                            : `🕒 ${Math.round(s.minNoticeHours / 24)}d Notice`}
+                            ? '24h Notice'
+                            : `${Math.round(s.minNoticeHours / 24)}d Notice`}
                       </span>
+                      {(() => {
+                        const pol = formatRefundPolicyDetails(s.refundPolicy, isAr ? 'ar' : 'en')
+                        return (
+                          <span
+                            className="rounded-md bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-indigo-800 font-bold"
+                            title={pol.description}
+                          >
+                            {pol.name}
+                          </span>
+                        )
+                      })()}
                       {s.requiresLicensingReview && (
                         <span className="rounded-full bg-purple-50 border border-purple-300 px-2 py-0.5 text-[10px] font-bold text-purple-800">
                           {s.licensingReviewStatus === 'licensing_approved'
@@ -773,9 +804,9 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                                 : 'border-slate-300 bg-slate-100 text-slate-700'
                             }`}
                           >
-                            <option value="open">{isAr ? '🟢 مفتوح للتسجيل' : '🟢 Open for Registration'}</option>
-                            <option value="coming_soon">{isAr ? '🟡 قريباً (إشعار عند الفتح)' : '🟡 Coming Soon (Notify Me)'}</option>
-                            <option value="closed">{isAr ? '🔴 التسجيل مغلق' : '🔴 Registration Closed'}</option>
+                            <option value="open">{isAr ? 'مفتوح للتسجيل' : 'Open for Registration'}</option>
+                            <option value="coming_soon">{isAr ? 'قريباً (إشعار عند الفتح)' : 'Coming Soon (Notify Me)'}</option>
+                            <option value="closed">{isAr ? 'التسجيل مغلق' : 'Registration Closed'}</option>
                           </select>
                           {updatingStatusId === s._id && (
                             <span className="text-[10px] font-bold text-accent animate-pulse">
@@ -793,7 +824,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                           <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-[11px]">
                             <div className="flex items-center gap-1.5 min-w-0">
                               <span className="font-bold text-emerald-900 shrink-0">
-                                🎥 {isAr ? 'رابط Google Meet المشترك:' : 'Shared Google Meet:'}
+                                {isAr ? 'رابط Google Meet المشترك:' : 'Shared Google Meet:'}
                               </span>
                               <a
                                 href={s.event.joinUrl}
@@ -816,7 +847,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                           </div>
                         ) : (
                           <p className="rounded-xl border border-slate-200 bg-[#F8FAFC] px-3 py-2 text-[11px] text-[#637084]">
-                            🎥{' '}
+                            
                             {s.approvalStatus === 'approved'
                               ? isAr
                                 ? 'سيتم ربط رابط Google Meet المشترك بواسطة إدارة المنصة.'
@@ -960,8 +991,8 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { id: 'ONLINE', label: isAr ? '🌐 عبر الإنترنت (مكالمة فيديو / عن بُعد)' : '🌐 Online (Video call / remote)' },
-                    { id: 'IN_PERSON', label: isAr ? '📍 حضورياً في مقر/عنوان' : '📍 In-Person' },
+                    { id: 'ONLINE', label: isAr ? 'عبر الإنترنت (مكالمة فيديو / عن بُعد)' : 'Online (Video call / remote)' },
+                    { id: 'IN_PERSON', label: isAr ? 'حضورياً في مقر/عنوان' : 'In-Person' },
                   ].map((m) => (
                     <button
                       key={m.id}
@@ -1421,7 +1452,6 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
 
                   {deliveryMode === 'ONLINE' && (
                     <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-xs text-[#101F49] flex items-center gap-2.5">
-                      <span className="text-base">🎥</span>
                       <p className="text-[11px] leading-relaxed">
                         {isAr
                           ? 'سيتم إنشاء رابط جلسة Google Meet تلقائياً بواسطة منصة بوك بوك وإرساله للمشتركين المؤكدين.'
@@ -1590,19 +1620,19 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                     isAr ? (
                       <>
                         <p>
-                          <strong>🔒 إيقاف الحجز التلقائي:</strong> سيتم قفل وإخفاء أي مواعيد تقع ضمن هذه المهلة الزمنية من جدول الحجز؛ فلن يتمكن أي عميل من طلب موعد يبدأ خلال هذه المدة (مثال: عند اختيار 24 ساعة، لا يمكن للعميل حجز موعد يبدأ قبل مرور 24 ساعة من الآن).
+                          <strong>إيقاف الحجز التلقائي:</strong> سيتم قفل وإخفاء أي مواعيد تقع ضمن هذه المهلة الزمنية من جدول الحجز؛ فلن يتمكن أي عميل من طلب موعد يبدأ خلال هذه المدة (مثال: عند اختيار 24 ساعة، لا يمكن للعميل حجز موعد يبدأ قبل مرور 24 ساعة من الآن).
                         </p>
                         <p>
-                          <strong>💡 الاستخدام الموصى به:</strong> يفضل وموصى به بشدة عند حاجتك لوقت مسبق لدراسة ملفات العميل، أو مراجعة أعماله ومواده، أو إرسال استبيان/أسئلة يحتاج العميل وقتاً للإجابة عليها قبل موعد الجلسة.
+                          <strong>الاستخدام الموصى به:</strong> يفضل وموصى به بشدة عند حاجتك لوقت مسبق لدراسة ملفات العميل، أو مراجعة أعماله ومواده، أو إرسال استبيان/أسئلة يحتاج العميل وقتاً للإجابة عليها قبل موعد الجلسة.
                         </p>
                       </>
                     ) : (
                       <>
                         <p>
-                          <strong>🔒 Automatic Slot Locking:</strong> Any time slots falling within this advance notice window will be automatically locked and hidden on the booking calendar; clients cannot book any slot starting sooner than this timeframe (e.g. if set to 24 hours, clients cannot book any slot starting less than 24 hours from now).
+                          <strong>Automatic Slot Locking:</strong> Any time slots falling within this advance notice window will be automatically locked and hidden on the booking calendar; clients cannot book any slot starting sooner than this timeframe (e.g. if set to 24 hours, clients cannot book any slot starting less than 24 hours from now).
                         </p>
                         <p>
-                          <strong>💡 Recommended Use:</strong> Strongly preferred when you require advance preparation time to study client files, review their materials/portfolio, or have the client complete an intake survey before the call.
+                          <strong>Recommended Use:</strong> Strongly preferred when you require advance preparation time to study client files, review their materials/portfolio, or have the client complete an intake survey before the call.
                         </p>
                       </>
                     )
@@ -1610,19 +1640,19 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                     isAr ? (
                       <>
                         <p>
-                          <strong>🔒 إغلاق التسجيل التلقائي:</strong> سيتم قفل وإغلاق باب التسجيل في الفعالية تلقائياً قبل بدء موعدها بهذه المهلة المحددة (مثال: عند اختيار 24 ساعة، يُغلق التسجيل قبل 24 ساعة تماماً من توقيت بدء الويبينار أو الورشة).
+                          <strong>إغلاق التسجيل التلقائي:</strong> سيتم قفل وإغلاق باب التسجيل في الفعالية تلقائياً قبل بدء موعدها بهذه المهلة المحددة (مثال: عند اختيار 24 ساعة، يُغلق التسجيل قبل 24 ساعة تماماً من توقيت بدء الويبينار أو الورشة).
                         </p>
                         <p>
-                          <strong>💡 الاستخدام الموصى به:</strong> مفيد جداً لحصر قائمة الحضور وإعداد المادة العلمية وتجهيز دعوات اللقاء قبل بدء الفعالية بوقت كافٍ دون مفاجآت تسجيل اللحظات الأخيرة.
+                          <strong>الاستخدام الموصى به:</strong> مفيد جداً لحصر قائمة الحضور وإعداد المادة العلمية وتجهيز دعوات اللقاء قبل بدء الفعالية بوقت كافٍ دون مفاجآت تسجيل اللحظات الأخيرة.
                         </p>
                       </>
                     ) : (
                       <>
                         <p>
-                          <strong>🔒 Automatic Registration Cutoff:</strong> Registration will automatically close and lock this many hours/days before the event start time (e.g. if set to 24 hours, booking closes 24 hours before the webinar begins).
+                          <strong>Automatic Registration Cutoff:</strong> Registration will automatically close and lock this many hours/days before the event start time (e.g. if set to 24 hours, booking closes 24 hours before the webinar begins).
                         </p>
                         <p>
-                          <strong>💡 Recommended Use:</strong> Ideal for finalizing attendee rosters, preparing worksheets or handouts, and setting up access links ahead of time without last-minute registration surprises.
+                          <strong>Recommended Use:</strong> Ideal for finalizing attendee rosters, preparing worksheets or handouts, and setting up access links ahead of time without last-minute registration surprises.
                         </p>
                       </>
                     )
@@ -1669,6 +1699,93 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                     </>
                   )}
                 </select>
+              </div>
+
+              {/* Required Refund Policy Selection */}
+              <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                  <div>
+                    <label className="block text-xs font-bold text-[#101F49]">
+                      {isAr ? 'سياسة الإلغاء والاسترداد (Refund Policy) *' : 'Refund Policy *'}
+                    </label>
+                    <p className="text-[11px] text-[#637084] mt-0.5">
+                      {isAr
+                        ? 'اختر إحدى السياسات الثلاث المحددة مسبقاً. تُعرض هذه السياسة للعميل بوضوح قبل الدفع وتُحفظ كنسخة ثابتة مع الحجز.'
+                        : 'Select one of the three predefined policies. Displayed to clients before payment and preserved as an immutable snapshot on each booking.'}
+                    </p>
+                  </div>
+                  <span className="self-start sm:self-auto rounded-full bg-[#E8EFFF] px-2.5 py-0.5 text-[10px] font-bold text-[#2855C5] shrink-0">
+                    {isAr ? 'مطلوب إلزامي' : 'Required'}
+                  </span>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {REFUND_POLICY_OPTIONS.map((policy) => {
+                    const isSelected = refundPolicyType === policy.type
+                    const details = formatRefundPolicyDetails(policy, isAr ? 'ar' : 'en')
+                    return (
+                      <div
+                        key={policy.type}
+                        onClick={() => setRefundPolicyType(policy.type)}
+                        className={`relative flex flex-col justify-between rounded-2xl border p-4 cursor-pointer transition text-left ${
+                          isSelected
+                            ? 'border-[#2855C5] bg-white shadow-sm ring-2 ring-[#2855C5]/20'
+                            : 'border-[#E2E8F0] bg-white hover:border-[#CBD5E1] hover:bg-[#F8FAFC]'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <span className="text-xs font-bold text-[#101F49]">
+                              {isAr ? policy.nameAr : policy.name}
+                            </span>
+                            <div
+                              className={`flex size-4 items-center justify-center rounded-full border transition shrink-0 ${
+                                isSelected
+                                  ? 'border-[#2855C5] bg-[#2855C5] text-white'
+                                  : 'border-[#CBD5E1] bg-white'
+                              }`}
+                            >
+                              {isSelected && <Check size={10} strokeWidth={3} />}
+                            </div>
+                          </div>
+
+                          {policy.badgeEn && (
+                            <span
+                              className={`inline-block mb-2 rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                                policy.type === 'standard'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : policy.type === 'customer_friendly'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : 'bg-amber-100 text-amber-800'
+                              }`}
+                            >
+                              {isAr ? policy.badgeAr : policy.badgeEn}
+                            </span>
+                          )}
+
+                          <p className="text-[11px] leading-relaxed text-[#637084] mb-3">
+                            {isAr ? policy.descriptionAr : policy.descriptionEn}
+                          </p>
+                        </div>
+
+                        <div className="border-t border-[#F1F5F9] pt-2.5 space-y-1.5 text-[10px]">
+                          <div className="flex items-start gap-1.5 text-emerald-700 font-semibold leading-tight">
+                            <span className="mt-1 size-1.5 rounded-full bg-emerald-500 shrink-0" />
+                            <span>{details.fullRefundDeadline}</span>
+                          </div>
+                          <div className="flex items-start gap-1.5 text-amber-700 font-semibold leading-tight">
+                            <span className="mt-1 size-1.5 rounded-full bg-amber-500 shrink-0" />
+                            <span>{details.partialRefundDeadline}</span>
+                          </div>
+                          <div className="flex items-start gap-1.5 text-rose-600 font-semibold leading-tight">
+                            <span className="mt-1 size-1.5 rounded-full bg-rose-500 shrink-0" />
+                            <span>{details.zeroRefundCondition}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
 
               {/* Multi-Currency Pricing */}

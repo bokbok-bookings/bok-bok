@@ -21,6 +21,7 @@ import {
   matchParticipantsToRoles,
 } from '@/lib/google-calendar'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { createBookingRefundPolicySnapshot } from '@/lib/services/refund-policies'
 
 export const dynamic = 'force-dynamic'
 
@@ -229,6 +230,11 @@ export async function GET(request: Request, context: RouteContext) {
         rescheduleDeadlineHours: deadlineHours,
         rescheduleDeadlineAt,
         isRescheduleAllowed,
+        refundPolicy:
+          booking.refundPolicy ||
+          (serviceDoc?.refundPolicy
+            ? createBookingRefundPolicySnapshot(serviceDoc.refundPolicy)
+            : createBookingRefundPolicySnapshot(null)),
         attendanceStatus: booking.attendanceStatus || 'pending',
         attendanceSource: booking.attendanceSource,
         isAttendanceReportingOpen,

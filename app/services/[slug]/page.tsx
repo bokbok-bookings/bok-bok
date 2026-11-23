@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { ObjectId } from 'mongodb'
-import { getServicesCollection, getExpertsCollection, toObjectId } from '@/lib/db'
+import { getServicesCollection, getExpertsCollection, getReviewsCollection, toObjectId } from '@/lib/db'
 import { isAllowedMvpCategory, isAllowedMvpSubcategory } from '@/lib/data/categories'
 import { stripUnverifiedAccreditationClaims } from '@/lib/services/service-validation'
 import { ServiceDetailView } from '@/components/service/service-detail-view'
@@ -12,8 +12,9 @@ interface PageProps {
 async function fetchPublicServiceAndExpert(slug: string): Promise<{
   service: any | null
   expert: any | null
+  reviews: any[]
 }> {
-  if (!slug) return { service: null, expert: null }
+  if (!slug) return { service: null, expert: null, reviews: [] }
 
   const servicesCol = await getServicesCollection()
   const orConditions: any[] = [{ slug }]
@@ -31,19 +32,23 @@ async function fetchPublicServiceAndExpert(slug: string): Promise<{
     (service.requiresLicensingReview &&
       service.licensingReviewStatus !== 'licensing_approved')
   ) {
-    return { service: null, expert: null }
+    return { service: null, expert: null, reviews: [] }
   }
 
-  let expert: any = null
-  if (
+  const reviewsCol = await getReviewsCollection()
+  const [expert, reviews] = await Promise.all([
     service.expertId &&
     (service.expertId instanceof ObjectId || ObjectId.isValid(String(service.expertId)))
-  ) {
-    const expertsCol = await getExpertsCollection()
-    expert = await expertsCol.findOne({ _id: toObjectId(service.expertId) })
-  }
+      ? getExpertsCollection().then((col) => col.findOne({ _id: toObjectId(service.expertId) }))
+      : Promise.resolve(null),
+    reviewsCol
+      .find({ serviceId: service._id })
+      .sort({ createdAt: -1 })
+      .project({ clientEmail: 0, platformFeedback: 0 })
+      .toArray(),
+  ])
 
-  return { service, expert }
+  return { service, expert, reviews }
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -119,11 +124,13 @@ export default async function ServicePage({ params }: PageProps) {
 
   let service: any = null
   let expert: any = null
+  let reviews: any[] = []
 
   try {
     const res = await fetchPublicServiceAndExpert(slug)
     service = res.service
     expert = res.expert
+    reviews = res.reviews || []
   } catch (err) {
     console.error('Failed to load service for schema:', err)
   }
@@ -132,6 +139,18 @@ export default async function ServicePage({ params }: PageProps) {
   let initialService: any = null
 
   if (service) {
+    const computedReviewsCount =
+      reviews.length > 0 ? reviews.length : Number(service.reviewsCount || 0)
+    const computedRating =
+      reviews.length > 0
+        ? Number(
+            (
+              reviews.reduce((sum, r) => sum + Number(r.serviceRating || r.expertRating || 5), 0) /
+              reviews.length
+            ).toFixed(1)
+          )
+        : Number(service.rating || 0)
+
     const verifiedAccreditation = Boolean(service.hasVerifiedAccreditationAuthorization)
     const safeTitle = verifiedAccreditation
       ? service.title
@@ -173,6 +192,16 @@ export default async function ServicePage({ params }: PageProps) {
         ...(safeEvent ? { event: safeEvent } : {}),
         title: safeTitle,
         description: safeDescription,
+        rating: computedRating,
+        reviewsCount: computedReviewsCount,
+        reviews: reviews.map((r) => ({
+          ...r,
+          _id: r._id.toString(),
+          bookingId: r.bookingId?.toString(),
+          expertId: r.expertId?.toString(),
+          serviceId: r.serviceId?.toString(),
+          clientId: r.clientId?.toString(),
+        })),
         adultsOnly: true,
         minimumAge: 18,
         _id: service._id.toString(),

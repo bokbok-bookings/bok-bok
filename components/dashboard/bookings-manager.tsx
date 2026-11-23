@@ -926,7 +926,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                           onClick={() => setViewIntakeBooking(b)}
                           className="mt-1 inline-flex items-center gap-1 rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-700 hover:bg-blue-100 transition shadow-2xs"
                         >
-                          <span>📋 Intake Answers ({b.intakeAnswers.length})</span>
+                          <span>Intake Answers ({b.intakeAnswers.length})</span>
                         </button>
                       )}
                     </td>
@@ -990,7 +990,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                             <span className="text-[10px] text-[#8b94a1]">Session ended</span>
                           ) : (
                             <span className="inline-block rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold text-amber-900">
-                              🔒 Unlocks 15m before session
+                              Unlocks 15m before session
                             </span>
                           )
                         ) : isConfirmed ? (
@@ -1042,7 +1042,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                       ) : (
                         <div className="space-y-0.5">
                           <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 border border-neutral-200 px-2 py-0.5 text-[10px] font-bold text-neutral-800">
-                            📍 In-Person
+                            In-Person
                           </span>
                           {b.location?.address && (
                             <p className="text-[11px] text-[#14243b] font-medium truncate max-w-[180px]" title={b.location.address}>
@@ -1637,7 +1637,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                         rel="noreferrer"
                         className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 border border-indigo-200 px-3 py-1.5 text-xs font-bold text-indigo-800 hover:underline"
                       >
-                        📄 Open Client PDF Document ↗
+                        Open Client PDF Document ↗
                       </a>
                     ) : (
                       <span className="text-xs text-[#8b94a1] italic">No file uploaded</span>

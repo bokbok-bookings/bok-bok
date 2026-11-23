@@ -409,14 +409,14 @@ export default function AdminServicesPage() {
                           {typeLabel}
                         </span>
                         <span className="rounded-full bg-neutral-100 border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                          {dMode === 'IN_PERSON' ? '📍 In-Person' : '🌐 Online'}
+                          {dMode === 'IN_PERSON' ? 'In-Person' : 'Online'}
                         </span>
                         <span className="rounded-full bg-sky-50 border border-sky-200 px-2.5 py-0.5 text-[10px] font-bold text-sky-800">
                           {srv.minNoticeHours === 0
-                            ? '⚡ Same Day'
+                            ? 'Same Day'
                             : (srv.minNoticeHours === 24 || srv.minNoticeHours === undefined)
-                              ? '🕒 24h Notice'
-                              : `🕒 ${Math.round(srv.minNoticeHours / 24)}d Notice`}
+                              ? '24h Notice'
+                              : `${Math.round(srv.minNoticeHours / 24)}d Notice`}
                         </span>
                         <span
                           className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${srv.approvalStatus === 'pending'
@@ -441,12 +441,12 @@ export default function AdminServicesPage() {
                               ? '✓ Licensing Review Approved'
                               : srv.licensingReviewStatus === 'licensing_rejected'
                                 ? '✕ Licensing Review Rejected'
-                                : '⚠ Separate Licensing Review Required'}
+                                : 'Separate Licensing Review Required'}
                           </span>
                         )}
                         {srv.isMvpTaxonomyValid === false && (
                           <span className="rounded-full bg-rose-50 border border-rose-200 px-2.5 py-0.5 text-[10px] font-bold text-rose-700">
-                            ⚠ Outside Approved Taxonomy
+                            Outside Approved Taxonomy
                           </span>
                         )}
                       </div>
@@ -506,7 +506,7 @@ export default function AdminServicesPage() {
                           <div className="pt-1">
                             {srv.event?.joinUrl ? (
                               <div className="inline-flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs">
-                                <span className="font-bold text-emerald-900">🎥 Shared Google Meet:</span>
+                                <span className="font-bold text-emerald-900">Shared Google Meet:</span>
                                 <a
                                   href={srv.event.joinUrl}
                                   target="_blank"
@@ -529,7 +529,7 @@ export default function AdminServicesPage() {
                             ) : srv.event?.googleMeetError ? (
                               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-800">
                                 <span>
-                                  <strong>⚠ Google Meet Error:</strong> {srv.event.googleMeetError}
+                                  <strong>Google Meet Error:</strong> {srv.event.googleMeetError}
                                 </span>
                                 <button
                                   type="button"
@@ -541,7 +541,7 @@ export default function AdminServicesPage() {
                               </div>
                             ) : srv.approvalStatus === 'approved' ? (
                               <div className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-900">
-                                <span>🎥 No shared Google Meet link yet.</span>
+                                <span>No shared Google Meet link yet.</span>
                                 <button
                                   type="button"
                                   onClick={() => handleServiceAction(srv._id, 'generate_meet_link')}
@@ -552,7 +552,7 @@ export default function AdminServicesPage() {
                               </div>
                             ) : (
                               <p className="text-[11px] text-muted-foreground">
-                                🎥 Shared Google Meet room will be created automatically upon approval.
+                                Shared Google Meet room will be created automatically upon approval.
                               </p>
                             )}
                           </div>

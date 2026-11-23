@@ -53,6 +53,11 @@ export interface ClientBooking {
   canComplain: boolean
   deadlineHours: number
   rescheduleDeadlineAt?: string
+  refundPolicy?: {
+    type: string
+    name: string
+    rules: Array<{ refundPercentage: number; minimumHoursBefore: number }>
+  }
   eventSessions?: Array<{ id: string; title: { en: string; ar: string }; date: string; startTime: string; endTime: string }>
   recordingUrl?: string
   materials?: Array<{ id: string; title: string; url: string; type: 'pdf' | 'link' | 'video' }>

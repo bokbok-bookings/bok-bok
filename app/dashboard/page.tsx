@@ -125,7 +125,7 @@ export default async function DashboardPage() {
               </span>
               {expertDoc?.featuredHome && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 border border-amber-400/40 px-2 py-0.5 text-[9px] font-black text-amber-900 tracking-wider">
-                  ⭐ FEATURED ON HOME
+                  FEATURED ON HOME
                 </span>
               )}
             </div>
@@ -295,7 +295,7 @@ export default async function DashboardPage() {
                       ) : b.status === 'confirmed' && !isSessionEnded ? (
                         <div>
                           <span className="inline-block rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-semibold text-amber-900">
-                            🔒 Meet link unlocks 15m before session
+                            Meet link unlocks 15m before session
                           </span>
                         </div>
                       ) : null}
@@ -455,7 +455,7 @@ export default async function DashboardPage() {
                           </a>
                         ) : b.status === 'confirmed' && !isSessionEnded ? (
                           <span className="text-[10px] font-semibold text-amber-800">
-                            🔒 Unlocks 15m before session
+                            Unlocks 15m before session
                           </span>
                         ) : (
                           <span className="text-[11px] text-[#8b94a1]">—</span>

@@ -62,19 +62,50 @@ export async function GET(request: Request) {
       reviewsCol.countDocuments(query),
     ])
 
+    // Enrich reviews with service title & booking type when serviceId is present
+    const serviceIds = [
+      ...new Set(
+        reviews
+          .map((r) => (r.serviceId ? r.serviceId.toString() : ''))
+          .filter((id) => ObjectId.isValid(id))
+      ),
+    ]
+    const serviceMap = new Map<string, { title?: { en: string; ar: string }; slug?: string; bookingType?: string }>()
+    if (serviceIds.length > 0) {
+      const servicesCol = await getServicesCollection()
+      const serviceDocs = await servicesCol
+        .find({ _id: { $in: serviceIds.map((id) => new ObjectId(id)) } })
+        .project({ title: 1, slug: 1, bookingType: 1 })
+        .toArray()
+      for (const s of serviceDocs) {
+        serviceMap.set(s._id.toString(), {
+          title: s.title,
+          slug: s.slug,
+          bookingType: s.bookingType,
+        })
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      data: reviews.map((r) => ({
-        ...r,
-        _id: r._id.toString(),
-        bookingId: r.bookingId?.toString(),
-        expertId: r.expertId?.toString(),
-        serviceId: r.serviceId?.toString(),
-        clientId: r.clientId?.toString(),
-      })),
+      data: reviews.map((r) => {
+        const srv = r.serviceId ? serviceMap.get(r.serviceId.toString()) : undefined
+        return {
+          ...r,
+          _id: r._id.toString(),
+          bookingId: r.bookingId?.toString(),
+          expertId: r.expertId?.toString(),
+          serviceId: r.serviceId?.toString(),
+          clientId: r.clientId?.toString(),
+          ...(srv?.title ? { serviceTitle: srv.title } : {}),
+          ...(srv?.slug ? { serviceSlug: srv.slug } : {}),
+          ...(srv?.bookingType ? { bookingType: srv.bookingType } : {}),
+        }
+      }),
       pagination: {
         page,
         limit,
+        limitPerPage: limit,
         total,
         totalPages: Math.ceil(total / limit),
       },

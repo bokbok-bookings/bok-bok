@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getServicesCollection, getExpertsCollection, toObjectId } from '@/lib/db'
+import { getServicesCollection, getExpertsCollection, getReviewsCollection, toObjectId } from '@/lib/db'
 import { buildClassificationFilter, isCatalogView } from '@/lib/services/service-types'
 import {
   ALLOWED_CATEGORY_SLUGS,
@@ -152,16 +152,46 @@ export async function GET(request: Request) {
       services.sort((a, b) => (a.event?.date || '9999-99-99').localeCompare(b.event?.date || '9999-99-99'))
     }
 
-    // Enrich with expert info if querying across platform
+    // Enrich with expert info and live service review ratings
     const expertIds = [...new Set(services.map((s) => s.expertId.toString()))]
-    const expertDocs = await expertsCol
-      .find({ _id: { $in: expertIds.map((id) => toObjectId(id)) } })
-      .project({ name: 1, slug: 1, image: 1, avatarUrl: 1, role: 1 })
-      .toArray()
+    const serviceObjIds = services.map((s) => s._id)
+    const reviewsCol = await getReviewsCollection()
+    const [expertDocs, reviewStats] = await Promise.all([
+      expertsCol
+        .find({ _id: { $in: expertIds.map((id) => toObjectId(id)) } })
+        .project({ name: 1, slug: 1, image: 1, avatarUrl: 1, role: 1 })
+        .toArray(),
+      serviceObjIds.length > 0
+        ? reviewsCol
+            .aggregate([
+              { $match: { serviceId: { $in: serviceObjIds } } },
+              {
+                $group: {
+                  _id: '$serviceId',
+                  avgRating: { $avg: { $ifNull: ['$serviceRating', '$expertRating'] } },
+                  count: { $sum: 1 },
+                },
+              },
+            ])
+            .toArray()
+        : Promise.resolve([]),
+    ])
     const expertMap = new Map(expertDocs.map((e) => [e._id.toString(), e]))
+    const reviewStatsMap = new Map(
+      reviewStats.map((r: any) => [
+        r._id.toString(),
+        {
+          rating: Number(Number(r.avgRating || 0).toFixed(1)),
+          reviewsCount: Number(r.count || 0),
+        },
+      ])
+    )
 
     const formatted = services.map((s) => {
       const exp = expertMap.get(s.expertId.toString())
+      const revStat = reviewStatsMap.get(s._id.toString())
+      const rating = revStat ? revStat.rating : Number(s.rating || 0)
+      const reviewsCount = revStat ? revStat.reviewsCount : Number(s.reviewsCount || 0)
       const verifiedAccreditation = Boolean(s.hasVerifiedAccreditationAuthorization)
       const safeTitle = verifiedAccreditation
         ? s.title
@@ -181,6 +211,8 @@ export async function GET(request: Request) {
         ...(s.event ? { event: sanitizePublicEvent(s.event) } : {}),
         title: safeTitle,
         description: safeDescription,
+        rating,
+        reviewsCount,
         adultsOnly: true,
         minimumAge: 18,
         _id: s._id.toString(),

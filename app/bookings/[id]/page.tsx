@@ -8,6 +8,7 @@ import { Video, Calendar, Clock, AlertCircle, CheckCircle, ArrowRight, ShieldChe
 import type { TimeSlot, DayAvailability } from '@/lib/data/availability'
 import { formatDateLabel, formatSlotLabel } from '@/lib/data/availability'
 import { useLanguage } from '@/lib/i18n/language-context'
+import { formatRefundPolicyDetails, calculateEligibleRefund } from '@/lib/services/refund-policies'
 
 interface BookingDetailPageProps {
   params: Promise<{ id: string }> | { id: string }
@@ -518,7 +519,7 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
                   />
                 ) : (
                   <div className="grid size-full place-items-center text-xs font-bold text-primary">
-                    {isOnline ? '🎥' : '📍'}
+                    {isOnline ? <Video size={20} /> : <Calendar size={20} />}
                   </div>
                 )}
               </div>
@@ -919,6 +920,103 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
             )}
           </div>
         )}
+
+        {/* SECTION: Cancellation & Refund Policy Snapshot */}
+        {(() => {
+          const snapshot = booking.refundPolicy
+          const policyDetails = formatRefundPolicyDetails(snapshot, isAr ? 'ar' : 'en')
+          const calculation = calculateEligibleRefund({
+            policy: snapshot,
+            sessionStartAt: booking.sessionStartAt || booking.date,
+            totalAmount: booking.amount,
+          })
+
+          const isPastSession = booking.sessionEndAt ? new Date() > new Date(booking.sessionEndAt) : false
+          const isCancelledBooking = booking.status === 'cancelled' || booking.status === 'rejected'
+
+          return (
+            <div className="rounded-3xl border border-border bg-surface p-6 sm:p-8 shadow-xs space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-11 items-center justify-center rounded-2xl bg-secondary text-primary border border-border shrink-0">
+                    <ShieldCheck size={22} className="text-primary" />
+                  </div>
+                  <h2 className="text-lg font-bold text-primary">
+                    {isAr ? 'وثيقة سياسة الإلغاء والاسترداد المطبقة' : 'Booking Refund Policy Snapshot'}
+                  </h2>
+                </div>
+
+                <div className="text-start sm:text-end">
+                  <span className="inline-block rounded-full bg-secondary border border-border px-3 py-1 text-xs font-bold text-primary">
+                    {isAr ? 'نسخة مثبتة ومحفوظة مع الحجز' : 'Immutable Snapshot'}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-xs sm:text-sm text-foreground/85 leading-relaxed">
+                {policyDetails.description}
+              </p>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-border bg-background p-4 space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
+                    <span className="size-2 rounded-full bg-accent shrink-0" />
+                    <span>{isAr ? 'استرداد كامل 100%' : '100% Full Refund'}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground font-medium">
+                    {policyDetails.fullRefundDeadline}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-border bg-background p-4 space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
+                    <span className="size-2 rounded-full bg-primary/60 shrink-0" />
+                    <span>{isAr ? 'استرداد جزئي 50%' : '50% Partial Refund'}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground font-medium">
+                    {policyDetails.partialRefundDeadline}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-border bg-background p-4 space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
+                    <span className="size-2 rounded-full bg-muted-foreground/40 shrink-0" />
+                    <span>{isAr ? 'لا يوجد استرداد 0%' : '0% No Refund'}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground font-medium">
+                    {policyDetails.zeroRefundCondition}
+                  </p>
+                </div>
+              </div>
+
+              {/* Real-time Eligible Refund Calculation Box */}
+              {!isCancelledBooking && !isPastSession && (
+                <div className="rounded-2xl border border-accent/40 bg-accent/10 p-4 space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} className="text-primary shrink-0" />
+                      <span className="text-xs font-bold text-primary">
+                        {isAr ? 'حالة الاسترداد اللحظية في حال الإلغاء الآن:' : 'Real-time cancellation refund estimate:'}
+                      </span>
+                    </div>
+                    <span className="text-xs font-black text-primary">
+                      {calculation.refundPercentage}% ({calculation.refundAmount} {booking.currency || 'EGP'})
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    {isAr ? calculation.summaryTextAr : calculation.summaryTextEn}
+                  </p>
+                </div>
+              )}
+
+              <p className="text-[11px] text-muted-foreground italic">
+                {isAr
+                  ? 'ملاحظة هامة: يحتفظ هذا الحجز بالسياسة المحددة وقت إنشائه ودفع قيمته ولا يتأثر بأي تغيير يجريه الخبير لاحقاً على الخدمة.'
+                  : 'Important notice: This booking preserves the exact refund policy active when the booking was created and paid for, completely protected from future edits by the expert.'}
+              </p>
+            </div>
+          )
+        })()}
 
         {/* SECTION 3: Post-Session Attendance Confirmation */}
         <div id="attendance" className="rounded-3xl border border-border bg-surface p-6 sm:p-8 shadow-xs space-y-6">

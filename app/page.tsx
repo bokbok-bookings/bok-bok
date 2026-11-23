@@ -512,7 +512,7 @@ export default function Page() {
                     <div className="flex items-center gap-1.5 flex-wrap justify-end">
                       {expert.featuredHome && (
                         <span className="flex items-center gap-1 rounded-full bg-amber-400/20 border border-amber-400/40 px-2.5 py-1 text-[10px] font-bold text-amber-900 shadow-2xs">
-                          ⭐ {isAr ? 'مميز' : 'Featured'}
+                          {isAr ? 'مميز' : 'Featured'}
                         </span>
                       )}
                       {Number((expert as any).reviews ?? 0) > 0 && Number(expert.rating) > 0 && (

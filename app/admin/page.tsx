@@ -506,12 +506,12 @@ export default function AdminOverviewPage() {
 
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#637084]">
                         <span>
-                          📅 <strong className="text-[#14243b]">{b.date}</strong> at{' '}
+                          <strong className="text-[#14243b]">{b.date}</strong> at{' '}
                           <strong className="text-[#14243b]">{b.time}</strong> ({b.durationMinutes}m)
                         </span>
                         {b.amount !== undefined && (
                           <span>
-                            💰{' '}
+                            
                             <strong className="text-[#14243b]">
                               {b.amount} {b.currency || 'EGP'}
                             </strong>{' '}

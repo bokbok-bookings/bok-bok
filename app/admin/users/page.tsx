@@ -301,14 +301,14 @@ export default function AdminUsersPage() {
                         onClick={() => handleOpenEditUser(u)}
                         className="rounded-lg border border-border bg-white px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-neutral-100 shadow-2xs transition"
                       >
-                        ✏ Edit
+                        Edit
                       </button>
                       {currentUser?._id !== u._id && currentUser?.email !== u.email && (
                         <button
                           onClick={() => handleDeleteUser(u)}
                           className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 shadow-2xs transition"
                         >
-                          🗑 Delete
+                          Delete
                         </button>
                       )}
                     </div>

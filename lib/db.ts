@@ -6,6 +6,15 @@ import type {
   BreakInterval,
   DaySchedule,
 } from '@/lib/data/availability'
+import type {
+  ServiceRefundPolicy,
+  BookingRefundPolicySnapshot,
+} from '@/lib/services/refund-policies'
+
+export type {
+  ServiceRefundPolicy,
+  BookingRefundPolicySnapshot,
+}
 
 /**
  * Retry a database operation on transient connection errors (as in DrDalia).
@@ -280,6 +289,7 @@ export interface ServiceDoc {
   durationMinutes: number
   breakAfterMinutes: number
   minNoticeHours?: number // Minimum notice required before booking (0 = same day, 24 = day before (default), 48 = 2 days, etc.)
+  refundPolicy?: ServiceRefundPolicy
   pricing: {
     baseCurrency: string // e.g. 'EGP'
     prices: Record<string, number> // { EGP: 750, USD: 25, SAR: 95 }
@@ -299,6 +309,8 @@ export interface ServiceDoc {
   licensingReviewedBy?: ObjectId
   hasVerifiedAccreditationAuthorization?: boolean
   adminReviewNote?: string
+  rating?: number
+  reviewsCount?: number
   createdAt: Date
   updatedAt: Date
 }
@@ -457,6 +469,7 @@ export interface BookingDoc {
   clientEmail: string
   clientPhone?: string
   intakeAnswers?: BookingIntakeAnswer[]
+  refundPolicy?: BookingRefundPolicySnapshot
   date: string // YYYY-MM-DD
   time: string // HH:mm
   durationMinutes: number

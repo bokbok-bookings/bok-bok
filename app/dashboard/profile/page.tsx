@@ -383,7 +383,7 @@ export default function ExpertProfilePage() {
                   : 'bg-muted border border-border text-muted-foreground'
                 }`}
             >
-              ⭐
+              ★
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -597,7 +597,7 @@ export default function ExpertProfilePage() {
                 : 'border-border bg-surface text-foreground hover:border-primary'
                 }`}
             >
-              ⚡ Prefer InstaPay
+              Prefer InstaPay
             </button>
             <button
               type="button"
@@ -607,7 +607,7 @@ export default function ExpertProfilePage() {
                 : 'border-border bg-surface text-foreground hover:border-primary'
                 }`}
             >
-              🏦 Prefer Bank Account
+              Prefer Bank Account
             </button>
           </div>
 

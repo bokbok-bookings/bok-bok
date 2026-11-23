@@ -14,6 +14,13 @@ import {
   slugify,
 } from './service-types'
 import {
+  type RefundPolicyType,
+  type ServiceRefundPolicy,
+  isRefundPolicyType,
+  getPredefinedRefundPolicy,
+  DEFAULT_REFUND_POLICY_TYPE,
+} from './refund-policies'
+import {
   MAX_APPOINTMENT_MINUTES,
   MIN_APPOINTMENT_MINUTES,
   isValidISODate,
@@ -110,6 +117,7 @@ export interface NormalizedService {
   durationMinutes: number
   breakAfterMinutes: number
   minNoticeHours?: number
+  refundPolicy: ServiceRefundPolicy
   pricing: { baseCurrency: string; prices: Record<string, number> }
   event?: ServiceEventDetails
   isStructuredVocationalProgramme: boolean
@@ -799,6 +807,31 @@ export function validateServiceInput(
         ? existing.minNoticeHours
         : 24
 
+  // ---- Refund Policy ---------------------------------------------------
+  const rawRefundPolicy = pick('refundPolicy')
+  const rawRefundPolicyType =
+    pick('refundPolicyType') ||
+    (typeof rawRefundPolicy === 'object' && rawRefundPolicy ? rawRefundPolicy.type : rawRefundPolicy)
+
+  let refundPolicy: ServiceRefundPolicy
+  if (rawRefundPolicyType !== undefined && rawRefundPolicyType !== null && rawRefundPolicyType !== '') {
+    if (!isRefundPolicyType(rawRefundPolicyType)) {
+      errors.push(
+        'Invalid refund policy. Please select one of the three predefined policies (customer_friendly, standard, expert_protection).',
+      )
+      refundPolicy = getPredefinedRefundPolicy(DEFAULT_REFUND_POLICY_TYPE)
+    } else {
+      refundPolicy = getPredefinedRefundPolicy(rawRefundPolicyType)
+    }
+  } else if (existing?.refundPolicy?.type && isRefundPolicyType(existing.refundPolicy.type)) {
+    refundPolicy = getPredefinedRefundPolicy(existing.refundPolicy.type)
+  } else {
+    // Default to Standard policy as migration / default value
+    refundPolicy = getPredefinedRefundPolicy(DEFAULT_REFUND_POLICY_TYPE)
+  }
+
+  if (errors.length > 0) return { ok: false, errors, warnings, unset }
+
   const rawWhatYouWillGet = pick('whatYouWillGet')
   let whatYouWillGet: LocalizedValue[] = []
   if (Array.isArray(rawWhatYouWillGet)) {
@@ -855,6 +888,7 @@ export function validateServiceInput(
     durationMinutes,
     breakAfterMinutes,
     minNoticeHours,
+    refundPolicy,
     pricing,
     isStructuredVocationalProgramme,
     requiresLicensingReview,

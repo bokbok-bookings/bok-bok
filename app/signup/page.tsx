@@ -103,7 +103,7 @@ export default function SignupPage() {
 
               <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50/60 p-3 text-start text-[11px] text-amber-900 leading-relaxed">
                 <p className="font-bold text-amber-950 mb-0.5">
-                  {isAr ? '💡 لم تصلك الرسالة؟' : '💡 Did not receive the email?'}
+                  {isAr ? 'لم تصلك الرسالة؟' : 'Did not receive the email?'}
                 </p>
                 <p>
                   {isAr

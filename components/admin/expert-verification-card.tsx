@@ -103,7 +103,7 @@ export function ExpertVerificationCard({
               </span>
               {exp.hasPendingInfoUpdate && (
                 <span className="rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-[10px] font-bold text-indigo-700">
-                  ✎ Pending Info Edit Request
+                  Pending Info Edit Request
                 </span>
               )}
               <span className="rounded-full bg-sky-50 border border-sky-200 px-2.5 py-0.5 text-[10px] font-bold text-sky-800 uppercase">
@@ -120,16 +120,16 @@ export function ExpertVerificationCard({
             <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-foreground">
               {exp.phone && (
                 <span className="rounded-md bg-neutral-100 border border-border px-2 py-0.5">
-                  📞 Phone: <strong>{exp.phone}</strong>
+                  Phone: <strong>{exp.phone}</strong>
                 </span>
               )}
               {exp.whatsapp && (
                 <span className="rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-emerald-800 font-medium">
-                  💬 WhatsApp: <strong>{exp.whatsapp}</strong>
+                  WhatsApp: <strong>{exp.whatsapp}</strong>
                 </span>
               )}
               <span className="rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-900">
-                💳 Preferred Payout:{' '}
+                Preferred Payout:{' '}
                 <strong className="uppercase">{exp.preferredPayoutMethod || 'instapay'}</strong>
                 {exp.instapayUsername ? ` (InstaPay: ${exp.instapayUsername})` : ''}
                 {exp.bankAccount?.accountNumber || exp.bankAccount?.iban
@@ -204,7 +204,7 @@ export function ExpertVerificationCard({
                         >
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-bold text-[#14243b]">
-                              📁 {catName}
+                              {catName}
                             </span>
                             <span className="text-[10px] text-muted-foreground font-mono">
                               ({c.categorySlug})
@@ -237,7 +237,7 @@ export function ExpertVerificationCard({
                     <div className="rounded-xl border border-border bg-[#F8FAFC] p-2.5 space-y-1.5">
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-bold text-[#14243b]">
-                          📁 {getCategoryLabel(exp.categorySlug, 'en') || exp.categorySlug}
+                          {getCategoryLabel(exp.categorySlug, 'en') || exp.categorySlug}
                         </span>
                       </div>
                       {exp.subcategorySlug && (
@@ -258,7 +258,7 @@ export function ExpertVerificationCard({
             {exp.suggestedCategory &&
               (exp.suggestedCategory.categoryName || exp.suggestedCategory.subcategoryName) && (
                 <div className="mt-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] text-amber-900">
-                  <strong>💡 Suggested New Category/Subcategory:</strong>{' '}
+                  <strong>Suggested New Category/Subcategory:</strong>{' '}
                   {exp.suggestedCategory.categoryName && (
                     <span>Category: &ldquo;{exp.suggestedCategory.categoryName}&rdquo; </span>
                   )}
@@ -320,7 +320,7 @@ export function ExpertVerificationCard({
         <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 space-y-2.5">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold text-indigo-900">
-              ✎ Requested Info Changes (Requires Admin Review)
+              Requested Info Changes (Requires Admin Review)
             </p>
             {exp.status === 'pending_review' && (
               <div className="flex items-center gap-2">
@@ -393,7 +393,7 @@ export function ExpertVerificationCard({
                       rel="noreferrer"
                       className="rounded-lg bg-indigo-50 border border-indigo-200 px-2.5 py-1 text-[11px] font-semibold text-indigo-800 hover:underline"
                     >
-                      📜 {cert.title} ({cert.fileType || 'file'}) ↗
+                      {cert.title} ({cert.fileType || 'file'}) ↗
                     </a>
                   ))}
                 </div>
@@ -412,7 +412,7 @@ export function ExpertVerificationCard({
                       return (
                         <div key={idx} className="rounded-md border border-indigo-200 bg-indigo-50/50 p-2 space-y-1">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-indigo-950">📁 {catName}</span>
+                            <span className="text-xs font-bold text-indigo-950">{catName}</span>
                             <span className="text-[10px] text-muted-foreground font-mono">({c.categorySlug})</span>
                           </div>
                           <div className="flex flex-wrap gap-1.5">
@@ -439,7 +439,7 @@ export function ExpertVerificationCard({
                   ) : (
                     <div className="rounded-md border border-indigo-200 bg-indigo-50/50 p-2 space-y-1">
                       <span className="text-xs font-bold text-indigo-950">
-                        📁 {getCategoryLabel(exp.pendingInfoUpdate.categorySlug, 'en') || exp.pendingInfoUpdate.categorySlug}
+                        {getCategoryLabel(exp.pendingInfoUpdate.categorySlug, 'en') || exp.pendingInfoUpdate.categorySlug}
                       </span>
                       {exp.pendingInfoUpdate.subcategorySlug && (
                         <div className="flex flex-wrap gap-1.5">
@@ -577,7 +577,7 @@ export function ExpertVerificationCard({
                   rel="noreferrer"
                   className="rounded-lg border border-border bg-neutral-50 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-neutral-100 shadow-2xs"
                 >
-                  📄 {cert.title} ↗
+                  {cert.title} ↗
                 </a>
               ))}
             </div>

@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import React, { useState, useEffect, useMemo } from 'react'
-import { Clock, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Clock, AlertCircle, ChevronLeft, ChevronRight, Star, CheckCircle2, Users, Video } from 'lucide-react'
 import { getExpertBySlug } from '@/lib/data/experts'
 import { getSubcategoryLabel } from '@/lib/data/categories'
 import type { DayAvailability, TimeSlot } from '@/lib/data/availability'
@@ -28,6 +28,8 @@ interface ServiceItem {
     baseCurrency: string
     prices: Record<string, number>
   }
+  rating?: number
+  reviewsCount?: number
   isMostBooked?: boolean
 }
 
@@ -105,6 +107,10 @@ export function ExpertProfileView({ slug }: { slug: string }) {
   const [bookingReference, setBookingReference] = useState('')
   const [bookingSuccessMsg, setBookingSuccessMsg] = useState('')
 
+  // Expert reviews / feedbacks
+  const [expertReviews, setExpertReviews] = useState<any[]>([])
+  const [loadingReviews, setLoadingReviews] = useState(false)
+
   // 0. Fetch expert profile dynamically by slug
   useEffect(() => {
     let ignore = false
@@ -147,6 +153,30 @@ export function ExpertProfileView({ slug }: { slug: string }) {
   }, [slug])
 
   const profileId = profile?._id || profile?.id
+
+  // Fetch expert's verified client reviews
+  useEffect(() => {
+    if (!profileId || !/^[a-fA-F0-9]{24}$/.test(String(profileId))) {
+      setExpertReviews([])
+      return
+    }
+    let ignore = false
+    setLoadingReviews(true)
+    fetch(`/api/reviews?expertId=${profileId}&limit=30`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (!ignore && json.success && Array.isArray(json.data)) {
+          setExpertReviews(json.data)
+        }
+      })
+      .catch((err) => console.error('Failed to fetch expert reviews:', err))
+      .finally(() => {
+        if (!ignore) setLoadingReviews(false)
+      })
+    return () => {
+      ignore = true
+    }
+  }, [profileId])
 
   // 1. Fetch expert's approved MVP services
   useEffect(() => {
@@ -343,6 +373,30 @@ export function ExpertProfileView({ slug }: { slug: string }) {
   )
   const currentPriceEGP = selectedService?.pricing?.prices?.EGP ?? 0
 
+  const completedSessionsCount = Number(
+    profile?.activityStats?.sessions ?? profile?.completedSessionsCount ?? 0
+  )
+  const completedWorkshopsCount = Number(
+    profile?.activityStats?.workshops ?? profile?.completedWorkshopsCount ?? 0
+  )
+  const completedWebinarsCount = Number(
+    profile?.activityStats?.webinars ?? profile?.completedWebinarsCount ?? 0
+  )
+  const hasAnyCompletedActivity =
+    completedSessionsCount > 0 || completedWorkshopsCount > 0 || completedWebinarsCount > 0
+
+  const totalExpertReviewsCount =
+    expertReviews.length > 0 ? expertReviews.length : Number(profile.reviews || 0)
+  const avgExpertRating =
+    expertReviews.length > 0
+      ? (
+          expertReviews.reduce(
+            (sum, r) => sum + Number(r.expertRating || r.serviceRating || 5),
+            0
+          ) / expertReviews.length
+        ).toFixed(1)
+      : profile.rating
+
   return (
     <main className="min-h-screen bg-background text-foreground overflow-x-hidden">
       <div className="mx-auto max-w-[1140px] px-4 sm:px-8 pb-20 w-full">
@@ -381,13 +435,67 @@ export function ExpertProfileView({ slug }: { slug: string }) {
                   <p className="mt-1 text-base sm:text-lg font-medium text-muted-foreground break-words">
                     {profile.role}
                   </p>
-                  {Number(profile.reviews) > 0 && Number(profile.rating) > 0 && (
-                    <p className="mt-2 text-xs font-bold text-primary">
-                      <span className="text-accent">★</span> {profile.rating}{' '}
+                  {totalExpertReviewsCount > 0 && Number(avgExpertRating) > 0 && (
+                    <a
+                      href="#expert-feedback"
+                      className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+                    >
+                      <span className="text-accent">★</span> {avgExpertRating}{' '}
                       <span className="font-normal text-muted-foreground">
-                        ({profile.reviews} {isAr ? 'تقييم موثق' : 'verified reviews'})
+                        ({totalExpertReviewsCount} {isAr ? 'تقييم موثق' : 'verified reviews'})
                       </span>
-                    </p>
+                    </a>
+                  )}
+
+                  {/* Completed Sessions / Workshops / Webinars Stats (Only shown when count > 0) */}
+                  {hasAnyCompletedActivity && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {completedSessionsCount > 0 && (
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50/80 px-3 py-1 text-xs font-bold text-emerald-900 shadow-2xs">
+                          <CheckCircle2 size={13} className="text-emerald-600 shrink-0" />
+                          <span>
+                            {completedSessionsCount}{' '}
+                            {isAr
+                              ? completedSessionsCount === 1
+                                ? 'جلسة استشارية منجزة'
+                                : 'جلسات استشارية منجزة'
+                              : completedSessionsCount === 1
+                                ? 'Session Made'
+                                : 'Sessions Made'}
+                          </span>
+                        </div>
+                      )}
+                      {completedWorkshopsCount > 0 && (
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-accent/50 bg-secondary px-3 py-1 text-xs font-bold text-primary shadow-2xs">
+                          <Users size={13} className="text-primary shrink-0" />
+                          <span>
+                            {completedWorkshopsCount}{' '}
+                            {isAr
+                              ? completedWorkshopsCount === 1
+                                ? 'ورشة عمل منجزة'
+                                : 'ورش عمل منجزة'
+                              : completedWorkshopsCount === 1
+                                ? 'Workshop Made'
+                                : 'Workshops Made'}
+                          </span>
+                        </div>
+                      )}
+                      {completedWebinarsCount > 0 && (
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-surface px-3 py-1 text-xs font-bold text-primary shadow-2xs">
+                          <Video size={13} className="text-primary shrink-0" />
+                          <span>
+                            {completedWebinarsCount}{' '}
+                            {isAr
+                              ? completedWebinarsCount === 1
+                                ? 'ندوة مباشرة منجزة'
+                                : 'ندوات مباشرة منجزة'
+                              : completedWebinarsCount === 1
+                                ? 'Webinar Made'
+                                : 'Webinars Made'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {/* About Description */}
@@ -514,6 +622,13 @@ export function ExpertProfileView({ slug }: { slug: string }) {
                                     </span>
                                   )}
                                 </div>
+                                {Number(s.reviewsCount) > 0 && Number(s.rating) > 0 && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-black/65 backdrop-blur-xs border border-white/15 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs">
+                                    <Star size={10} fill="currentColor" className="text-[#F8C15C]" />
+                                    {Number(s.rating).toFixed(1)}
+                                    <span className="text-white/75">({s.reviewsCount})</span>
+                                  </span>
+                                )}
                               </div>
 
                               {/* Price Pill Bottom Right */}
@@ -937,6 +1052,156 @@ export function ExpertProfileView({ slug }: { slug: string }) {
                   : 'Reschedule or cancel up to 12 hours before session'}
               </p>
             </aside>
+          </section>
+
+          {/* End of Page Section: Expert Feedbacks & Verified Reviews */}
+          <section
+            id="expert-feedback"
+            className="mt-14 border-t border-border pt-10 w-full min-w-0"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-primary">
+                  {isAr ? 'آراء وتقييمات العملاء' : 'Client Feedback & Reviews'}
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {isAr
+                    ? `تقييمات موثقة من عملاء حضروا جلسات أو ورش عمل مع ${profile.name}`
+                    : `Verified feedback from clients who attended sessions with ${profile.name}`}
+                </p>
+              </div>
+
+              {totalExpertReviewsCount > 0 && Number(avgExpertRating) > 0 && (
+                <div className="flex items-center gap-3 rounded-2xl border border-accent/40 bg-secondary/70 px-4 py-2.5 shadow-2xs">
+                  <div className="flex items-center gap-1 text-amber-500">
+                    <Star size={20} fill="currentColor" />
+                    <span className="text-2xl font-black text-primary">{avgExpertRating}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground leading-tight">
+                    <span className="font-bold text-primary block">
+                      {isAr ? 'التقييم العام للخبير' : 'Overall Rating'}
+                    </span>
+                    <span>
+                      {totalExpertReviewsCount}{' '}
+                      {isAr
+                        ? 'تقييم موثق'
+                        : totalExpertReviewsCount === 1
+                          ? 'verified review'
+                          : 'verified reviews'}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {loadingReviews ? (
+              <div className="rounded-3xl border border-border bg-surface p-8 text-center text-xs text-muted-foreground">
+                {isAr ? 'جاري تحميل آراء العملاء...' : 'Loading client feedback...'}
+              </div>
+            ) : expertReviews.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-border bg-surface p-8 text-center space-y-2 shadow-2xs">
+                <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-secondary text-muted-foreground">
+                  <Star size={20} />
+                </div>
+                <h3 className="text-sm font-bold text-primary">
+                  {isAr ? 'لا توجد تقييمات منشورة حتى الآن' : 'No reviews published yet'}
+                </h3>
+                <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                  {isAr
+                    ? 'ستظهر آراء وتقييمات العملاء هنا فور إتمام الجلسات المحجوزة.'
+                    : 'Verified client reviews and feedback will appear here once booked sessions are completed.'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {expertReviews.map((rev: any) => {
+                  const ratingNum = Math.min(
+                    5,
+                    Math.max(1, Number(rev.expertRating || rev.serviceRating || 5))
+                  )
+                  const commentText = rev.expertReviewText || rev.serviceReviewText || ''
+                  const reviewerName = rev.clientName || (isAr ? 'عميل موثق' : 'Verified Client')
+                  const initial = reviewerName.trim().charAt(0).toUpperCase() || 'C'
+                  const dateStr = rev.createdAt
+                    ? new Intl.DateTimeFormat(isAr ? 'ar-EG' : 'en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      }).format(new Date(rev.createdAt))
+                    : ''
+                  const srvTitle = isAr
+                    ? rev.serviceTitle?.ar || rev.serviceTitle?.en
+                    : rev.serviceTitle?.en || rev.serviceTitle?.ar
+
+                  return (
+                    <div
+                      key={rev._id}
+                      className="rounded-3xl border border-border bg-surface p-5 space-y-3 shadow-2xs flex flex-col justify-between"
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-white text-xs font-bold">
+                              {initial}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs sm:text-sm font-bold text-primary truncate">
+                                {reviewerName}
+                              </p>
+                              {dateStr && (
+                                <p className="text-[11px] text-muted-foreground">{dateStr}</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-0.5 text-amber-500 shrink-0">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Star
+                                key={i}
+                                size={13}
+                                fill={i < ratingNum ? 'currentColor' : 'none'}
+                                className={i < ratingNum ? 'text-amber-500' : 'text-border'}
+                              />
+                            ))}
+                            <span className="ms-1 text-xs font-bold text-primary">
+                              {ratingNum}.0
+                            </span>
+                          </div>
+                        </div>
+
+                        {commentText ? (
+                          <p className="text-xs sm:text-sm leading-relaxed text-foreground whitespace-pre-line break-words">
+                            {commentText}
+                          </p>
+                        ) : (
+                          <p className="text-xs italic text-muted-foreground">
+                            {isAr ? 'تقييم بدون تعليق نصي' : 'Rated without written comment'}
+                          </p>
+                        )}
+                      </div>
+
+                      {srvTitle && (
+                        <div className="pt-2.5 border-t border-border/60 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                          <span className="truncate">
+                            {isAr ? 'الجلسة:' : 'Session:'}{' '}
+                            {rev.serviceSlug ? (
+                              <Link
+                                href={localeHref(`/services/${rev.serviceSlug}`)}
+                                className="font-bold text-primary hover:underline"
+                              >
+                                {srvTitle}
+                              </Link>
+                            ) : (
+                              <strong className="text-primary">{srvTitle}</strong>
+                            )}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </section>
         </div>
       </div>

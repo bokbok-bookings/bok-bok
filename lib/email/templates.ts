@@ -524,7 +524,6 @@ export function renderBookingConfirmationEmail(params: CommonEmailParams & {
 
     <div style="background-color: #F1F5F9; border: 1px solid #FCAD35; border-radius: 12px; padding: 16px 20px; margin: 24px 0;">
       <div style="font-weight: 700; color: #142D4E; margin-bottom: 6px; font-size: 14px; display: flex; align-items: center; gap: 8px;">
-        <span>📹</span>
         <span>Where to Find Your Meeting Link</span>
       </div>
       <p style="margin: 0; font-size: 13px; color: #4a5568; line-height: 1.5;">
@@ -734,7 +733,6 @@ export function renderDayOfReminderEmail(params: CommonEmailParams & {
 
     <div style="background-color: #F1F5F9; border: 1px solid #FCAD35; border-radius: 12px; padding: 16px 20px; margin: 24px 0;">
       <div style="font-weight: 700; color: #142D4E; margin-bottom: 6px; font-size: 14px; display: flex; align-items: center; gap: 8px;">
-        <span>📹</span>
         <span>Meeting Link Provided on Your Booking Page</span>
       </div>
       <p style="margin: 0; font-size: 13px; color: #4a5568; line-height: 1.5;">
@@ -812,7 +810,7 @@ export function renderBeforeSessionReminderEmail(params: CommonEmailParams & {
 
     <div style="text-align: center; margin: 28px 0;">
       <a href="${meetLink}" target="_blank" class="btn btn-meet" style="font-size: 16px; padding: 16px 36px;">
-        👉 Join Google Meet Now
+        Join Google Meet Now
       </a>
     </div>
   `
@@ -1035,7 +1033,7 @@ export function renderReviewInviteEmail(params: CommonEmailParams & {
   const subject = `How was your session with ${expertName}? Share your review — Bok Bok`
 
   const contentHtml = `
-    <h2 class="h1">Your Review Window Is Now Open ⭐</h2>
+    <h2 class="h1">Your Review Window Is Now Open</h2>
     <p class="p">
       Hi ${clientName},<br/><br/>
       We hope you had a valuable session with <strong>${expertName}</strong> for <strong>${serviceTitle}</strong>!

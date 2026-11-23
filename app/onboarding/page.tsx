@@ -581,7 +581,6 @@ export default function OnboardingPage() {
           <div className="mt-6 rounded-2xl border border-amber-300 bg-amber-50 p-4 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-start gap-3">
-                <span className="text-xl">✉️</span>
                 <div>
                   <h4 className="text-xs font-bold text-amber-950">
                     {isAr ? 'تأكيد البريد الإلكتروني' : 'Verify your email address'}
@@ -1145,7 +1144,7 @@ export default function OnboardingPage() {
                       : 'border-border bg-surface text-foreground hover:border-primary'
                       }`}
                   >
-                    {isAr ? '⚡ إنستاباي (InstaPay)' : '⚡ InstaPay (Preferred)'}
+                    {isAr ? 'إنستاباي (InstaPay)' : 'InstaPay (Preferred)'}
                   </button>
                   <button
                     type="button"
@@ -1155,7 +1154,7 @@ export default function OnboardingPage() {
                       : 'border-border bg-surface text-foreground hover:border-primary'
                       }`}
                   >
-                    {isAr ? '🏦 تحويل لحساب بنكي' : '🏦 Bank Account Transfer'}
+                    {isAr ? 'تحويل لحساب بنكي' : 'Bank Account Transfer'}
                   </button>
                 </div>
               </div>

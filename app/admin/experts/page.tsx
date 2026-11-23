@@ -158,7 +158,7 @@ export default function AdminExpertsPage() {
                           : 'bg-neutral-100 text-muted-foreground border border-border hover:bg-neutral-200 hover:text-foreground'
                       }`}
                     >
-                      <span>{exp.featuredHome ? '⭐ Featured' : '☆ Not featured'}</span>
+                      <span>{exp.featuredHome ? 'Featured' : '☆ Not featured'}</span>
                     </button>
                   </td>
                   <td className="py-3.5 px-4">

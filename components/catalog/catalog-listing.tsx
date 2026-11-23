@@ -5,7 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { withBokBok } from '@/components/brand/bok-bok'
-import { Search, Clock, Calendar, Users, ShieldCheck, Sparkles } from 'lucide-react'
+import { Search, Clock, Calendar, Users, ShieldCheck, Sparkles, Star } from 'lucide-react'
 import { CATEGORIES, getCategoryLabel, getSubcategoryLabel } from '@/lib/data/categories'
 import { useLanguage } from '@/lib/i18n/language-context'
 
@@ -42,6 +42,8 @@ export interface CatalogItem {
   expertRole?: string
   expertImage?: string
   expertSlug?: string
+  rating?: number
+  reviewsCount?: number
   isActive?: boolean
   approvalStatus?: string
 }
@@ -391,6 +393,13 @@ function CatalogListingContent({ view, title, subtitle }: CatalogListingProps) {
                               </span>
                             )}
                           </div>
+                          {Number(item.reviewsCount) > 0 && Number(item.rating) > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-black/65 backdrop-blur-xs border border-white/15 px-2.5 py-1 text-[10px] font-bold text-white shadow-xs">
+                              <Star size={10} fill="currentColor" className="text-[#F8C15C]" />
+                              {Number(item.rating).toFixed(1)}
+                              <span className="text-white/75">({item.reviewsCount})</span>
+                            </span>
+                          )}
                         </div>
 
                         {/* Bottom Floating Duration/Date & Price Pill */}

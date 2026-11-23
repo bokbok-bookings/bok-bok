@@ -5,6 +5,7 @@ import { getSession } from '@/lib/auth/session'
 import { computeSessionBounds, getPlatformMeetingSettings } from '@/lib/email/scheduler'
 import { MEET_UNLOCK_MINUTES_BEFORE, MEET_GRACE_MINUTES_AFTER_END } from '@/lib/booking/access'
 import { evaluateReviewEligibility } from '@/lib/booking/review-eligibility'
+import { createBookingRefundPolicySnapshot } from '@/lib/services/refund-policies'
 
 export const dynamic = 'force-dynamic'
 
@@ -218,6 +219,11 @@ export async function GET(request: Request) {
         canComplain,
         deadlineHours,
         rescheduleDeadlineAt: rescheduleDeadlineAt?.toISOString(),
+        refundPolicy:
+          booking.refundPolicy ||
+          (srv?.refundPolicy
+            ? createBookingRefundPolicySnapshot(srv.refundPolicy)
+            : createBookingRefundPolicySnapshot(null)),
         eventSessions: isEventBooking && srv?.event?.sessions ? srv.event.sessions : undefined,
         recordingUrl: canAccessEventResources ? srv?.event?.recordingUrl : undefined,
         materials: canAccessEventResources ? srv?.event?.materials : undefined,

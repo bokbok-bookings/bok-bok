@@ -21,6 +21,7 @@ import type { DayAvailability, TimeSlot } from '@/lib/data/availability'
 import { formatDateLabel, formatSlotLabel } from '@/lib/data/availability'
 import { CloudinaryUploadWidget } from '@/components/ui/cloudinary-upload-widget'
 import { useLanguage } from '@/lib/i18n/language-context'
+import { formatRefundPolicyDetails } from '@/lib/services/refund-policies'
 
 export function ServiceDetailView({
   slug: serviceSlug,
@@ -96,9 +97,16 @@ export function ServiceDetailView({
   const [bookingResultStatus, setBookingResultStatus] = useState<string>('pending')
   const [openSessionId, setOpenSessionId] = useState<string | null>(null)
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
+  const [serviceReviews, setServiceReviews] = useState<any[]>(
+    Array.isArray(initialService?.reviews) ? initialService.reviews : []
+  )
+  const [loadingReviews, setLoadingReviews] = useState(false)
 
   useEffect(() => {
     if (initialService && (initialService.slug === serviceSlug || initialService._id === serviceSlug)) {
+      if (Array.isArray(initialService.reviews)) {
+        setServiceReviews(initialService.reviews)
+      }
       return
     }
     fetch(`/api/services/${serviceSlug}`)
@@ -106,11 +114,32 @@ export function ServiceDetailView({
       .then((json) => {
         if (json.success && json.data) {
           setService(json.data)
+          if (Array.isArray(json.data.reviews)) {
+            setServiceReviews(json.data.reviews)
+          }
         }
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false))
   }, [serviceSlug, initialService])
+
+  useEffect(() => {
+    if (!service?._id) return
+    if (Array.isArray(service.reviews)) {
+      setServiceReviews(service.reviews)
+      return
+    }
+    setLoadingReviews(true)
+    fetch(`/api/reviews?serviceId=${service._id}&limit=30`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          setServiceReviews(json.data)
+        }
+      })
+      .catch((err) => console.error('Failed to fetch service reviews:', err))
+      .finally(() => setLoadingReviews(false))
+  }, [service?._id, service?.reviews])
 
   const isEvent = service?.bookingType === 'WORKSHOP' || service?.bookingType === 'WEBINAR'
   const expertId = service?.expertId
@@ -326,24 +355,38 @@ export function ServiceDetailView({
 
   const deliveryLabel = isAr
     ? service.deliveryMode === 'IN_PERSON'
-      ? '📍 حضوري'
-      : '🌐 عبر الإنترنت'
+      ? 'حضوري'
+      : 'عبر الإنترنت'
     : service.deliveryMode === 'IN_PERSON'
-      ? '📍 In-Person'
-      : '🌐 Online Remote'
+      ? 'In-Person'
+      : 'Online Remote'
 
   const minNoticeHours = service.minNoticeHours !== undefined ? Number(service.minNoticeHours) : 24
   const noticeLabel = isAr
     ? minNoticeHours === 0
-      ? '⚡ حجز فوري في نفس اليوم'
+      ? 'حجز فوري في نفس اليوم'
       : minNoticeHours === 24
-        ? '🕒 حجز مسبق (اليوم السابق)'
-        : `🕒 حجز مسبق قبل ${Math.round(minNoticeHours / 24)} أيام`
+        ? 'حجز مسبق (اليوم السابق)'
+        : `حجز مسبق قبل ${Math.round(minNoticeHours / 24)} أيام`
     : minNoticeHours === 0
-      ? '⚡ Same-day booking available'
+      ? 'Same-day booking available'
       : minNoticeHours === 24
-        ? '🕒 24h advance notice (Day before)'
-        : `🕒 ${Math.round(minNoticeHours / 24)} days advance notice`
+        ? '24h advance notice (Day before)'
+        : `${Math.round(minNoticeHours / 24)} days advance notice`
+
+  const serviceReviewsCount =
+    serviceReviews.length > 0 ? serviceReviews.length : Number(service.reviewsCount || 0)
+  const serviceRatingValue =
+    serviceReviews.length > 0
+      ? Number(
+        (
+          serviceReviews.reduce(
+            (sum, r) => sum + Number(r.serviceRating || r.expertRating || 5),
+            0
+          ) / serviceReviews.length
+        ).toFixed(1)
+      )
+      : Number(service.rating || 0)
 
   return (
     <main className="min-h-screen bg-background text-foreground overflow-x-hidden">
@@ -397,6 +440,18 @@ export function ServiceDetailView({
                   <span className="rounded-full bg-secondary border border-accent/40 px-3 py-1 text-xs font-bold text-primary">
                     {subLabel}
                   </span>
+                )}
+                {serviceReviewsCount > 0 && serviceRatingValue > 0 && (
+                  <a
+                    href="#service-feedback"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-300/80 px-3 py-1 text-xs font-bold text-primary hover:border-amber-400 transition"
+                  >
+                    <Star size={13} fill="currentColor" className="text-amber-500" />
+                    <span>{serviceRatingValue.toFixed(1)}</span>
+                    <span className="text-muted-foreground font-medium">
+                      ({serviceReviewsCount} {isAr ? 'تقييم' : serviceReviewsCount === 1 ? 'review' : 'reviews'})
+                    </span>
+                  </a>
                 )}
               </div>
 
@@ -488,6 +543,28 @@ export function ServiceDetailView({
                     )}
                   </div>
                 )}
+
+                <div className="flex items-center gap-1.5">
+                  <Star
+                    size={16}
+                    fill={serviceReviewsCount > 0 && serviceRatingValue > 0 ? 'currentColor' : 'none'}
+                    className={
+                      serviceReviewsCount > 0 && serviceRatingValue > 0
+                        ? 'text-amber-500 shrink-0'
+                        : 'text-muted-foreground shrink-0'
+                    }
+                  />
+                  {serviceReviewsCount > 0 && serviceRatingValue > 0 ? (
+                    <a href="#service-feedback" className="font-bold text-primary hover:underline">
+                      {serviceRatingValue.toFixed(1)}{' '}
+                      <span className="font-normal text-muted-foreground">
+                        ({serviceReviewsCount} {isAr ? 'تقييم للخدمة' : serviceReviewsCount === 1 ? 'service review' : 'service reviews'})
+                      </span>
+                    </a>
+                  ) : (
+                    <span>{isAr ? 'لا توجد تقييمات بعد' : 'No ratings yet'}</span>
+                  )}
+                </div>
               </div>
 
               {/* Activity Description */}
@@ -653,11 +730,11 @@ export function ServiceDetailView({
                 </div>
               )}
 
-              {/* Cancellation / Refund Policy */}
+              {/* Event Organizer Attendance Notes (Optional) */}
               {isEvent && service.event?.cancellationPolicy && (
                 <div className="mt-6 rounded-2xl border border-border bg-surface p-4 text-xs space-y-1">
                   <p className="font-bold text-primary">
-                    {isAr ? 'سياسة الإلغاء والاسترداد' : 'Cancellation & Attendance Policy'}
+                    {isAr ? 'تعليمات إضافية من منظم الفعالية' : 'Organizer Attendance Notes'}
                   </p>
                   <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
                     {isAr
@@ -702,7 +779,7 @@ export function ServiceDetailView({
                   {service.location.addressDescription && (
                     <div className="rounded-2xl border border-border bg-background p-3.5 text-xs text-muted-foreground leading-relaxed">
                       <strong className="text-foreground block mb-0.5">
-                        {isAr ? '📍 تفاصيل وإرشادات الوصول للمكان:' : '📍 Venue Directions & Access Notes:'}
+                        {isAr ? 'تفاصيل وإرشادات الوصول للمكان:' : 'Venue Directions & Access Notes:'}
                       </strong>
                       <p className="whitespace-pre-line">{service.location.addressDescription}</p>
                     </div>
@@ -781,6 +858,125 @@ export function ServiceDetailView({
                 </div>
               </div>
             )}
+
+            {/* Service Feedback & Reviews Section */}
+            <div
+              id="service-feedback"
+              className="rounded-3xl border border-border bg-surface p-5 sm:p-7 shadow-xs min-w-0 w-full space-y-5"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+                <div>
+                  <h2 className="text-lg font-bold text-primary">
+                    {isAr ? 'تقييمات وآراء العملاء حول الخدمة' : 'Service Rating & Client Feedback'}
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {isAr
+                      ? 'تقييمات موثقة من عملاء حضروا هذه الجلسة بالفعل'
+                      : 'Verified feedback from clients who completed this session'}
+                  </p>
+                </div>
+
+                {serviceReviewsCount > 0 && serviceRatingValue > 0 && (
+                  <div className="flex items-center gap-2.5 rounded-2xl bg-secondary/70 border border-accent/40 px-4 py-2">
+                    <div className="flex items-center gap-1 text-amber-500">
+                      <Star size={18} fill="currentColor" />
+                      <span className="text-xl font-black text-primary">
+                        {serviceRatingValue.toFixed(1)}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground leading-tight">
+                      <span className="font-bold text-primary block">
+                        {isAr ? 'تقييم الخدمة' : 'Service Rate'}
+                      </span>
+                      <span>
+                        {serviceReviewsCount} {isAr ? 'تقييم موثق' : serviceReviewsCount === 1 ? 'review' : 'reviews'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {loadingReviews ? (
+                <p className="text-xs text-muted-foreground py-4">
+                  {isAr ? 'جاري تحميل التقييمات...' : 'Loading service feedback...'}
+                </p>
+              ) : serviceReviews.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border bg-background/60 p-6 text-center space-y-1.5">
+                  <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-secondary text-muted-foreground">
+                    <Star size={18} />
+                  </div>
+                  <p className="text-xs font-bold text-primary">
+                    {isAr ? 'لا توجد تقييمات لهذه الخدمة حتى الآن' : 'No feedback for this service yet'}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {isAr
+                      ? 'ستظهر تقييمات وآراء المستفيدين هنا فور إتمام الجلسات.'
+                      : 'Client ratings and reviews will appear here after sessions are completed.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3.5">
+                  {serviceReviews.map((rev: any) => {
+                    const ratingNum = Math.min(5, Math.max(1, Number(rev.serviceRating || rev.expertRating || 5)))
+                    const feedbackText = rev.serviceReviewText || rev.expertReviewText || ''
+                    const reviewerName = rev.clientName || (isAr ? 'عميل موثق' : 'Verified Client')
+                    const initial = reviewerName.trim().charAt(0).toUpperCase() || 'C'
+                    const dateStr = rev.createdAt
+                      ? new Intl.DateTimeFormat(isAr ? 'ar-EG' : 'en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      }).format(new Date(rev.createdAt))
+                      : ''
+
+                    return (
+                      <div
+                        key={rev._id}
+                        className="rounded-2xl border border-border bg-background p-4 space-y-2.5 shadow-2xs"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-white text-xs font-bold">
+                              {initial}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-primary truncate">{reviewerName}</p>
+                              {dateStr && (
+                                <p className="text-[11px] text-muted-foreground">{dateStr}</p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-0.5 text-amber-500 shrink-0">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              <Star
+                                key={i}
+                                size={13}
+                                fill={i < ratingNum ? 'currentColor' : 'none'}
+                                className={i < ratingNum ? 'text-amber-500' : 'text-border'}
+                              />
+                            ))}
+                            <span className="ms-1 text-xs font-bold text-primary">
+                              {ratingNum}.0
+                            </span>
+                          </div>
+                        </div>
+
+                        {feedbackText ? (
+                          <p className="text-xs leading-relaxed text-foreground whitespace-pre-line break-words">
+                            {feedbackText}
+                          </p>
+                        ) : (
+                          <p className="text-[11px] italic text-muted-foreground">
+                            {isAr ? 'تقييم بدون تعليق نصي' : 'Rated without written comment'}
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right Column: Live Booking & Payment Card */}
@@ -799,16 +995,16 @@ export function ServiceDetailView({
               : 0
             const isEventCutoffPassed = Boolean(
               isEvent &&
-                !isComingSoon &&
-                eventStartMs > 0 &&
-                minNoticeHours > 0 &&
-                Date.now() > (eventStartMs - minNoticeHours * 3600000)
+              !isComingSoon &&
+              eventStartMs > 0 &&
+              minNoticeHours > 0 &&
+              Date.now() > (eventStartMs - minNoticeHours * 3600000)
             )
             const isEventPast = Boolean(
               isEvent &&
-                !isComingSoon &&
-                eventStartMs > 0 &&
-                eventStartMs < Date.now()
+              !isComingSoon &&
+              eventStartMs > 0 &&
+              eventStartMs < Date.now()
             )
             const isEventFull = isEvent && !isComingSoon && evCapacity > 0 && evSpotsLeft <= 0
             const isWaitlistMode = isEvent && (isComingSoon || (isEventFull && evAllowWaitlist))
@@ -816,644 +1012,703 @@ export function ServiceDetailView({
             const showInstaPay = !isFree && !isWaitlistMode && !isBlockedEvent
 
             return (
-          <aside className="sticky top-10 rounded-[32px] bg-primary p-5 sm:p-7 text-white shadow-xl min-w-0 w-full max-w-full">
-            <div className="flex items-baseline justify-between gap-2 border-b border-white/10 pb-5 min-w-0">
-              <div className="min-w-0">
-                {isFree ? (
-                  <span className="inline-flex items-center gap-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-300">
-                    {isAr ? 'مجاني' : 'Free'}
-                  </span>
-                ) : (
-                  <span className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-                    {price} {baseCurrency}
-                  </span>
-                )}
-                <span className="ms-2 text-xs text-white/70">
-                  {isEvent
-                    ? isAr ? '/ مقعد حضور' : '/ attendee seat'
-                    : isAr ? `/ جلسة ${service.durationMinutes} دقيقة` : `/ ${service.durationMinutes} min session`}
-                </span>
-              </div>
-              {isEvent && (
-                <span
-                  className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${
-                    isComingSoon
-                      ? 'bg-amber-400/20 text-amber-200 border border-amber-400/30'
-                      : isBlockedEvent
-                        ? 'bg-rose-400/20 text-rose-200 border border-rose-400/30'
-                        : isEventFull
-                          ? 'bg-amber-400/20 text-amber-200 border border-amber-400/30'
-                          : 'bg-emerald-400/20 text-emerald-200 border border-emerald-400/30'
-                  }`}
-                >
-                  {isComingSoon
-                    ? isAr ? 'قريباً' : 'Coming Soon'
-                    : isEventPast
-                      ? isAr ? 'انتهى الحدث' : 'Ended'
-                      : isEventCutoffPassed
-                        ? isAr ? 'انتهت مهلة الحجز' : 'Cutoff Passed'
-                        : isEventClosed
-                          ? isAr ? 'مغلق' : 'Closed'
+              <aside className="sticky top-10 rounded-[32px] bg-primary p-5 sm:p-7 text-white shadow-xl min-w-0 w-full max-w-full">
+                <div className="flex items-baseline justify-between gap-2 border-b border-white/10 pb-5 min-w-0">
+                  <div className="min-w-0">
+                    {isFree ? (
+                      <span className="inline-flex items-center gap-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-emerald-300">
+                        {isAr ? 'مجاني' : 'Free'}
+                      </span>
+                    ) : (
+                      <span className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                        {price} {baseCurrency}
+                      </span>
+                    )}
+                    <span className="ms-2 text-xs text-white/70">
+                      {isEvent
+                        ? isAr ? '/ مقعد حضور' : '/ attendee seat'
+                        : isAr ? `/ جلسة ${service.durationMinutes} دقيقة` : `/ ${service.durationMinutes} min session`}
+                    </span>
+                  </div>
+                  {isEvent && (
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${isComingSoon
+                        ? 'bg-amber-400/20 text-amber-200 border border-amber-400/30'
+                        : isBlockedEvent
+                          ? 'bg-rose-400/20 text-rose-200 border border-rose-400/30'
                           : isEventFull
-                            ? isAr ? 'قائمة الانتظار' : 'Waitlist'
-                            : isAr
-                              ? `${evSpotsLeft} مقاعد متبقية`
-                              : `${evSpotsLeft} spots left`}
-                </span>
-              )}
-            </div>
-
-            {/* Event Seat Progress Bar */}
-            {isEvent && !isComingSoon && evCapacity > 0 && (
-              <div className="mt-4 space-y-1.5">
-                <div className="flex items-center justify-between text-[11px] text-white/75">
-                  <span>{isAr ? 'حالة المقاعد' : 'Seat Availability'}</span>
-                  <span className="font-bold text-white">
-                    {Math.min(evRegistered, evCapacity)} / {evCapacity} {isAr ? 'مسجل' : 'registered'}
-                  </span>
+                            ? 'bg-amber-400/20 text-amber-200 border border-amber-400/30'
+                            : 'bg-emerald-400/20 text-emerald-200 border border-emerald-400/30'
+                        }`}
+                    >
+                      {isComingSoon
+                        ? isAr ? 'قريباً' : 'Coming Soon'
+                        : isEventPast
+                          ? isAr ? 'انتهى الحدث' : 'Ended'
+                          : isEventCutoffPassed
+                            ? isAr ? 'انتهت مهلة الحجز' : 'Cutoff Passed'
+                            : isEventClosed
+                              ? isAr ? 'مغلق' : 'Closed'
+                              : isEventFull
+                                ? isAr ? 'قائمة الانتظار' : 'Waitlist'
+                                : isAr
+                                  ? `${evSpotsLeft} مقاعد متبقية`
+                                  : `${evSpotsLeft} spots left`}
+                    </span>
+                  )}
                 </div>
-                <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      isEventFull ? 'bg-amber-400' : 'bg-accent'
-                    }`}
-                    style={{ width: `${Math.min(100, Math.round((evRegistered / evCapacity) * 100))}%` }}
-                  />
-                </div>
-              </div>
-            )}
 
-            {booked ? (
-              <div className="mt-6 rounded-2xl bg-emerald-900/60 border border-emerald-500/40 p-5 text-center space-y-3">
-                <span className="text-2xl">✓</span>
-                <h3 className="text-base font-bold text-emerald-300">
-                  {bookingResultType === 'interest'
-                    ? isAr ? 'تم تسجيل اهتمامك' : 'Added to Notification List'
-                    : bookingResultType === 'waitlist'
-                      ? isAr ? 'تمت إضافتك لقائمة الانتظار' : 'Added to Waitlist'
-                      : bookingResultStatus === 'confirmed'
-                        ? isAr ? 'تم تأكيد مقعدك!' : 'Seat Confirmed!'
-                        : isAr ? 'تم استلام طلب التسجيل' : 'Registration Request Received'}
-                </h3>
-                <p className="text-xs text-white/90 leading-relaxed">{bookingSuccessMsg}</p>
-                <div className="rounded-xl bg-black/40 p-2.5 font-mono text-xs font-bold text-emerald-200">
-                  {isAr ? 'رقم الحجز:' : 'Reference:'} {bookingReference}
-                </div>
-                <p className="text-[11px] text-white/70">
-                  {bookingResultType !== 'seat'
-                    ? isAr
-                      ? 'سنراسلك عبر البريد الإلكتروني فور توفر مقعد أو فتح باب التسجيل.'
-                      : 'We will email you as soon as a spot opens up or registration begins.'
-                    : isFree
-                      ? bookingResultStatus === 'confirmed'
-                        ? isAr
-                          ? 'تم إرسال تفاصيل الجلسة ورابط الانضمام إلى بريدك الإلكتروني وحسابك.'
-                          : 'Confirmation and session details have been sent to your email and account.'
-                        : isAr
-                          ? 'سيقوم الخبير أو الإدارة بمراجعة طلبك وإرسال تأكيد الحضور ورابط الجلسة عبر البريد الإلكتروني.'
-                          : 'The host or admin team will review your request and email your confirmation and session link.'
-                      : isAr
-                        ? 'سيقوم فريقنا بالتحقق من تحويل إنستاباي وستصلك كافة التعليمات ورابط الجلسة عبر البريد الإلكتروني.'
-                        : 'Our team will verify the InstaPay transfer and you will receive full instructions and calendar invite by email.'}
-                </p>
-              </div>
-            ) : isBlockedEvent ? (
-              <div className="mt-6 rounded-2xl bg-white/5 border border-white/15 p-5 text-center space-y-2">
-                <p className="text-sm font-bold text-white">
-                  {isEventPast
-                    ? isAr ? 'انتهى موعد هذا الحدث' : 'This Event Has Ended'
-                    : isEventCutoffPassed
-                      ? isAr ? 'انتهت مهلة التسجيل المسبق في هذا الحدث' : 'Advance Registration Has Closed'
-                      : isEventClosed
-                        ? isAr ? 'التسجيل مغلق حالياً' : 'Registration Is Closed'
-                        : isAr ? 'اكتمل العدد بالكامل' : 'Event Is Full'}
-                </p>
-                <p className="text-xs text-white/70">
-                  {isAr
-                    ? 'يمكنك تصفح ورش العمل والندوات القادمة المتاحة الآن.'
-                    : 'Browse other upcoming workshops and webinars currently open for registration.'}
-                </p>
-                <Link
-                  href={localeHref(service.bookingType === 'WORKSHOP' ? '/workshops' : '/webinars')}
-                  className="inline-block mt-2 rounded-full bg-accent px-5 py-2 text-xs font-bold text-primary hover:bg-accent-hover transition"
-                >
-                  {isAr ? 'تصفح الفعاليات القادمة' : 'Browse Upcoming Events'}
-                </Link>
-              </div>
-            ) : (
-              <div className="mt-6 space-y-5 min-w-0 w-full">
-                {/* Step 1: Schedule (if appointment) */}
-                {!isEvent && (
-                  <>
-                    <div className="min-w-0 w-full">
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-accent">
-                          {isAr ? '١. اختر التاريخ' : '1. Select Date'}
-                        </label>
-                        <div className="hidden sm:flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => scrollDates('prev')}
-                            className="size-7 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition border border-white/10 active:scale-95"
-                            title={isAr ? 'السابق' : 'Previous dates'}
-                            aria-label={isAr ? 'السابق' : 'Previous dates'}
-                          >
-                            {isAr ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => scrollDates('next')}
-                            className="size-7 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition border border-white/10 active:scale-95"
-                            title={isAr ? 'التالي' : 'Next dates'}
-                            aria-label={isAr ? 'التالي' : 'Next dates'}
-                          >
-                            {isAr ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
-                          </button>
-                        </div>
-                      </div>
-                      {loadingDays ? (
-                        <p className="text-xs text-white/60">
-                          {isAr ? 'جاري فحص المواعيد...' : 'Loading available dates...'}
-                        </p>
-                      ) : days.length === 0 ? (
-                        <p className="text-xs text-white/60">
-                          {isAr ? 'لا توجد مواعيد متاحة لهذه المدة.' : 'No available dates found for this duration.'}
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          {availableMonths.length > 1 && (
-                            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedMonth('all')}
-                                className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition shrink-0 ${selectedMonth === 'all'
-                                  ? 'bg-accent text-primary shadow-2xs'
-                                  : 'bg-white/10 text-white/80 hover:bg-white/20'
-                                  }`}
-                              >
-                                {isAr ? 'كل الشهور' : 'All'}
-                              </button>
-                              {availableMonths.map((m) => (
-                                <button
-                                  key={m.key}
-                                  type="button"
-                                  onClick={() => setSelectedMonth(m.key)}
-                                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition shrink-0 ${selectedMonth === m.key
-                                    ? 'bg-accent text-primary shadow-2xs'
-                                    : 'bg-white/10 text-white/80 hover:bg-white/20'
-                                    }`}
-                                >
-                                  {m.label}
-                                </button>
-                              ))}
-                            </div>
-                          )}
+                {/* Event Seat Progress Bar */}
+                {isEvent && !isComingSoon && evCapacity > 0 && (
+                  <div className="mt-4 space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] text-white/75">
+                      <span>{isAr ? 'حالة المقاعد' : 'Seat Availability'}</span>
+                      <span className="font-bold text-white">
+                        {Math.min(evRegistered, evCapacity)} / {evCapacity} {isAr ? 'مسجل' : 'registered'}
+                      </span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${isEventFull ? 'bg-amber-400' : 'bg-accent'
+                          }`}
+                        style={{ width: `${Math.min(100, Math.round((evRegistered / evCapacity) * 100))}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
 
-                          <div ref={datesScrollRef} className="flex gap-2 overflow-x-auto pb-2 scrollbar-none w-full min-w-0 max-w-full scroll-smooth">
-                            {visibleDays.map((d) => {
-                              const localeCode = isAr ? 'ar-EG' : 'en-US'
-                              const dateObj = new Date(d.date + 'T00:00:00')
-                              return (
-                                <button
-                                  key={d.date}
-                                  type="button"
-                                  disabled={!d.hasSlots}
-                                  onClick={() => setSelectedDate(d.date)}
-                                  className={`shrink-0 rounded-2xl p-2.5 text-center transition min-w-[68px] ${selectedDate === d.date
-                                    ? 'bg-accent text-primary font-bold shadow-xs'
-                                    : d.hasSlots
-                                      ? 'bg-white/10 text-white hover:bg-white/20'
-                                      : 'bg-white/5 text-white/30 cursor-not-allowed'
-                                    }`}
-                                >
-                                  <span className="block text-[10px] font-bold uppercase">
-                                    {new Intl.DateTimeFormat(localeCode, { weekday: 'short' }).format(dateObj)}
-                                  </span>
-                                  <span className="block text-base font-black my-0.5">
-                                    {dateObj.getDate()}
-                                  </span>
-                                  <span className="block text-[10px] font-semibold uppercase opacity-90">
-                                    {new Intl.DateTimeFormat(localeCode, { month: 'short' }).format(dateObj)}
-                                  </span>
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )}
+                {booked ? (
+                  <div className="mt-6 rounded-2xl bg-emerald-900/60 border border-emerald-500/40 p-5 text-center space-y-3">
+                    <span className="text-2xl">✓</span>
+                    <h3 className="text-base font-bold text-emerald-300">
+                      {bookingResultType === 'interest'
+                        ? isAr ? 'تم تسجيل اهتمامك' : 'Added to Notification List'
+                        : bookingResultType === 'waitlist'
+                          ? isAr ? 'تمت إضافتك لقائمة الانتظار' : 'Added to Waitlist'
+                          : bookingResultStatus === 'confirmed'
+                            ? isAr ? 'تم تأكيد مقعدك!' : 'Seat Confirmed!'
+                            : isAr ? 'تم استلام طلب التسجيل' : 'Registration Request Received'}
+                    </h3>
+                    <p className="text-xs text-white/90 leading-relaxed">{bookingSuccessMsg}</p>
+                    <div className="rounded-xl bg-black/40 p-2.5 font-mono text-xs font-bold text-emerald-200">
+                      {isAr ? 'رقم الحجز:' : 'Reference:'} {bookingReference}
                     </div>
 
-                    {selectedDate && (
-                      <div className="min-w-0 w-full">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-accent mb-2">
-                          {isAr ? `٢. اختر التوقيت (${formatDateLabel(selectedDate)})` : `2. Select Time Slot (${formatDateLabel(selectedDate)})`}
-                        </label>
-                        {loadingSlots ? (
-                          <p className="text-xs text-white/60">
-                            {isAr ? 'جاري تحميل المواعيد...' : 'Loading available slots...'}
-                          </p>
-                        ) : slots.length === 0 ? (
-                          <p className="text-xs text-rose-300">
-                            {isAr ? 'لا توجد مواعيد شاغرة في هذا اليوم.' : 'No open slots on this day.'}
-                          </p>
-                        ) : (
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1 min-w-0">
-                            {slots.map((s) => (
-                              <button
-                                key={s.time}
-                                type="button"
-                                disabled={!s.available}
-                                onClick={() => setSelectedTime(s.time)}
-                                className={`rounded-xl py-2 px-2 text-xs font-bold transition ${selectedTime === s.time
-                                  ? 'bg-accent text-primary font-bold shadow-xs'
-                                  : s.available
-                                    ? 'bg-white/10 text-white hover:bg-white/20'
-                                    : 'bg-white/5 text-white/20 line-through cursor-not-allowed'
-                                  }`}
-                              >
-                                {formatSlotLabel(s.time)}
-                              </button>
-                            ))}
+                    {/* Confirmed Booking Refund Policy Snapshot */}
+                    {(() => {
+                      const policyDetails = formatRefundPolicyDetails(service.refundPolicy, isAr ? 'ar' : 'en')
+                      return (
+                        <div className="rounded-xl border border-white/20 bg-white/10 p-3.5 text-start space-y-2 text-xs">
+                          <div className="flex items-center gap-1.5 text-white font-bold">
+                            <ShieldCheck size={14} className="text-accent shrink-0" />
+                            <span>{isAr ? 'سياسة الإلغاء والاسترداد للحجز' : 'Refund Policy Snapshot'}</span>
                           </div>
-                        )}
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* Step 2: Client Info */}
-                <div className="border-t border-white/10 pt-4 space-y-3">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-accent">
-                    {isEvent
-                      ? isAr ? '١. بيانات التسجيل' : '1. Your Information'
-                      : isAr ? '٣. بيانات التواصل' : '3. Your Information'}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                    placeholder={isAr ? 'الاسم بالكامل *' : 'Full Name *'}
-                    className="w-full rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-xs text-white outline-none placeholder:text-white/40 focus:border-accent"
-                  />
-                  <input
-                    type="email"
-                    required
-                    value={clientEmail}
-                    onChange={(e) => setClientEmail(e.target.value)}
-                    placeholder={isAr ? 'البريد الإلكتروني *' : 'Email Address *'}
-                    className="w-full rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-xs text-white outline-none placeholder:text-white/40 focus:border-accent"
-                  />
-                  <input
-                    type="tel"
-                    value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
-                    placeholder={isAr ? 'رقم الهاتف / واتساب' : 'Phone Number (e.g. +20 10...)'}
-                    className="w-full rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-xs text-white outline-none placeholder:text-white/40 focus:border-accent"
-                  />
-                </div>
-
-                {/* Additional Intake Questions from Expert */}
-                {Array.isArray(service.intakeQuestions) && service.intakeQuestions.length > 0 && (
-                  <div className="border-t border-white/10 pt-4 space-y-3">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-accent">
-                      {isEvent
-                        ? isAr ? '٣. متطلبات وأسئلة إضافية من الخبير' : '3. Intake Questions from Expert'
-                        : isAr ? '٤. متطلبات وأسئلة إضافية من الخبير' : '4. Intake Questions from Expert'}
-                    </label>
-                    <p className="text-[11px] text-white/70 leading-relaxed">
-                      {isAr
-                        ? 'يرجى تقديم الإجابات أو رفع الملفات المطلوبة أدناه للتحضير للجلسة:'
-                        : 'Please provide answers or upload requested files to help the expert prepare for your session:'}
+                          <p className="text-[11px] text-white/80 leading-relaxed">
+                            {policyDetails.description}
+                          </p>
+                          <div className="pt-2 border-t border-white/15 space-y-1 text-[11px] text-white/85">
+                            <p className="font-medium">• {policyDetails.fullRefundDeadline}</p>
+                            <p className="font-medium">• {policyDetails.partialRefundDeadline}</p>
+                            <p className="font-medium text-white/65">• {policyDetails.zeroRefundCondition}</p>
+                          </div>
+                          <p className="text-[10px] text-white/55 pt-1 italic">
+                            {isAr
+                              ? 'تم حفظ هذه النسخة من السياسة وتثبيتها مع حجزك ولن تتأثر بأي تعديلات مستقبلية للخدمة.'
+                              : 'This exact policy snapshot is locked to your booking and remains unaffected by future service updates.'}
+                          </p>
+                        </div>
+                      )
+                    })()}
+                    <p className="text-[11px] text-white/70">
+                      {bookingResultType !== 'seat'
+                        ? isAr
+                          ? 'سنراسلك عبر البريد الإلكتروني فور توفر مقعد أو فتح باب التسجيل.'
+                          : 'We will email you as soon as a spot opens up or registration begins.'
+                        : isFree
+                          ? bookingResultStatus === 'confirmed'
+                            ? isAr
+                              ? 'تم إرسال تفاصيل الجلسة ورابط الانضمام إلى بريدك الإلكتروني وحسابك.'
+                              : 'Confirmation and session details have been sent to your email and account.'
+                            : isAr
+                              ? 'سيقوم الخبير أو الإدارة بمراجعة طلبك وإرسال تأكيد الحضور ورابط الجلسة عبر البريد الإلكتروني.'
+                              : 'The host or admin team will review your request and email your confirmation and session link.'
+                          : isAr
+                            ? 'سيقوم فريقنا بالتحقق من تحويل إنستاباي وستصلك كافة التعليمات ورابط الجلسة عبر البريد الإلكتروني.'
+                            : 'Our team will verify the InstaPay transfer and you will receive full instructions and calendar invite by email.'}
                     </p>
-
-                    <div className="space-y-3 pt-1">
-                      {service.intakeQuestions.map((q: any, idx: number) => {
-                        const answerValue = intakeAnswers[q.id] || ''
-                        const isUp = Boolean(uploadingIntake[q.id])
-
-                        return (
-                          <div
-                            key={q.id || idx}
-                            className="rounded-2xl border border-white/15 bg-white/5 p-3.5 space-y-2"
-                          >
-                            <label className="block text-xs font-bold text-white">
-                              {q.question} {q.required && <span className="text-amber-400">*</span>}
+                  </div>
+                ) : isBlockedEvent ? (
+                  <div className="mt-6 rounded-2xl bg-white/5 border border-white/15 p-5 text-center space-y-2">
+                    <p className="text-sm font-bold text-white">
+                      {isEventPast
+                        ? isAr ? 'انتهى موعد هذا الحدث' : 'This Event Has Ended'
+                        : isEventCutoffPassed
+                          ? isAr ? 'انتهت مهلة التسجيل المسبق في هذا الحدث' : 'Advance Registration Has Closed'
+                          : isEventClosed
+                            ? isAr ? 'التسجيل مغلق حالياً' : 'Registration Is Closed'
+                            : isAr ? 'اكتمل العدد بالكامل' : 'Event Is Full'}
+                    </p>
+                    <p className="text-xs text-white/70">
+                      {isAr
+                        ? 'يمكنك تصفح ورش العمل والندوات القادمة المتاحة الآن.'
+                        : 'Browse other upcoming workshops and webinars currently open for registration.'}
+                    </p>
+                    <Link
+                      href={localeHref(service.bookingType === 'WORKSHOP' ? '/workshops' : '/webinars')}
+                      className="inline-block mt-2 rounded-full bg-accent px-5 py-2 text-xs font-bold text-primary hover:bg-accent-hover transition"
+                    >
+                      {isAr ? 'تصفح الفعاليات القادمة' : 'Browse Upcoming Events'}
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="mt-6 space-y-5 min-w-0 w-full">
+                    {/* Step 1: Schedule (if appointment) */}
+                    {!isEvent && (
+                      <>
+                        <div className="min-w-0 w-full">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-accent">
+                              {isAr ? '١. اختر التاريخ' : '1. Select Date'}
                             </label>
+                            <div className="hidden sm:flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => scrollDates('prev')}
+                                className="size-7 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition border border-white/10 active:scale-95"
+                                title={isAr ? 'السابق' : 'Previous dates'}
+                                aria-label={isAr ? 'السابق' : 'Previous dates'}
+                              >
+                                {isAr ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => scrollDates('next')}
+                                className="size-7 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition border border-white/10 active:scale-95"
+                                title={isAr ? 'التالي' : 'Next dates'}
+                                aria-label={isAr ? 'التالي' : 'Next dates'}
+                              >
+                                {isAr ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+                              </button>
+                            </div>
+                          </div>
+                          {loadingDays ? (
+                            <p className="text-xs text-white/60">
+                              {isAr ? 'جاري فحص المواعيد...' : 'Loading available dates...'}
+                            </p>
+                          ) : days.length === 0 ? (
+                            <p className="text-xs text-white/60">
+                              {isAr ? 'لا توجد مواعيد متاحة لهذه المدة.' : 'No available dates found for this duration.'}
+                            </p>
+                          ) : (
+                            <div className="space-y-2">
+                              {availableMonths.length > 1 && (
+                                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedMonth('all')}
+                                    className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition shrink-0 ${selectedMonth === 'all'
+                                      ? 'bg-accent text-primary shadow-2xs'
+                                      : 'bg-white/10 text-white/80 hover:bg-white/20'
+                                      }`}
+                                  >
+                                    {isAr ? 'كل الشهور' : 'All'}
+                                  </button>
+                                  {availableMonths.map((m) => (
+                                    <button
+                                      key={m.key}
+                                      type="button"
+                                      onClick={() => setSelectedMonth(m.key)}
+                                      className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition shrink-0 ${selectedMonth === m.key
+                                        ? 'bg-accent text-primary shadow-2xs'
+                                        : 'bg-white/10 text-white/80 hover:bg-white/20'
+                                        }`}
+                                    >
+                                      {m.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
 
-                            {q.type === 'string' ? (
-                              <textarea
-                                rows={2}
-                                value={answerValue}
-                                onChange={(e) =>
-                                  setIntakeAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
-                                }
-                                placeholder={isAr ? 'اكتب إجابتك هنا...' : 'Type your answer here...'}
-                                className="w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs text-white outline-none placeholder:text-white/40 focus:border-accent"
-                              />
-                            ) : q.type === 'pdf' ? (
-                              <div>
-                                {answerValue ? (
-                                  <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-2.5">
-                                    <a
-                                      href={answerValue}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-xs font-bold text-emerald-300 hover:underline flex items-center gap-1.5 truncate"
+                              <div ref={datesScrollRef} className="flex gap-2 overflow-x-auto pb-2 scrollbar-none w-full min-w-0 max-w-full scroll-smooth">
+                                {visibleDays.map((d) => {
+                                  const localeCode = isAr ? 'ar-EG' : 'en-US'
+                                  const dateObj = new Date(d.date + 'T00:00:00')
+                                  return (
+                                    <button
+                                      key={d.date}
+                                      type="button"
+                                      disabled={!d.hasSlots}
+                                      onClick={() => setSelectedDate(d.date)}
+                                      className={`shrink-0 rounded-2xl p-2.5 text-center transition min-w-[68px] ${selectedDate === d.date
+                                        ? 'bg-accent text-primary font-bold shadow-xs'
+                                        : d.hasSlots
+                                          ? 'bg-white/10 text-white hover:bg-white/20'
+                                          : 'bg-white/5 text-white/30 cursor-not-allowed'
+                                        }`}
                                     >
-                                      <span>📄</span>
-                                      <span className="truncate">{isAr ? 'عرض مستند PDF المرفق' : 'Attached PDF Document'} ↗</span>
-                                    </a>
-                                    <CloudinaryUploadWidget
-                                      folder="bokbok/intake_docs"
-                                      fallbackType="certificate"
-                                      allowPdf={true}
-                                      accept="application/pdf"
-                                      onUploadStart={() =>
-                                        setUploadingIntake((prev) => ({ ...prev, [q.id]: true }))
-                                      }
-                                      onSuccess={(res) => {
-                                        setIntakeAnswers((prev) => ({
-                                          ...prev,
-                                          [q.id]: res.secureUrl || res.url,
-                                        }))
-                                        setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
-                                      }}
-                                      onError={() =>
-                                        setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
-                                      }
-                                    >
-                                      <button
-                                        type="button"
-                                        className="text-[11px] font-bold text-emerald-300 hover:text-white underline shrink-0 px-1"
-                                      >
-                                        {isAr ? 'تغيير' : 'Change'}
-                                      </button>
-                                    </CloudinaryUploadWidget>
-                                  </div>
-                                ) : isUp ? (
-                                  <div className="rounded-xl border border-dashed border-accent/60 bg-accent/10 p-3 text-center text-xs text-accent">
-                                    {isAr ? 'جاري رفع ملف PDF...' : 'Uploading PDF...'}
-                                  </div>
-                                ) : (
-                                  <CloudinaryUploadWidget
-                                    folder="bokbok/intake_docs"
-                                    fallbackType="certificate"
-                                    allowPdf={true}
-                                    accept="application/pdf"
-                                    onUploadStart={() =>
-                                      setUploadingIntake((prev) => ({ ...prev, [q.id]: true }))
-                                    }
-                                    onSuccess={(res) => {
-                                      setIntakeAnswers((prev) => ({
-                                        ...prev,
-                                        [q.id]: res.secureUrl || res.url,
-                                      }))
-                                      setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
-                                    }}
-                                    onError={() =>
-                                      setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
-                                    }
-                                    className="w-full"
-                                  >
-                                    <div className="cursor-pointer rounded-xl border border-dashed border-white/25 bg-white/5 p-3 text-center transition hover:border-accent hover:bg-white/10">
-                                      <p className="text-xs font-bold text-white hover:text-accent">
-                                        {isAr ? '+ رفع مستند PDF' : '+ Upload PDF Document'}
-                                      </p>
-                                    </div>
-                                  </CloudinaryUploadWidget>
-                                )}
-                              </div>
-                            ) : (
-                              /* image */
-                              <div>
-                                {answerValue ? (
-                                  <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-2.5">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                                      <img
-                                        src={answerValue}
-                                        alt="Uploaded preview"
-                                        className="size-10 rounded-lg object-cover border border-emerald-400/40 shrink-0"
-                                      />
-                                      <span className="text-xs font-bold text-emerald-300 truncate">
-                                        {isAr ? '✓ تم إرفاق الصورة' : '✓ Image attached'}
+                                      <span className="block text-[10px] font-bold uppercase">
+                                        {new Intl.DateTimeFormat(localeCode, { weekday: 'short' }).format(dateObj)}
                                       </span>
-                                    </div>
-                                    <CloudinaryUploadWidget
-                                      folder="bokbok/intake_images"
-                                      fallbackType="general"
-                                      accept="image/*"
-                                      onUploadStart={() =>
-                                        setUploadingIntake((prev) => ({ ...prev, [q.id]: true }))
-                                      }
-                                      onSuccess={(res) => {
-                                        setIntakeAnswers((prev) => ({
-                                          ...prev,
-                                          [q.id]: res.secureUrl || res.url,
-                                        }))
-                                        setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
-                                      }}
-                                      onError={() =>
-                                        setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
-                                      }
-                                    >
-                                      <button
-                                        type="button"
-                                        className="text-[11px] font-bold text-emerald-300 hover:text-white underline shrink-0 px-1"
-                                      >
-                                        {isAr ? 'تغيير' : 'Change'}
-                                      </button>
-                                    </CloudinaryUploadWidget>
-                                  </div>
-                                ) : isUp ? (
-                                  <div className="rounded-xl border border-dashed border-accent/60 bg-accent/10 p-3 text-center text-xs text-accent">
-                                    {isAr ? 'جاري رفع ملف الصورة...' : 'Uploading image...'}
-                                  </div>
-                                ) : (
-                                  <CloudinaryUploadWidget
-                                    folder="bokbok/intake_images"
-                                    fallbackType="general"
-                                    accept="image/*"
-                                    onUploadStart={() =>
-                                      setUploadingIntake((prev) => ({ ...prev, [q.id]: true }))
-                                    }
-                                    onSuccess={(res) => {
-                                      setIntakeAnswers((prev) => ({
-                                        ...prev,
-                                        [q.id]: res.secureUrl || res.url,
-                                      }))
-                                      setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
-                                    }}
-                                    onError={() =>
-                                      setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
-                                    }
-                                    className="w-full"
+                                      <span className="block text-base font-black my-0.5">
+                                        {dateObj.getDate()}
+                                      </span>
+                                      <span className="block text-[10px] font-semibold uppercase opacity-90">
+                                        {new Intl.DateTimeFormat(localeCode, { month: 'short' }).format(dateObj)}
+                                      </span>
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {selectedDate && (
+                          <div className="min-w-0 w-full">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-accent mb-2">
+                              {isAr ? `٢. اختر التوقيت (${formatDateLabel(selectedDate)})` : `2. Select Time Slot (${formatDateLabel(selectedDate)})`}
+                            </label>
+                            {loadingSlots ? (
+                              <p className="text-xs text-white/60">
+                                {isAr ? 'جاري تحميل المواعيد...' : 'Loading available slots...'}
+                              </p>
+                            ) : slots.length === 0 ? (
+                              <p className="text-xs text-rose-300">
+                                {isAr ? 'لا توجد مواعيد شاغرة في هذا اليوم.' : 'No open slots on this day.'}
+                              </p>
+                            ) : (
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1 min-w-0">
+                                {slots.map((s) => (
+                                  <button
+                                    key={s.time}
+                                    type="button"
+                                    disabled={!s.available}
+                                    onClick={() => setSelectedTime(s.time)}
+                                    className={`rounded-xl py-2 px-2 text-xs font-bold transition ${selectedTime === s.time
+                                      ? 'bg-accent text-primary font-bold shadow-xs'
+                                      : s.available
+                                        ? 'bg-white/10 text-white hover:bg-white/20'
+                                        : 'bg-white/5 text-white/20 line-through cursor-not-allowed'
+                                      }`}
                                   >
-                                    <div className="cursor-pointer rounded-xl border border-dashed border-white/25 bg-white/5 p-3 text-center transition hover:border-accent hover:bg-white/10">
-                                      <p className="text-xs font-bold text-white hover:text-accent">
-                                        {isAr ? '+ رفع ملف صورة' : '+ Upload Image File'}
-                                      </p>
-                                    </div>
-                                  </CloudinaryUploadWidget>
-                                )}
+                                    {formatSlotLabel(s.time)}
+                                  </button>
+                                ))}
                               </div>
                             )}
                           </div>
-                        )
-                      })}
+                        )}
+                      </>
+                    )}
+
+                    {/* Step 2: Client Info */}
+                    <div className="border-t border-white/10 pt-4 space-y-3">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-accent">
+                        {isEvent
+                          ? isAr ? '١. بيانات التسجيل' : '1. Your Information'
+                          : isAr ? '٣. بيانات التواصل' : '3. Your Information'}
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={clientName}
+                        onChange={(e) => setClientName(e.target.value)}
+                        placeholder={isAr ? 'الاسم بالكامل *' : 'Full Name *'}
+                        className="w-full rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-xs text-white outline-none placeholder:text-white/40 focus:border-accent"
+                      />
+                      <input
+                        type="email"
+                        required
+                        value={clientEmail}
+                        onChange={(e) => setClientEmail(e.target.value)}
+                        placeholder={isAr ? 'البريد الإلكتروني *' : 'Email Address *'}
+                        className="w-full rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-xs text-white outline-none placeholder:text-white/40 focus:border-accent"
+                      />
+                      <input
+                        type="tel"
+                        value={clientPhone}
+                        onChange={(e) => setClientPhone(e.target.value)}
+                        placeholder={isAr ? 'رقم الهاتف / واتساب' : 'Phone Number (e.g. +20 10...)'}
+                        className="w-full rounded-xl border border-white/20 bg-white/10 px-3.5 py-2.5 text-xs text-white outline-none placeholder:text-white/40 focus:border-accent"
+                      />
+                    </div>
+
+                    {/* Additional Intake Questions from Expert */}
+                    {Array.isArray(service.intakeQuestions) && service.intakeQuestions.length > 0 && (
+                      <div className="border-t border-white/10 pt-4 space-y-3">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-accent">
+                          {isEvent
+                            ? isAr ? '٣. متطلبات وأسئلة إضافية من الخبير' : '3. Intake Questions from Expert'
+                            : isAr ? '٤. متطلبات وأسئلة إضافية من الخبير' : '4. Intake Questions from Expert'}
+                        </label>
+                        <p className="text-[11px] text-white/70 leading-relaxed">
+                          {isAr
+                            ? 'يرجى تقديم الإجابات أو رفع الملفات المطلوبة أدناه للتحضير للجلسة:'
+                            : 'Please provide answers or upload requested files to help the expert prepare for your session:'}
+                        </p>
+
+                        <div className="space-y-3 pt-1">
+                          {service.intakeQuestions.map((q: any, idx: number) => {
+                            const answerValue = intakeAnswers[q.id] || ''
+                            const isUp = Boolean(uploadingIntake[q.id])
+
+                            return (
+                              <div
+                                key={q.id || idx}
+                                className="rounded-2xl border border-white/15 bg-white/5 p-3.5 space-y-2"
+                              >
+                                <label className="block text-xs font-bold text-white">
+                                  {q.question} {q.required && <span className="text-amber-400">*</span>}
+                                </label>
+
+                                {q.type === 'string' ? (
+                                  <textarea
+                                    rows={2}
+                                    value={answerValue}
+                                    onChange={(e) =>
+                                      setIntakeAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
+                                    }
+                                    placeholder={isAr ? 'اكتب إجابتك هنا...' : 'Type your answer here...'}
+                                    className="w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs text-white outline-none placeholder:text-white/40 focus:border-accent"
+                                  />
+                                ) : q.type === 'pdf' ? (
+                                  <div>
+                                    {answerValue ? (
+                                      <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-2.5">
+                                        <a
+                                          href={answerValue}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-xs font-bold text-emerald-300 hover:underline flex items-center gap-1.5 truncate"
+                                        >
+                                          <span className="truncate">{isAr ? 'عرض مستند PDF المرفق' : 'Attached PDF Document'} ↗</span>
+                                        </a>
+                                        <CloudinaryUploadWidget
+                                          folder="bokbok/intake_docs"
+                                          fallbackType="certificate"
+                                          allowPdf={true}
+                                          accept="application/pdf"
+                                          onUploadStart={() =>
+                                            setUploadingIntake((prev) => ({ ...prev, [q.id]: true }))
+                                          }
+                                          onSuccess={(res) => {
+                                            setIntakeAnswers((prev) => ({
+                                              ...prev,
+                                              [q.id]: res.secureUrl || res.url,
+                                            }))
+                                            setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
+                                          }}
+                                          onError={() =>
+                                            setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
+                                          }
+                                        >
+                                          <button
+                                            type="button"
+                                            className="text-[11px] font-bold text-emerald-300 hover:text-white underline shrink-0 px-1"
+                                          >
+                                            {isAr ? 'تغيير' : 'Change'}
+                                          </button>
+                                        </CloudinaryUploadWidget>
+                                      </div>
+                                    ) : isUp ? (
+                                      <div className="rounded-xl border border-dashed border-accent/60 bg-accent/10 p-3 text-center text-xs text-accent">
+                                        {isAr ? 'جاري رفع ملف PDF...' : 'Uploading PDF...'}
+                                      </div>
+                                    ) : (
+                                      <CloudinaryUploadWidget
+                                        folder="bokbok/intake_docs"
+                                        fallbackType="certificate"
+                                        allowPdf={true}
+                                        accept="application/pdf"
+                                        onUploadStart={() =>
+                                          setUploadingIntake((prev) => ({ ...prev, [q.id]: true }))
+                                        }
+                                        onSuccess={(res) => {
+                                          setIntakeAnswers((prev) => ({
+                                            ...prev,
+                                            [q.id]: res.secureUrl || res.url,
+                                          }))
+                                          setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
+                                        }}
+                                        onError={() =>
+                                          setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
+                                        }
+                                        className="w-full"
+                                      >
+                                        <div className="cursor-pointer rounded-xl border border-dashed border-white/25 bg-white/5 p-3 text-center transition hover:border-accent hover:bg-white/10">
+                                          <p className="text-xs font-bold text-white hover:text-accent">
+                                            {isAr ? '+ رفع مستند PDF' : '+ Upload PDF Document'}
+                                          </p>
+                                        </div>
+                                      </CloudinaryUploadWidget>
+                                    )}
+                                  </div>
+                                ) : (
+                                  /* image */
+                                  <div>
+                                    {answerValue ? (
+                                      <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-2.5">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                                          <img
+                                            src={answerValue}
+                                            alt="Uploaded preview"
+                                            className="size-10 rounded-lg object-cover border border-emerald-400/40 shrink-0"
+                                          />
+                                          <span className="text-xs font-bold text-emerald-300 truncate">
+                                            {isAr ? '✓ تم إرفاق الصورة' : '✓ Image attached'}
+                                          </span>
+                                        </div>
+                                        <CloudinaryUploadWidget
+                                          folder="bokbok/intake_images"
+                                          fallbackType="general"
+                                          accept="image/*"
+                                          onUploadStart={() =>
+                                            setUploadingIntake((prev) => ({ ...prev, [q.id]: true }))
+                                          }
+                                          onSuccess={(res) => {
+                                            setIntakeAnswers((prev) => ({
+                                              ...prev,
+                                              [q.id]: res.secureUrl || res.url,
+                                            }))
+                                            setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
+                                          }}
+                                          onError={() =>
+                                            setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
+                                          }
+                                        >
+                                          <button
+                                            type="button"
+                                            className="text-[11px] font-bold text-emerald-300 hover:text-white underline shrink-0 px-1"
+                                          >
+                                            {isAr ? 'تغيير' : 'Change'}
+                                          </button>
+                                        </CloudinaryUploadWidget>
+                                      </div>
+                                    ) : isUp ? (
+                                      <div className="rounded-xl border border-dashed border-accent/60 bg-accent/10 p-3 text-center text-xs text-accent">
+                                        {isAr ? 'جاري رفع ملف الصورة...' : 'Uploading image...'}
+                                      </div>
+                                    ) : (
+                                      <CloudinaryUploadWidget
+                                        folder="bokbok/intake_images"
+                                        fallbackType="general"
+                                        accept="image/*"
+                                        onUploadStart={() =>
+                                          setUploadingIntake((prev) => ({ ...prev, [q.id]: true }))
+                                        }
+                                        onSuccess={(res) => {
+                                          setIntakeAnswers((prev) => ({
+                                            ...prev,
+                                            [q.id]: res.secureUrl || res.url,
+                                          }))
+                                          setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
+                                        }}
+                                        onError={() =>
+                                          setUploadingIntake((prev) => ({ ...prev, [q.id]: false }))
+                                        }
+                                        className="w-full"
+                                      >
+                                        <div className="cursor-pointer rounded-xl border border-dashed border-white/25 bg-white/5 p-3 text-center transition hover:border-accent hover:bg-white/10">
+                                          <p className="text-xs font-bold text-white hover:text-accent">
+                                            {isAr ? '+ رفع ملف صورة' : '+ Upload Image File'}
+                                          </p>
+                                        </div>
+                                      </CloudinaryUploadWidget>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step 3: InstaPay Transfer Instructions (Paid seats only; Free & Waitlist skip payment) */}
+                    {showInstaPay ? (
+                      <div className="border-t border-white/10 pt-4 space-y-3">
+                        <div className="rounded-2xl bg-white/5 border border-white/10 p-3.5 text-xs space-y-1">
+                          <p className="font-bold text-accent">
+                            {isAr ? 'بيانات الدفع عبر إنستاباي' : 'InstaPay Payment Details'}
+                          </p>
+                          <p className="text-white/80 font-mono text-[11px]">IPA: bokbok@instapay</p>
+                          <p className="text-white/80 font-mono text-[11px]">
+                            {isAr ? 'المبلغ المطلوب:' : 'Amount:'} {price} {baseCurrency}
+                          </p>
+                          <p className="text-[10px] text-white/60">
+                            {isAr
+                              ? 'حول المبلغ عبر تطبيق إنستاباي أو بنكك ثم ارفع إيصال التحويل أدناه.'
+                              : 'Transfer via your banking app or InstaPay, then upload the confirmation receipt below.'}
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-white/70 mb-2">
+                            {isAr ? 'رفع إيصال تحويل إنستاباي:' : 'Upload InstaPay Transfer Receipt:'}
+                          </label>
+                          {receiptUrl ? (
+                            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={receiptUrl}
+                                  alt="Receipt Preview"
+                                  className="size-12 rounded-lg object-cover border border-emerald-400/40 shrink-0"
+                                />
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-emerald-300 truncate">
+                                    {isAr ? '✓ تم إرفاق الإيصال' : '✓ Receipt attached'}
+                                  </p>
+                                  <p className="text-[10px] text-emerald-400/70 truncate">
+                                    {isAr ? 'تم التحقق والرفع بنجاح' : 'Auto-compressed & verified'}
+                                  </p>
+                                </div>
+                              </div>
+                              <CloudinaryUploadWidget
+                                folder="bokbok/receipts"
+                                fallbackType="receipt"
+                                onUploadStart={() => setUploadingReceipt(true)}
+                                onSuccess={(result) => {
+                                  setReceiptUrl(result.url)
+                                  setUploadingReceipt(false)
+                                }}
+                                onError={() => setUploadingReceipt(false)}
+                              >
+                                <button
+                                  type="button"
+                                  className="text-[11px] font-bold text-emerald-300 hover:text-white underline shrink-0 px-2 py-1"
+                                >
+                                  {isAr ? 'استبدال' : 'Replace'}
+                                </button>
+                              </CloudinaryUploadWidget>
+                            </div>
+                          ) : uploadingReceipt ? (
+                            <div className="rounded-xl border border-dashed border-accent/60 bg-accent/10 p-4 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <div className="size-4 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+                                <p className="text-xs font-bold text-accent">
+                                  {isAr ? 'جاري رفع إيصال الدفع...' : 'Uploading transfer receipt...'}
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <CloudinaryUploadWidget
+                              folder="bokbok/receipts"
+                              fallbackType="receipt"
+                              onUploadStart={() => setUploadingReceipt(true)}
+                              onSuccess={(result) => {
+                                setReceiptUrl(result.url)
+                                setUploadingReceipt(false)
+                              }}
+                              onError={() => setUploadingReceipt(false)}
+                              className="w-full"
+                            >
+                              <div className="group cursor-pointer rounded-xl border border-dashed border-white/25 bg-white/5 p-4 text-center transition hover:border-accent hover:bg-white/10">
+                                <p className="text-xs font-bold text-white group-hover:text-accent">
+                                  {isAr ? '+ رفع إيصال التحويل' : '+ Upload Transfer Receipt'}
+                                </p>
+                                <p className="mt-0.5 text-[10px] text-white/50">
+                                  {isAr ? 'رفع آمن ومباشر عبر كلاوديناري' : 'Click to open Cloudinary uploader (Automatic high compression)'}
+                                </p>
+                              </div>
+                            </CloudinaryUploadWidget>
+                          )}
+                        </div>
+                      </div>
+                    ) : isWaitlistMode ? (
+                      <div className="rounded-2xl bg-amber-500/15 border border-amber-400/30 p-3.5 text-xs text-amber-100 leading-relaxed">
+                        {isComingSoon
+                          ? isAr
+                            ? 'هذا الحدث قادم قريباً! سجّل بياناتك بدون دفع وسنبلغك فور فتح باب التسجيل.'
+                            : 'This event is Coming Soon! Leave your details (no payment required) and we will notify you as soon as registration opens.'
+                          : isAr
+                            ? 'اكتملت المقاعد حالياً — انضم لقائمة الانتظار مجاناً وسنبلغك فور توفر مقعد.'
+                            : 'All seats are currently taken — join the waitlist (no payment needed) and we will notify you if a spot opens up.'}
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl bg-emerald-500/15 border border-emerald-400/30 p-3.5 text-xs text-emerald-100 leading-relaxed">
+                        {isAr
+                          ? 'هذا الحدث مجاني بالكامل! لا حاجة لتحويل أو إيصال دفع — قدّم طلبك وسيتم مراجعته واعتماده عبر الخبير أو الإدارة.'
+                          : 'This event is completely free! No payment or receipt is required — submit your registration request for host/admin approval.'}
+                      </div>
+                    )}
+
+                    {/* Pre-Payment Cancellation & Refund Policy Clarity */}
+                    {(() => {
+                      const policyDetails = formatRefundPolicyDetails(service.refundPolicy, isAr ? 'ar' : 'en')
+                      return (
+                        <div className="rounded-2xl border border-white/20 bg-white/10 p-3.5 text-start space-y-2">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                            <ShieldCheck size={14} className="text-accent shrink-0" />
+                            <span>{isAr ? 'شروط الإلغاء والاسترداد قبل الدفع' : 'Cancellation & Refund Terms'}</span>
+                          </div>
+                          <p className="text-[11px] text-white/80 leading-relaxed">
+                            {policyDetails.description}
+                          </p>
+                          <div className="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-white/15 text-[10px] text-center font-bold">
+                            <div className="rounded-xl bg-white/10 p-1.5 text-white">
+                              <div className="text-white">100%</div>
+                              <div className="text-[9px] font-normal text-white/75">
+                                {policyDetails.rules[0]?.minimumHoursBefore}h+
+                              </div>
+                            </div>
+                            <div className="rounded-xl bg-white/10 p-1.5 text-white">
+                              <div>50%</div>
+                              <div className="text-[9px] font-normal text-white/75">
+                                {policyDetails.rules[1]?.minimumHoursBefore}–{policyDetails.rules[0]?.minimumHoursBefore}h
+                              </div>
+                            </div>
+                            <div className="rounded-xl bg-white/10 p-1.5 text-white/75">
+                              <div>0%</div>
+                              <div className="text-[9px] font-normal text-white/60">
+                                &lt;{policyDetails.rules[1]?.minimumHoursBefore}h
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })()}
+
+                    {/* Submit Booking */}
+                    <button
+                      type="button"
+                      disabled={
+                        bookingLoading ||
+                        uploadingReceipt ||
+                        Object.values(uploadingIntake).some(Boolean) ||
+                        (showInstaPay && !receiptUrl) ||
+                        (!isEvent && (!selectedDate || !selectedTime))
+                      }
+                      onClick={handleBook}
+                      className="w-full rounded-full bg-accent hover:bg-accent-hover py-3.5 text-xs font-bold text-primary shadow-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {bookingLoading
+                        ? (isAr ? 'جاري معالجة الطلب...' : 'Processing...')
+                        : uploadingReceipt
+                          ? (isAr ? 'جاري رفع إيصال الدفع...' : 'Uploading Receipt...')
+                          : Object.values(uploadingIntake).some(Boolean)
+                            ? (isAr ? 'جاري رفع الملفات المرفقة...' : 'Uploading files...')
+                            : showInstaPay && !receiptUrl
+                              ? (isAr ? 'يرجى إرفاق إيصال التحويل أولاً' : 'Upload Receipt to Proceed')
+                              : isComingSoon
+                                ? (isAr ? 'أبلغني عند فتح التسجيل' : 'Notify Me When Open')
+                                : isEventFull
+                                  ? (isAr ? 'انضم لقائمة الانتظار' : 'Join Waitlist')
+                                  : isEvent && isFree
+                                    ? (isAr ? 'تقديم طلب تسجيل مجاني' : 'Request Free Seat')
+                                    : isEvent
+                                      ? (isAr ? 'تأكيد التسجيل في الجلسة' : 'Confirm Registration')
+                                      : (isAr ? 'تأكيد وحجز الموعد' : 'Confirm & Request Session')}
+                    </button>
+
+                    <div className="flex items-center justify-center gap-2 text-[11px] text-white/50 pt-1">
+                      <ShieldCheck size={14} className="text-accent" />
+                      <span>{isAr ? 'عرض معتمد ومراجع من الإدارة' : 'Admin-reviewed offer'}</span>
                     </div>
                   </div>
                 )}
-
-                {/* Step 3: InstaPay Transfer Instructions (Paid seats only; Free & Waitlist skip payment) */}
-                {showInstaPay ? (
-                <div className="border-t border-white/10 pt-4 space-y-3">
-                  <div className="rounded-2xl bg-white/5 border border-white/10 p-3.5 text-xs space-y-1">
-                    <p className="font-bold text-accent">
-                      {isAr ? 'بيانات الدفع عبر إنستاباي' : 'InstaPay Payment Details'}
-                    </p>
-                    <p className="text-white/80 font-mono text-[11px]">IPA: bokbok@instapay</p>
-                    <p className="text-white/80 font-mono text-[11px]">
-                      {isAr ? 'المبلغ المطلوب:' : 'Amount:'} {price} {baseCurrency}
-                    </p>
-                    <p className="text-[10px] text-white/60">
-                      {isAr
-                        ? 'حول المبلغ عبر تطبيق إنستاباي أو بنكك ثم ارفع إيصال التحويل أدناه.'
-                        : 'Transfer via your banking app or InstaPay, then upload the confirmation receipt below.'}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-white/70 mb-2">
-                      {isAr ? 'رفع إيصال تحويل إنستاباي:' : 'Upload InstaPay Transfer Receipt:'}
-                    </label>
-                    {receiptUrl ? (
-                      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={receiptUrl}
-                            alt="Receipt Preview"
-                            className="size-12 rounded-lg object-cover border border-emerald-400/40 shrink-0"
-                          />
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold text-emerald-300 truncate">
-                              {isAr ? '✓ تم إرفاق الإيصال' : '✓ Receipt attached'}
-                            </p>
-                            <p className="text-[10px] text-emerald-400/70 truncate">
-                              {isAr ? 'تم التحقق والرفع بنجاح' : 'Auto-compressed & verified'}
-                            </p>
-                          </div>
-                        </div>
-                        <CloudinaryUploadWidget
-                          folder="bokbok/receipts"
-                          fallbackType="receipt"
-                          onUploadStart={() => setUploadingReceipt(true)}
-                          onSuccess={(result) => {
-                            setReceiptUrl(result.url)
-                            setUploadingReceipt(false)
-                          }}
-                          onError={() => setUploadingReceipt(false)}
-                        >
-                          <button
-                            type="button"
-                            className="text-[11px] font-bold text-emerald-300 hover:text-white underline shrink-0 px-2 py-1"
-                          >
-                            {isAr ? 'استبدال' : 'Replace'}
-                          </button>
-                        </CloudinaryUploadWidget>
-                      </div>
-                    ) : uploadingReceipt ? (
-                      <div className="rounded-xl border border-dashed border-accent/60 bg-accent/10 p-4 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="size-4 rounded-full border-2 border-accent border-t-transparent animate-spin" />
-                          <p className="text-xs font-bold text-accent">
-                            {isAr ? 'جاري رفع إيصال الدفع...' : 'Uploading transfer receipt...'}
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <CloudinaryUploadWidget
-                        folder="bokbok/receipts"
-                        fallbackType="receipt"
-                        onUploadStart={() => setUploadingReceipt(true)}
-                        onSuccess={(result) => {
-                          setReceiptUrl(result.url)
-                          setUploadingReceipt(false)
-                        }}
-                        onError={() => setUploadingReceipt(false)}
-                        className="w-full"
-                      >
-                        <div className="group cursor-pointer rounded-xl border border-dashed border-white/25 bg-white/5 p-4 text-center transition hover:border-accent hover:bg-white/10">
-                          <p className="text-xs font-bold text-white group-hover:text-accent">
-                            {isAr ? '+ رفع إيصال التحويل' : '+ Upload Transfer Receipt'}
-                          </p>
-                          <p className="mt-0.5 text-[10px] text-white/50">
-                            {isAr ? 'رفع آمن ومباشر عبر كلاوديناري' : 'Click to open Cloudinary uploader (Automatic high compression)'}
-                          </p>
-                        </div>
-                      </CloudinaryUploadWidget>
-                    )}
-                  </div>
-                </div>
-                ) : isWaitlistMode ? (
-                  <div className="rounded-2xl bg-amber-500/15 border border-amber-400/30 p-3.5 text-xs text-amber-100 leading-relaxed">
-                    {isComingSoon
-                      ? isAr
-                        ? 'هذا الحدث قادم قريباً! سجّل بياناتك بدون دفع وسنبلغك فور فتح باب التسجيل.'
-                        : 'This event is Coming Soon! Leave your details (no payment required) and we will notify you as soon as registration opens.'
-                      : isAr
-                        ? 'اكتملت المقاعد حالياً — انضم لقائمة الانتظار مجاناً وسنبلغك فور توفر مقعد.'
-                        : 'All seats are currently taken — join the waitlist (no payment needed) and we will notify you if a spot opens up.'}
-                  </div>
-                ) : (
-                  <div className="rounded-2xl bg-emerald-500/15 border border-emerald-400/30 p-3.5 text-xs text-emerald-100 leading-relaxed">
-                    {isAr
-                      ? 'هذا الحدث مجاني بالكامل! لا حاجة لتحويل أو إيصال دفع — قدّم طلبك وسيتم مراجعته واعتماده عبر الخبير أو الإدارة.'
-                      : 'This event is completely free! No payment or receipt is required — submit your registration request for host/admin approval.'}
-                  </div>
-                )}
-
-                {/* Submit Booking */}
-                <button
-                  type="button"
-                  disabled={
-                    bookingLoading ||
-                    uploadingReceipt ||
-                    Object.values(uploadingIntake).some(Boolean) ||
-                    (showInstaPay && !receiptUrl) ||
-                    (!isEvent && (!selectedDate || !selectedTime))
-                  }
-                  onClick={handleBook}
-                  className="w-full rounded-full bg-accent hover:bg-accent-hover py-3.5 text-xs font-bold text-primary shadow-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {bookingLoading
-                    ? (isAr ? 'جاري معالجة الطلب...' : 'Processing...')
-                    : uploadingReceipt
-                      ? (isAr ? 'جاري رفع إيصال الدفع...' : 'Uploading Receipt...')
-                      : Object.values(uploadingIntake).some(Boolean)
-                        ? (isAr ? 'جاري رفع الملفات المرفقة...' : 'Uploading files...')
-                        : showInstaPay && !receiptUrl
-                          ? (isAr ? 'يرجى إرفاق إيصال التحويل أولاً' : 'Upload Receipt to Proceed')
-                          : isComingSoon
-                            ? (isAr ? 'أبلغني عند فتح التسجيل' : 'Notify Me When Open')
-                            : isEventFull
-                              ? (isAr ? 'انضم لقائمة الانتظار' : 'Join Waitlist')
-                              : isEvent && isFree
-                                ? (isAr ? 'تقديم طلب تسجيل مجاني' : 'Request Free Seat')
-                                : isEvent
-                                  ? (isAr ? 'تأكيد التسجيل في الجلسة' : 'Confirm Registration')
-                                  : (isAr ? 'تأكيد وحجز الموعد' : 'Confirm & Request Session')}
-                </button>
-
-                <div className="flex items-center justify-center gap-2 text-[11px] text-white/50 pt-1">
-                  <ShieldCheck size={14} className="text-accent" />
-                  <span>{isAr ? 'عرض معتمد ومراجع من الإدارة' : 'Admin-reviewed offer'}</span>
-                </div>
-              </div>
-            )}
-          </aside>
+              </aside>
             )
           })()}
         </div>
