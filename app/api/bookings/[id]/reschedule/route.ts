@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getBookingsCollection, toObjectId, type RescheduleHistoryEntry } from '@/lib/db'
+import { getBookingsCollection, getServicesCollection, toObjectId, type RescheduleHistoryEntry } from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
 import { getExpertSlotsForDate } from '@/lib/availability-server'
 import {
@@ -76,6 +76,38 @@ export async function POST(request: Request, context: RouteContext) {
       )
     }
 
+    // Look up linked service (for event check, break buffer, and min notice hours)
+    let serviceDoc: any = null
+    if (booking.serviceId) {
+      try {
+        const servicesCol = await getServicesCollection()
+        serviceDoc = await servicesCol.findOne({ _id: toObjectId(booking.serviceId) })
+      } catch {
+        serviceDoc = null
+      }
+    }
+
+    const isEventBooking = Boolean(
+      booking.bookingType === 'WORKSHOP' ||
+      booking.bookingType === 'WEBINAR' ||
+      serviceDoc?.bookingType === 'WORKSHOP' ||
+      serviceDoc?.bookingType === 'WEBINAR' ||
+      booking.reference?.startsWith('EV-')
+    )
+    if (isEventBooking) {
+      return NextResponse.json(
+        { success: false, error: 'Group workshops and webinars cannot be individually rescheduled.' },
+        { status: 400 }
+      )
+    }
+
+    if (newDate === booking.date && newTime === booking.time) {
+      return NextResponse.json(
+        { success: false, error: 'Please choose a different date or time slot.' },
+        { status: 400 }
+      )
+    }
+
     // Calculate deadline and verify eligibility
     const { expertDoc, expertName, expertEmail } = await resolveExpertContact(booking.expertId)
     const deadlineHours = booking.rescheduleDeadlineHours || expertDoc?.rescheduleDeadlineHours || 24
@@ -103,11 +135,16 @@ export async function POST(request: Request, context: RouteContext) {
       )
     }
 
-    // Verify slot availability with expert's schedule engine
+    // Verify slot availability with expert's schedule engine (including service buffer & notice rules)
+    const breakAfterMinutes = serviceDoc?.breakAfterMinutes || 0
+    const minNoticeHours =
+      serviceDoc?.minNoticeHours !== undefined ? Number(serviceDoc.minNoticeHours) : 24
     const availableSlots = await getExpertSlotsForDate(
       booking.expertId.toString(),
       newDate,
-      booking.durationMinutes || 45
+      booking.durationMinutes || 45,
+      breakAfterMinutes,
+      minNoticeHours
     )
 
     const slotMatch = availableSlots.find((s) => s.time === newTime)

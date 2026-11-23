@@ -27,6 +27,8 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
   const [error, setError] = useState<string | null>(null)
 
   // Rescheduling states
+  const [showReschedulePanel, setShowReschedulePanel] = useState(false)
+  const [availabilityRefreshKey, setAvailabilityRefreshKey] = useState(0)
   const [days, setDays] = useState<DayAvailability[]>([])
   const [loadingDays, setLoadingDays] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string>('')
@@ -125,45 +127,90 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
     }
   }
 
-  // Load calendar days for rescheduling if allowed
+  // Load calendar days for rescheduling ONLY when the panel is opened (synced with expert availability)
   useEffect(() => {
-    if (!booking || !booking.isRescheduleAllowed) return
+    if (!showReschedulePanel || !booking || !booking.isRescheduleAllowed) return
 
+    let ignore = false
     setLoadingDays(true)
-    fetch(`/api/availability?expertId=${booking.expertId}&action=days&count=90&duration=${booking.durationMinutes || 45}`)
+    setSelectedDate('')
+    setSelectedTime('')
+    setSlots([])
+
+    const serviceIdParam = booking.serviceId
+      ? `&serviceId=${encodeURIComponent(booking.serviceId)}`
+      : ''
+    fetch(
+      `/api/availability?expertId=${booking.expertId}&action=days&count=90&duration=${booking.durationMinutes || 45}${serviceIdParam}`,
+      { cache: 'no-store' }
+    )
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.days)) {
+        if (!ignore && data.success && Array.isArray(data.days)) {
           setDays(data.days)
           const firstOpen = data.days.find((d: DayAvailability) => d.hasSlots)
           if (firstOpen) setSelectedDate(firstOpen.date)
         }
       })
-      .finally(() => setLoadingDays(false))
-  }, [booking?.expertId, booking?.isRescheduleAllowed, booking?.durationMinutes])
+      .finally(() => {
+        if (!ignore) setLoadingDays(false)
+      })
 
-  // Load slots for selected reschedule date
+    return () => {
+      ignore = true
+    }
+  }, [
+    showReschedulePanel,
+    booking?.expertId,
+    booking?.isRescheduleAllowed,
+    booking?.durationMinutes,
+    booking?.serviceId,
+    availabilityRefreshKey,
+  ])
+
+  // Load slots for selected reschedule date ONLY when the panel is open
   useEffect(() => {
-    if (!selectedDate || !booking?.expertId) {
+    if (!showReschedulePanel || !selectedDate || !booking?.expertId) {
       setSlots([])
       return
     }
 
+    let ignore = false
     setLoadingSlots(true)
     setSelectedTime('')
+
+    const serviceIdParam = booking.serviceId
+      ? `&serviceId=${encodeURIComponent(booking.serviceId)}`
+      : ''
+    const breakAfter = booking.breakAfterMinutes || 0
     fetch(
-      `/api/availability?expertId=${booking.expertId}&action=slots&date=${selectedDate}&duration=${booking.durationMinutes || 45}`
+      `/api/availability?expertId=${booking.expertId}&action=slots&date=${selectedDate}&duration=${booking.durationMinutes || 45}&breakAfter=${breakAfter}${serviceIdParam}`,
+      { cache: 'no-store' }
     )
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && Array.isArray(data.slots)) {
+        if (!ignore && data.success && Array.isArray(data.slots)) {
           setSlots(data.slots)
-          const firstOpen = data.slots.find((s: TimeSlot) => s.available)
-          if (firstOpen) setSelectedTime(firstOpen.time)
+          const firstAvailable = data.slots.find((s: TimeSlot) => s.available)
+          if (firstAvailable) setSelectedTime(firstAvailable.time)
         }
       })
-      .finally(() => setLoadingSlots(false))
-  }, [selectedDate, booking?.expertId, booking?.durationMinutes])
+      .finally(() => {
+        if (!ignore) setLoadingSlots(false)
+      })
+
+    return () => {
+      ignore = true
+    }
+  }, [
+    showReschedulePanel,
+    selectedDate,
+    booking?.expertId,
+    booking?.durationMinutes,
+    booking?.breakAfterMinutes,
+    booking?.serviceId,
+    availabilityRefreshKey,
+  ])
 
   const handleRescheduleSubmit = async () => {
     if (!selectedDate || !selectedTime) {
@@ -190,6 +237,8 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
 
       const json = await res.json()
       if (json.success) {
+        setShowReschedulePanel(false)
+        setRescheduleReason('')
         setRescheduleMessage({
           type: 'success',
           text: isAr
@@ -476,192 +525,237 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
           )}
         </div>
 
-        {/* SECTION 2: Rescheduling System */}
-        <div className="rounded-3xl border border-border bg-surface p-6 sm:p-8 shadow-xs space-y-6">
-          <div className="border-b border-border pb-4">
-            <h2 className="text-xl font-bold tracking-tight text-primary">
-              {isAr ? 'إعادة جدولة الجلسة' : 'Reschedule Session'}
-            </h2>
-            <p className="text-xs text-muted-foreground mt-1">
-              {isAr ? (
-                <>سياسة إعادة الجدولة: يُسمح بالتغيير حتى <strong>{booking.rescheduleDeadlineHours || 24} ساعة</strong> قبل بدء الجلسة.</>
-              ) : (
-                <>Expert Rescheduling Policy: Changes allowed up to <strong>{booking.rescheduleDeadlineHours || 24} hours</strong> before session.</>
-              )}
-            </p>
-          </div>
-
-          {deadlinePassed ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 flex items-start gap-3.5">
-              <AlertCircle size={20} className="text-amber-700 shrink-0 mt-0.5" />
+        {/* SECTION 2: Rescheduling System (1-on-1 Appointments only; collapsed until clicked) */}
+        {booking.bookingType !== 'WORKSHOP' && booking.bookingType !== 'WEBINAR' && (
+          <div className="rounded-3xl border border-border bg-surface p-6 sm:p-8 shadow-xs space-y-6">
+            <div className="border-b border-border pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-bold text-amber-900">
-                  {isAr ? 'انتهت المهلة المسموحة لإعادة الجدولة' : 'Rescheduling Deadline Has Passed'}
-                </p>
-                <p className="text-xs text-amber-800 mt-1 leading-relaxed">
-                  {isAr
-                    ? `وفقاً لسياسة الخبير، لا يمكن تقديم طلب إعادة جدولة قبل أقل من ${booking.rescheduleDeadlineHours || 24} ساعة من الموعد.`
-                    : `Per the expert's configured policy, clients cannot submit new rescheduling requests less than ${booking.rescheduleDeadlineHours || 24} hours before the scheduled session start.`}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-5">
-              {rescheduleMessage && (
-                <div
-                  className={`rounded-2xl border p-4 text-xs font-semibold ${rescheduleMessage.type === 'success'
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                    : 'border-rose-200 bg-rose-50 text-rose-800'
-                    }`}
-                >
-                  {rescheduleMessage.text}
-                </div>
-              )}
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-bold text-primary">
-                    {isAr ? '١. اختر التاريخ الجديد' : '1. Select New Date'}
-                  </label>
-                  <div className="hidden sm:flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => scrollRescheduleDates('prev')}
-                      className="size-7 rounded-xl bg-secondary hover:bg-border text-primary flex items-center justify-center transition border border-border active:scale-95"
-                      title={isAr ? 'السابق' : 'Previous dates'}
-                      aria-label={isAr ? 'السابق' : 'Previous dates'}
-                    >
-                      {isAr ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => scrollRescheduleDates('next')}
-                      className="size-7 rounded-xl bg-secondary hover:bg-border text-primary flex items-center justify-center transition border border-border active:scale-95"
-                      title={isAr ? 'التالي' : 'Next dates'}
-                      aria-label={isAr ? 'التالي' : 'Next dates'}
-                    >
-                      {isAr ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
-                    </button>
-                  </div>
-                </div>
-                {loadingDays ? (
-                  <p className="text-xs text-muted-foreground">{isAr ? 'جاري فحص المواعيد...' : 'Loading available dates...'}</p>
-                ) : (
-                  <div ref={rescheduleScrollRef} className="flex gap-2 overflow-x-auto pb-2 scrollbar-none scroll-smooth">
-                    {days.map((d) => {
-                      const dateObj = new Date(d.date + 'T00:00:00')
-                      return (
-                        <button
-                          key={d.date}
-                          type="button"
-                          disabled={!d.hasSlots}
-                          onClick={() => setSelectedDate(d.date)}
-                          className={`shrink-0 rounded-2xl p-2.5 text-center transition min-w-[68px] border ${selectedDate === d.date
-                            ? 'bg-accent text-primary border-accent shadow-xs font-bold'
-                            : d.hasSlots
-                              ? 'bg-background text-primary border-border hover:border-primary'
-                              : 'bg-neutral-100 text-neutral-400 border-transparent cursor-not-allowed'
-                            }`}
-                        >
-                          <span className="block text-[10px] font-bold uppercase">
-                            {new Intl.DateTimeFormat(isAr ? 'ar-EG' : 'en-US', { weekday: 'short' }).format(dateObj)}
-                          </span>
-                          <span className="block text-base font-black my-0.5">{dateObj.getDate()}</span>
-                          <span className="block text-[10px] font-semibold uppercase opacity-80">
-                            {new Intl.DateTimeFormat(isAr ? 'ar-EG' : 'en-US', { month: 'short' }).format(dateObj)}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {selectedDate && (
-                <div>
-                  <label className="block text-xs font-bold text-primary mb-2">
-                    {isAr ? `٢. اختر التوقيت الجديد (${formatDateLabel(selectedDate)})` : `2. Select New Time Slot (${formatDateLabel(selectedDate)})`}
-                  </label>
-                  {loadingSlots ? (
-                    <p className="text-xs text-muted-foreground">{isAr ? 'جاري تحميل المواعيد...' : 'Loading available slots...'}</p>
-                  ) : slots.length === 0 ? (
-                    <p className="text-xs text-rose-600">{isAr ? 'لا توجد مواعيد شاغرة في هذا اليوم.' : 'No open slots on this day.'}</p>
+                <h2 className="text-xl font-bold tracking-tight text-primary">
+                  {isAr ? 'إعادة جدولة الجلسة' : 'Reschedule Session'}
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isAr ? (
+                    <>سياسة إعادة الجدولة: يُسمح بالتغيير حتى <strong>{booking.rescheduleDeadlineHours || 24} ساعة</strong> قبل بدء الجلسة.</>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-1">
-                      {slots.map((s) => (
-                        <button
-                          key={s.time}
-                          type="button"
-                          disabled={!s.available}
-                          onClick={() => setSelectedTime(s.time)}
-                          className={`rounded-xl py-2 px-2 text-xs font-bold border transition ${selectedTime === s.time
-                            ? 'bg-accent text-primary border-accent shadow-xs'
-                            : s.available
-                              ? 'bg-background text-primary border-border hover:border-accent hover:bg-secondary/30'
-                              : 'bg-neutral-100 text-neutral-400 border-transparent line-through cursor-not-allowed'
-                            }`}
-                        >
-                          {formatSlotLabel(s.time)}
-                        </button>
-                      ))}
-                    </div>
+                    <>Expert Rescheduling Policy: Changes allowed up to <strong>{booking.rescheduleDeadlineHours || 24} hours</strong> before session.</>
+                  )}
+                </p>
+              </div>
+
+              {!deadlinePassed && (
+                <div className="flex items-center gap-2 shrink-0">
+                  {showReschedulePanel ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={loadingDays || loadingSlots}
+                        onClick={() => setAvailabilityRefreshKey((k) => k + 1)}
+                        className="rounded-full border border-border bg-background px-4 py-2 text-xs font-bold text-primary hover:bg-secondary/60 transition disabled:opacity-50"
+                      >
+                        {loadingDays || loadingSlots
+                          ? (isAr ? 'جاري التحديث...' : 'Syncing...')
+                          : (isAr ? 'تحديث المواعيد' : 'Sync Availability')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowReschedulePanel(false)}
+                        className="rounded-full border border-border bg-secondary px-4 py-2 text-xs font-bold text-primary hover:bg-border transition"
+                      >
+                        {isAr ? 'إغلاق' : 'Close'}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRescheduleMessage(null)
+                        setShowReschedulePanel(true)
+                      }}
+                      className="rounded-full bg-accent px-5 py-2.5 text-xs font-bold text-primary hover:bg-accent-hover transition shadow-xs"
+                    >
+                      {isAr ? 'إعادة جدولة الجلسة' : 'Reschedule Session'}
+                    </button>
                   )}
                 </div>
               )}
-
-              <div>
-                <label className="block text-xs font-bold text-primary mb-1.5">
-                  {isAr ? 'سبب إعادة الجدولة (اختياري)' : 'Reason for Rescheduling (Optional)'}
-                </label>
-                <input
-                  type="text"
-                  placeholder={isAr ? 'مثال: ظرف طارئ، تعارض في المواعيد' : 'e.g. Schedule conflict, work emergency'}
-                  value={rescheduleReason}
-                  onChange={(e) => setRescheduleReason(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs text-foreground outline-none focus:border-accent"
-                />
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  disabled={!selectedTime || rescheduling}
-                  onClick={handleRescheduleSubmit}
-                  className="rounded-full bg-accent px-6 py-3 text-xs font-bold text-primary hover:bg-accent-hover transition disabled:opacity-40 shadow-xs"
-                >
-                  {rescheduling
-                    ? (isAr ? 'جاري إعادة الجدولة...' : 'Rescheduling...')
-                    : (isAr ? `تأكيد إعادة الجدولة إلى ${selectedDate || ''} في ${selectedTime || ''}` : `Confirm Reschedule to ${selectedDate || ''} at ${selectedTime || ''}`)}
-                </button>
-              </div>
             </div>
-          )}
 
-          {/* Reschedule History */}
-          {booking.rescheduleHistory && booking.rescheduleHistory.length > 0 && (
-            <div className="pt-6 border-t border-border">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-3">
-                {isAr ? 'سجل التعديلات السابقة' : 'Reschedule History'}
-              </span>
-              <div className="space-y-2">
-                {booking.rescheduleHistory.map((h: any, idx: number) => (
-                  <div key={idx} className="rounded-xl bg-background border border-border p-3 text-xs flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold text-primary">
-                        {isAr ? 'تم التعديل من ' : 'Changed from '}
-                        <del>{h.previousDate} {h.previousTime}</del>
-                        {isAr ? ' إلى ' : ' to '}
-                        <strong>{h.newDate} {h.newTime}</strong>
-                      </p>
-                      {h.reason && <p className="text-[11px] text-muted-foreground mt-0.5">{h.reason}</p>}
+            {rescheduleMessage && (
+              <div
+                className={`rounded-2xl border p-4 text-xs font-semibold ${rescheduleMessage.type === 'success'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                  : 'border-rose-200 bg-rose-50 text-rose-800'
+                  }`}
+              >
+                {rescheduleMessage.text}
+              </div>
+            )}
+
+            {deadlinePassed ? (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 flex items-start gap-3.5">
+                <AlertCircle size={20} className="text-amber-700 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-amber-900">
+                    {isAr ? 'انتهت المهلة المسموحة لإعادة الجدولة' : 'Rescheduling Deadline Has Passed'}
+                  </p>
+                  <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                    {isAr
+                      ? `وفقاً لسياسة الخبير، لا يمكن تقديم طلب إعادة جدولة قبل أقل من ${booking.rescheduleDeadlineHours || 24} ساعة من الموعد.`
+                      : `Per the expert's configured policy, clients cannot submit new rescheduling requests less than ${booking.rescheduleDeadlineHours || 24} hours before the scheduled session start.`}
+                  </p>
+                </div>
+              </div>
+            ) : showReschedulePanel ? (
+              <div className="space-y-5">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-bold text-primary">
+                      {isAr ? '١. اختر التاريخ الجديد' : '1. Select New Date'}
+                    </label>
+                    <div className="hidden sm:flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => scrollRescheduleDates('prev')}
+                        className="size-7 rounded-xl bg-secondary hover:bg-border text-primary flex items-center justify-center transition border border-border active:scale-95"
+                        title={isAr ? 'السابق' : 'Previous dates'}
+                        aria-label={isAr ? 'السابق' : 'Previous dates'}
+                      >
+                        {isAr ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => scrollRescheduleDates('next')}
+                        className="size-7 rounded-xl bg-secondary hover:bg-border text-primary flex items-center justify-center transition border border-border active:scale-95"
+                        title={isAr ? 'التالي' : 'Next dates'}
+                        aria-label={isAr ? 'التالي' : 'Next dates'}
+                      >
+                        {isAr ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+                      </button>
                     </div>
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase">{h.changedByRole}</span>
                   </div>
-                ))}
+                  {loadingDays ? (
+                    <p className="text-xs text-muted-foreground">{isAr ? 'جاري فحص المواعيد...' : 'Loading available dates...'}</p>
+                  ) : days.filter((d) => d.hasSlots).length === 0 ? (
+                    <p className="text-xs text-rose-600">
+                      {isAr ? 'لا توجد تواريخ متاحة حالياً في جدول الخبير.' : 'No available dates currently open in the expert schedule.'}
+                    </p>
+                  ) : (
+                    <div ref={rescheduleScrollRef} className="flex gap-2 overflow-x-auto pb-2 scrollbar-none scroll-smooth">
+                      {days.map((d) => {
+                        const dateObj = new Date(d.date + 'T00:00:00')
+                        return (
+                          <button
+                            key={d.date}
+                            type="button"
+                            disabled={!d.hasSlots}
+                            onClick={() => setSelectedDate(d.date)}
+                            className={`shrink-0 rounded-2xl p-2.5 text-center transition min-w-[68px] border ${selectedDate === d.date
+                              ? 'bg-accent text-primary border-accent shadow-xs font-bold'
+                              : d.hasSlots
+                                ? 'bg-background text-primary border-border hover:border-primary'
+                                : 'bg-neutral-100 text-neutral-400 border-transparent cursor-not-allowed'
+                              }`}
+                          >
+                            <span className="block text-[10px] font-bold uppercase">
+                              {new Intl.DateTimeFormat(isAr ? 'ar-EG' : 'en-US', { weekday: 'short' }).format(dateObj)}
+                            </span>
+                            <span className="block text-base font-black my-0.5">{dateObj.getDate()}</span>
+                            <span className="block text-[10px] font-semibold uppercase opacity-80">
+                              {new Intl.DateTimeFormat(isAr ? 'ar-EG' : 'en-US', { month: 'short' }).format(dateObj)}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {selectedDate && (
+                  <div>
+                    <label className="block text-xs font-bold text-primary mb-2">
+                      {isAr ? `٢. اختر التوقيت الجديد (${formatDateLabel(selectedDate)})` : `2. Select New Time Slot (${formatDateLabel(selectedDate)})`}
+                    </label>
+                    {loadingSlots ? (
+                      <p className="text-xs text-muted-foreground">{isAr ? 'جاري تحميل المواعيد...' : 'Loading available slots...'}</p>
+                    ) : slots.length === 0 ? (
+                      <p className="text-xs text-rose-600">{isAr ? 'لا توجد مواعيد شاغرة في هذا اليوم.' : 'No open slots on this day.'}</p>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-1">
+                        {slots.map((s) => (
+                          <button
+                            key={s.time}
+                            type="button"
+                            disabled={!s.available}
+                            onClick={() => setSelectedTime(s.time)}
+                            className={`rounded-xl py-2 px-2 text-xs font-bold border transition ${selectedTime === s.time
+                              ? 'bg-accent text-primary border-accent shadow-xs'
+                              : s.available
+                                ? 'bg-background text-primary border-border hover:border-accent hover:bg-secondary/30'
+                                : 'bg-neutral-100 text-neutral-400 border-transparent line-through cursor-not-allowed'
+                              }`}
+                          >
+                            {formatSlotLabel(s.time)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold text-primary mb-1.5">
+                    {isAr ? 'سبب إعادة الجدولة (اختياري)' : 'Reason for Rescheduling (Optional)'}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={isAr ? 'مثال: ظرف طارئ، تعارض في المواعيد' : 'e.g. Schedule conflict, work emergency'}
+                    value={rescheduleReason}
+                    onChange={(e) => setRescheduleReason(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs text-foreground outline-none focus:border-accent"
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    disabled={!selectedTime || rescheduling}
+                    onClick={handleRescheduleSubmit}
+                    className="rounded-full bg-accent px-6 py-3 text-xs font-bold text-primary hover:bg-accent-hover transition disabled:opacity-40 shadow-xs"
+                  >
+                    {rescheduling
+                      ? (isAr ? 'جاري إعادة الجدولة...' : 'Rescheduling...')
+                      : (isAr ? `تأكيد إعادة الجدولة إلى ${selectedDate || ''} في ${selectedTime || ''}` : `Confirm Reschedule to ${selectedDate || ''} at ${selectedTime || ''}`)}
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            ) : null}
+
+            {/* Reschedule History */}
+            {booking.rescheduleHistory && booking.rescheduleHistory.length > 0 && (
+              <div className="pt-6 border-t border-border">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block mb-3">
+                  {isAr ? 'سجل التعديلات السابقة' : 'Reschedule History'}
+                </span>
+                <div className="space-y-2">
+                  {booking.rescheduleHistory.map((h: any, idx: number) => (
+                    <div key={idx} className="rounded-xl bg-background border border-border p-3 text-xs flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-primary">
+                          {isAr ? 'تم التعديل من ' : 'Changed from '}
+                          <del>{h.previousDate} {h.previousTime}</del>
+                          {isAr ? ' إلى ' : ' to '}
+                          <strong>{h.newDate} {h.newTime}</strong>
+                        </p>
+                        {h.reason && <p className="text-[11px] text-muted-foreground mt-0.5">{h.reason}</p>}
+                      </div>
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase">{h.changedByRole}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* SECTION 3: Post-Session Attendance Confirmation */}
         <div id="attendance" className="rounded-3xl border border-border bg-surface p-6 sm:p-8 shadow-xs space-y-6">

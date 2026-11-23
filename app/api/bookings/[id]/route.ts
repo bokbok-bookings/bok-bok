@@ -75,8 +75,17 @@ export async function GET(request: Request, context: RouteContext) {
       )
     }
 
-    // Resolve expert details
+    // Resolve expert & optional service details
     const { expertDoc, expertName, expertEmail } = await resolveExpertContact(booking.expertId)
+    let serviceDoc: any = null
+    if (booking.serviceId) {
+      try {
+        const servicesCol = await getServicesCollection()
+        serviceDoc = await servicesCol.findOne({ _id: toObjectId(booking.serviceId) })
+      } catch {
+        serviceDoc = null
+      }
+    }
 
     // Calculate deadline
     const deadlineHours = booking.rescheduleDeadlineHours || expertDoc?.rescheduleDeadlineHours || 24
@@ -96,7 +105,18 @@ export async function GET(request: Request, context: RouteContext) {
 
     const rescheduleDeadlineAt = new Date(startAt.getTime() - deadlineHours * 60 * 60 * 1000)
     const now = new Date()
-    const isRescheduleAllowed = now < rescheduleDeadlineAt
+    const isEventBooking = Boolean(
+      booking.bookingType === 'WORKSHOP' ||
+      booking.bookingType === 'WEBINAR' ||
+      serviceDoc?.bookingType === 'WORKSHOP' ||
+      serviceDoc?.bookingType === 'WEBINAR' ||
+      booking.reference?.startsWith('EV-')
+    )
+    const isRescheduleAllowed =
+      !isEventBooking &&
+      booking.status !== 'cancelled' &&
+      booking.status !== 'rejected' &&
+      now < rescheduleDeadlineAt
 
     // Check attendance reporting window
     const reportingDeadlineAt = new Date(endAt.getTime() + 24 * 60 * 60 * 1000)
@@ -145,6 +165,11 @@ export async function GET(request: Request, context: RouteContext) {
       data: {
         _id: booking._id?.toString(),
         reference: booking.reference,
+        serviceId: booking.serviceId?.toString(),
+        bookingType: booking.bookingType || serviceDoc?.bookingType || 'APPOINTMENT',
+        breakAfterMinutes: serviceDoc?.breakAfterMinutes || 0,
+        minNoticeHours:
+          serviceDoc?.minNoticeHours !== undefined ? Number(serviceDoc.minNoticeHours) : 24,
         serviceTitle: booking.serviceTitle,
         expertId: booking.expertId.toString(),
         expertName,

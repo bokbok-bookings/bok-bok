@@ -128,7 +128,7 @@ export async function getExpertsList(): Promise<ExpertItem[]> {
           createdAt: new Date(),
           updatedAt: new Date(),
         }
-        await expertsCol.updateOne({ _id: objId }, { $set: doc }, { upsert: true }).catch(() => {})
+        await expertsCol.updateOne({ _id: objId }, { $set: doc }, { upsert: true }).catch(() => { })
         seeded.push({
           ...doc,
           _id: objId.toString(),
@@ -203,7 +203,7 @@ export async function getExpertAvailabilitySettings(
           },
           { upsert: true },
         )
-        .catch(() => {})
+        .catch(() => { })
 
       return fallback
     })
@@ -311,7 +311,7 @@ export async function getExpertDateOverrides(
               },
               { upsert: true },
             )
-            .catch(() => {})
+            .catch(() => { })
         }
       }
 
@@ -647,7 +647,7 @@ export async function getExpertSlotsForDate(
 export async function getExpertUpcomingDays(
   expertIdOrSlug: string,
   count = 90,
-  _consultationDurationMinutes = 30,
+  consultationDurationMinutes = 30,
   minNoticeHours = 0,
 ): Promise<DayAvailability[]> {
   const expertObjectId = await getCanonicalExpertObjectId(expertIdOrSlug)
@@ -659,6 +659,7 @@ export async function getExpertUpcomingDays(
   const overrides = await getExpertDateOverrides(expertIdStr)
 
   const now = new Date()
+  const reqDuration = Math.max(1, Number(consultationDurationMinutes) || 30)
   const minNotice = Math.max(0, Number(minNoticeHours) || 0)
   const minBookingCutoff = new Date(now.getTime() + (minNotice > 0 ? minNotice * 60 * 60 * 1000 : 15 * 60 * 1000))
 
@@ -687,9 +688,26 @@ export async function getExpertUpcomingDays(
         continue
       }
       const [y, m, d] = dateStr.split('-').map(Number)
-      const [endH, endM] = (override.endTime || '17:00').split(':').map(Number)
-      const dayEndDateTime = new Date(y, m - 1, d, endH, endM, 0)
-      if (dayEndDateTime.getTime() <= minBookingCutoff.getTime()) {
+      const startMins = timeToMinutes(override.startTime || '09:00')
+      const endMins = timeToMinutes(override.endTime || '17:00')
+      const latestStartMins = endMins - reqDuration
+      if (latestStartMins < startMins) {
+        days.push({
+          date: dateStr,
+          hasSlots: false,
+          reason: 'Insufficient time window',
+        })
+        continue
+      }
+      const latestSlotStartDateTime = new Date(
+        y,
+        m - 1,
+        d,
+        Math.floor(latestStartMins / 60),
+        latestStartMins % 60,
+        0
+      )
+      if (latestSlotStartDateTime.getTime() < minBookingCutoff.getTime()) {
         days.push({
           date: dateStr,
           hasSlots: false,
@@ -713,9 +731,26 @@ export async function getExpertUpcomingDays(
       })
     } else {
       const [y, m, d] = dateStr.split('-').map(Number)
-      const [endH, endM] = (dayTemplate.endTime || '17:00').split(':').map(Number)
-      const dayEndDateTime = new Date(y, m - 1, d, endH, endM, 0)
-      if (dayEndDateTime.getTime() <= minBookingCutoff.getTime()) {
+      const startMins = timeToMinutes(dayTemplate.startTime || '09:00')
+      const endMins = timeToMinutes(dayTemplate.endTime || '17:00')
+      const latestStartMins = endMins - reqDuration
+      if (latestStartMins < startMins) {
+        days.push({
+          date: dateStr,
+          hasSlots: false,
+          reason: 'Insufficient time window',
+        })
+        continue
+      }
+      const latestSlotStartDateTime = new Date(
+        y,
+        m - 1,
+        d,
+        Math.floor(latestStartMins / 60),
+        latestStartMins % 60,
+        0
+      )
+      if (latestSlotStartDateTime.getTime() < minBookingCutoff.getTime()) {
         days.push({
           date: dateStr,
           hasSlots: false,

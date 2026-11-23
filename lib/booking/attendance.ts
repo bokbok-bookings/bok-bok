@@ -326,7 +326,7 @@ export async function submitAttendanceReport(
   if (isDisputed) {
     try {
       const { expertName } = await resolveExpertContact(booking.expertId)
-      const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'bokbok.bookings@gmail.com'
+      const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'omarwagih95@gmail.com'
       const baseUrl = getAppBaseUrl()
       const adminDisputeUrl = `${baseUrl}/admin/attendance`
       const serviceTitle =

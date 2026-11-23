@@ -485,14 +485,14 @@ export async function POST(request: Request) {
             }
           }
 
-          if (expertEmail) {
+          if (isFreeEvent && expertEmail) {
             const expertEmailData = renderBookingReceivedEmail({
               booking,
               expertName,
               clientName: clientName.trim(),
               serviceTitle: title,
               recipientRole: 'expert',
-              bookingUrl: clientPageUrl,
+              bookingUrl: `${baseUrl}/dashboard/bookings`,
             })
             await sendTransactionalEmail({
               bookingId: booking._id,
@@ -503,6 +503,28 @@ export async function POST(request: Request) {
               subject: expertEmailData.subject,
               html: expertEmailData.html,
               text: expertEmailData.text,
+            })
+          }
+
+          if (!isFreeEvent) {
+            const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'omarwagih95@gmail.com'
+            const adminEmailData = renderBookingReceivedEmail({
+              booking,
+              expertName,
+              clientName: clientName.trim(),
+              serviceTitle: title,
+              recipientRole: 'admin',
+              bookingUrl: `${baseUrl}/admin/bookings`,
+            })
+            await sendTransactionalEmail({
+              bookingId: booking._id,
+              emailType: 'booking_received',
+              recipientEmail: adminEmail,
+              recipientName: 'Bok Bok Admin',
+              recipientRole: 'admin',
+              subject: adminEmailData.subject,
+              html: adminEmailData.html,
+              text: adminEmailData.text,
             })
           }
         } catch (emailErr) {
@@ -626,36 +648,35 @@ export async function POST(request: Request) {
       ...(Array.isArray(intakeAnswers) ? { intakeAnswers } : {}),
     })
 
-    // Trigger booking received email notifications (to client and expert)
+    // Trigger booking received email notification to Admin for InstaPay review
+    // (Expert and Client are notified once Admin confirms the booking)
     try {
       const baseUrl = getAppBaseUrl()
-      const { expertName, expertEmail } = await resolveExpertContact(expertObjId)
-      const bookingUrl = `${baseUrl}/bookings/${booking._id}?token=${rescheduleToken}`
+      const { expertName } = await resolveExpertContact(expertObjId)
+      const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL || 'omarwagih95@gmail.com'
+      const adminBookingUrl = `${baseUrl}/admin/bookings`
       const title = verifiedServiceTitle?.en || verifiedServiceTitle?.ar || 'Consultation Session'
 
-      // Note: Client is only emailed when the booking is confirmed by admin, not upon initial submission.
-      if (expertEmail) {
-        const expertEmailData = renderBookingReceivedEmail({
-          booking,
-          expertName,
-          clientName: clientName.trim(),
-          serviceTitle: title,
-          recipientRole: 'expert',
-          bookingUrl,
-        })
-        await sendTransactionalEmail({
-          bookingId: booking._id,
-          emailType: 'booking_received',
-          recipientEmail: expertEmail,
-          recipientName: expertName,
-          recipientRole: 'expert',
-          subject: expertEmailData.subject,
-          html: expertEmailData.html,
-          text: expertEmailData.text,
-        })
-      }
+      const adminEmailData = renderBookingReceivedEmail({
+        booking,
+        expertName,
+        clientName: clientName.trim(),
+        serviceTitle: title,
+        recipientRole: 'admin',
+        bookingUrl: adminBookingUrl,
+      })
+      await sendTransactionalEmail({
+        bookingId: booking._id,
+        emailType: 'booking_received',
+        recipientEmail: adminEmail,
+        recipientName: 'Bok Bok Admin',
+        recipientRole: 'admin',
+        subject: adminEmailData.subject,
+        html: adminEmailData.html,
+        text: adminEmailData.text,
+      })
     } catch (emailErr) {
-      console.error('Failed to send booking notification email:', emailErr)
+      console.error('Failed to send admin booking notification email:', emailErr)
     }
 
     return NextResponse.json({ success: true, booking, reference })

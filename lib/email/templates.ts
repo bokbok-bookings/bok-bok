@@ -253,11 +253,10 @@ export function renderEventWaitlistJoinedEmail(params: {
       Hello ${clientName}, thank you for your interest in <strong>${serviceTitle}</strong> with <strong>${expertName}</strong>${date ? ` (${date})` : ''}.
     </p>
     <div class="alert-box">
-      ${
-        isComingSoon
-          ? 'This event is currently marked as <strong>Coming Soon</strong>. We will notify you as soon as registration opens!'
-          : 'This event is currently at full capacity. If a seat opens up or additional spots are added, you will be notified by email.'
-      }
+      ${isComingSoon
+      ? 'This event is currently marked as <strong>Coming Soon</strong>. We will notify you as soon as registration opens!'
+      : 'This event is currently at full capacity. If a seat opens up or additional spots are added, you will be notified by email.'
+    }
     </div>
     <div style="text-align: center; margin: 24px 0;">
       <a href="${eventUrl}" target="_blank" class="btn">View Event Details</a>
@@ -267,11 +266,10 @@ export function renderEventWaitlistJoinedEmail(params: {
   const text = `${subject}
 Hello ${clientName},
 
-${
-  isComingSoon
-    ? `We've added you to the early notification list for "${serviceTitle}" with ${expertName}.`
-    : `We've added you to the waitlist for "${serviceTitle}" with ${expertName}. We'll email you if a spot opens up.`
-}
+${isComingSoon
+      ? `We've added you to the early notification list for "${serviceTitle}" with ${expertName}.`
+      : `We've added you to the waitlist for "${serviceTitle}" with ${expertName}. We'll email you if a spot opens up.`
+    }
 
 Event page: ${eventUrl}`
 
@@ -360,6 +358,11 @@ export function renderBookingReceivedEmail(params: {
       ? `New Booking Received [Awaiting Verification]: ${booking.reference || 'BK'} - ${clientName}`
       : `New Consultation Booked: ${serviceTitle} with ${clientName} [${booking.reference || 'BK'}]`
 
+  const hasHttpsReceipt =
+    isAdmin &&
+    typeof booking.paymentReceiptUrl === 'string' &&
+    booking.paymentReceiptUrl.startsWith('https://')
+
   const contentHtml = `
     <h2 class="h1">${isClient
       ? 'We Received Your Booking Request!'
@@ -389,6 +392,31 @@ export function renderBookingReceivedEmail(params: {
         <span class="meta-label">Expert</span>
         <span class="meta-val">${expertName}</span>
       </div>
+      ${isAdmin ? `
+      <div class="meta-row">
+        <span class="meta-label">Client</span>
+        <span class="meta-val">${clientName}</span>
+      </div>
+      ${booking.clientEmail ? `
+      <div class="meta-row">
+        <span class="meta-label">Client Email</span>
+        <span class="meta-val">${booking.clientEmail}</span>
+      </div>` : ''}
+      ${booking.clientPhone ? `
+      <div class="meta-row">
+        <span class="meta-label">Client Phone</span>
+        <span class="meta-val">${booking.clientPhone}</span>
+      </div>` : ''}
+      <div class="meta-row">
+        <span class="meta-label">Amount</span>
+        <span class="meta-val">${booking.amount ?? 0} ${booking.currency || 'EGP'}</span>
+      </div>
+      ${hasHttpsReceipt ? `
+      <div class="meta-row">
+        <span class="meta-label">InstaPay Receipt</span>
+        <span class="meta-val"><a href="${booking.paymentReceiptUrl}" target="_blank" style="color: #142D4E;">View Receipt ↗</a></span>
+      </div>` : ''}
+      ` : ''}
       <div class="meta-row">
         <span class="meta-label">Date &amp; Time</span>
         <span class="meta-val">${booking.date} at ${booking.time} (Cairo Time)</span>
@@ -405,19 +433,30 @@ export function renderBookingReceivedEmail(params: {
 
     ${bookingUrl
       ? `<div style="text-align: center; margin: 24px 0;">
-            <a href="${bookingUrl}" target="_blank" class="btn">View Booking Details</a>
+            <a href="${bookingUrl}" target="_blank" class="btn">${isAdmin ? 'Review & Verify Booking' : 'View Booking Details'}</a>
           </div>`
       : ''
     }
   `
 
+  const adminTextLines = isAdmin
+    ? [
+      booking.clientEmail ? `Client Email: ${booking.clientEmail}` : '',
+      booking.clientPhone ? `Client Phone: ${booking.clientPhone}` : '',
+      `Amount: ${booking.amount ?? 0} ${booking.currency || 'EGP'}`,
+      hasHttpsReceipt ? `InstaPay Receipt: ${booking.paymentReceiptUrl}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n')
+    : ''
+
   const text = `${subject}
 Service: ${serviceTitle}
 Expert: ${expertName}
 Client: ${clientName}
-Date & Time: ${booking.date} at ${booking.time}
+${adminTextLines ? `${adminTextLines}\n` : ''}Date & Time: ${booking.date} at ${booking.time}
 Status: Awaiting Verification
-${bookingUrl ? `View details: ${bookingUrl}` : ''}`
+${bookingUrl ? `${isAdmin ? 'Review & Verify Booking' : 'View details'}: ${bookingUrl}` : ''}`
 
   return {
     subject,
