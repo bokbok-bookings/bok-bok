@@ -724,6 +724,15 @@ export async function PATCH(request: Request) {
         }
         if (!existing.googleMeetLink && srv?.event?.joinUrl && srv.deliveryMode !== 'IN_PERSON') {
           updateDoc.googleMeetLink = srv.event.joinUrl
+          if (srv.event.googleCalendarEventId) {
+            updateDoc.googleCalendarEventId = srv.event.googleCalendarEventId
+          }
+          if (srv.event.googleCalendarEventLink) {
+            updateDoc.googleCalendarEventLink = srv.event.googleCalendarEventLink
+          }
+          if (srv.event.googleMeetSpaceName) {
+            updateDoc.googleMeetSpaceName = srv.event.googleMeetSpaceName
+          }
         }
       }
 
@@ -789,7 +798,10 @@ export async function PATCH(request: Request) {
         await decrementEventRegisteredCount(existing.serviceId)
       }
 
-      if (existing.googleCalendarEventId) {
+      const isGroupEventBooking =
+        existing.bookingType === 'WEBINAR' || existing.bookingType === 'WORKSHOP'
+
+      if (existing.googleCalendarEventId && !isGroupEventBooking) {
         try {
           await deleteCalendarEvent(existing.googleCalendarEventId)
         } catch (calErr: any) {
@@ -812,7 +824,10 @@ export async function PATCH(request: Request) {
         await decrementEventRegisteredCount(existing.serviceId)
       }
 
-      if (existing.googleCalendarEventId) {
+      const isGroupEventBooking =
+        existing.bookingType === 'WEBINAR' || existing.bookingType === 'WORKSHOP'
+
+      if (existing.googleCalendarEventId && !isGroupEventBooking) {
         try {
           await deleteCalendarEvent(existing.googleCalendarEventId)
         } catch (calErr: any) {
@@ -922,7 +937,10 @@ export async function DELETE(request: Request) {
       await decrementEventRegisteredCount(existing.serviceId)
     }
 
-    if (existing.googleCalendarEventId) {
+    const isGroupEventBooking =
+      existing.bookingType === 'WEBINAR' || existing.bookingType === 'WORKSHOP'
+
+    if (existing.googleCalendarEventId && !isGroupEventBooking) {
       try {
         await deleteCalendarEvent(existing.googleCalendarEventId)
       } catch (calErr: any) {

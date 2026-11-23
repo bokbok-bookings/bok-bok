@@ -27,10 +27,10 @@ export async function POST(request: Request) {
     const cleanLName = rawLName
       ? String(rawLName).trim()
       : String(displayName || '')
-          .trim()
-          .split(/\s+/)
-          .slice(1)
-          .join(' ') || ''
+        .trim()
+        .split(/\s+/)
+        .slice(1)
+        .join(' ') || ''
 
     const name = `${cleanFName} ${cleanLName}`.trim() || String(displayName || '').trim()
 
@@ -53,10 +53,35 @@ export async function POST(request: Request) {
     const accountType = rawAccountType === 'organization' ? 'organization' : 'expert'
 
     const usersCol = await getUsersCollection()
-    const existing = await usersCol.findOne({ email })
+    const escapedEmail = email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const existing = await usersCol.findOne({
+      $or: [
+        { email },
+        { email: { $regex: new RegExp(`^${escapedEmail}$`, 'i') } },
+      ],
+    })
+
     if (existing) {
+      if (!existing.passwordHash || existing.passwordHash.trim() === '') {
+        return NextResponse.json(
+          {
+            success: false,
+            isGoogleAccount: true,
+            error:
+              'An account with this email was registered using Google. Please sign in with Google, or click "Forgot password?" on the login page to set a password.',
+            errorAr:
+              'تم تسجيل هذا الحساب مسبقاً باستخدام Google. يرجى تسجيل الدخول عبر Google أو استخدام "نسيت كلمة المرور؟" في صفحة تسجيل الدخول لتعيين كلمة مرور.',
+          },
+          { status: 409 }
+        )
+      }
+
       return NextResponse.json(
-        { success: false, error: 'An account with this email already exists' },
+        {
+          success: false,
+          error: 'An account with this email already exists. Please sign in or reset your password.',
+          errorAr: 'يوجد حساب مسجل بهذا البريد الإلكتروني بالفعل. يرجى تسجيل الدخول أو استعادة كلمة المرور.',
+        },
         { status: 409 }
       )
     }
@@ -120,6 +145,7 @@ export async function POST(request: Request) {
       _id: userId,
       email,
       passwordHash,
+      authProvider: 'local',
       displayName: name,
       fName: cleanFName,
       lName: cleanLName,

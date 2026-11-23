@@ -107,11 +107,20 @@ export async function GET(request: Request) {
     const fName = givenName || name.split(/\s+/)[0] || ''
     const lName = familyName || name.split(/\s+/).slice(1).join(' ') || ''
     const picture = profile.picture || ''
+    const googleId = profile.id ? String(profile.id) : undefined
 
     const usersCol = await getUsersCollection()
     const expertsCol = await getExpertsCollection()
 
-    let user = await usersCol.findOne({ email })
+    // Case-insensitive, whitespace-trimmed, and googleId-aware lookup to ensure unified identity
+    const escapedEmail = email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    let user = await usersCol.findOne({
+      $or: [
+        { email },
+        { email: { $regex: new RegExp(`^${escapedEmail}$`, 'i') } },
+        ...(googleId ? [{ googleId }] : []),
+      ],
+    })
 
     if (!user) {
       // New User creation
@@ -163,7 +172,10 @@ export async function GET(request: Request) {
       await usersCol.insertOne({
         _id: userId,
         email,
-        passwordHash: '', // Google OAuth user
+        passwordHash: '', // Google OAuth user without initial password
+        googleId,
+        authProvider: 'google',
+        avatarUrl: picture || undefined,
         displayName: name,
         fName,
         lName,
@@ -193,16 +205,81 @@ export async function GET(request: Request) {
       const target = getSafeRedirectUrl(callbackUrl, '/')
       return NextResponse.redirect(new URL(target, request.url))
     } else {
-      // Existing User login
+      // Existing User login & Account Linking
+      const updateFields: any = {
+        emailVerified: true,
+        lastLoginAt: new Date(),
+        updatedAt: new Date(),
+      }
+      if (googleId && !user.googleId) {
+        updateFields.googleId = googleId
+      }
+      if (picture && !user.avatarUrl) {
+        updateFields.avatarUrl = picture
+      }
+      // If user had mixed-case email in DB, normalize it to lowercase
+      if (user.email !== email) {
+        updateFields.email = email
+      }
+      // If user already has a password, authProvider is 'both', otherwise 'google'
+      updateFields.authProvider = user.passwordHash ? 'both' : 'google'
+
+      // Check if user is requesting to become an expert (e.g. clicked expert signup Google button)
+      // and currently only has client role without an expertId
+      if (role === 'expert' && user.role === 'client') {
+        let expertId = user.expertId
+        if (!expertId) {
+          expertId = new ObjectId()
+          const slugSource = fName && lName ? `${fName}-${lName}` : (user.displayName || name)
+          const baseSlug =
+            slugSource
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/(^-|-$)+/g, '') || `expert-${Date.now().toString(36)}`
+
+          let finalSlug = baseSlug
+          const existingSlug = await expertsCol.findOne({ slug: finalSlug })
+          if (existingSlug) {
+            finalSlug = `${baseSlug}-${Math.floor(1000 + Math.random() * 9000)}`
+          }
+
+          await expertsCol.insertOne({
+            _id: expertId,
+            id: expertId.toString(),
+            userId: user._id,
+            accountType: 'expert',
+            fName: fName || user.fName || '',
+            lName: lName || user.lName || '',
+            name: user.displayName || name,
+            slug: finalSlug,
+            role: 'Consultant',
+            location: 'Cairo, Egypt',
+            image: picture || '',
+            avatarUrl: picture || '',
+            rating: '',
+            reviews: 0,
+            price: '500 EGP',
+            priceNumber: 500,
+            tags: [],
+            durationMinutes: 30,
+            about: '',
+            bio: '',
+            status: 'draft',
+            preferredPayoutMethod: 'instapay',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+        }
+        updateFields.role = 'expert'
+        updateFields.accountType = 'expert'
+        updateFields.expertId = expertId
+        user.role = 'expert'
+        user.expertId = expertId
+      }
+
       await usersCol.updateOne(
         { _id: user._id },
-        {
-          $set: {
-            emailVerified: true,
-            lastLoginAt: new Date(),
-            updatedAt: new Date(),
-          },
-        }
+        { $set: updateFields }
       )
 
       await createSession({

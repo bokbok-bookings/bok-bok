@@ -3,12 +3,15 @@
 import Link from 'next/link'
 import { BrandLogo } from '@/components/brand/logo'
 import { FormEvent, useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useLanguage } from '@/lib/i18n/language-context'
 
 function ForgotPasswordForm() {
   const { isAr, localeHref } = useLanguage()
+  const searchParams = useSearchParams()
+  const initialEmail = searchParams.get('email') || ''
 
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(initialEmail)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [submitted, setSubmitted] = useState(false)

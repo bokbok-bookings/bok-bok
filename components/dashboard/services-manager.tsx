@@ -174,6 +174,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
   const [isActive, setIsActive] = useState(true)
   const [isMostBooked, setIsMostBooked] = useState(false)
   const [categoriesList, setCategoriesList] = useState<any[]>(CATEGORIES)
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null)
 
   const [draggedTakeawayIndex, setDraggedTakeawayIndex] = useState<number | null>(null)
 
@@ -256,6 +257,49 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
       setError(err.message || 'Error connecting to server')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDirectEventStatusChange = async (
+    serviceId: string,
+    newStatus: 'open' | 'coming_soon' | 'closed'
+  ) => {
+    setUpdatingStatusId(serviceId)
+    try {
+      const res = await fetch(`/api/dashboard/services?expertId=${expertId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: serviceId, eventStatus: newStatus }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setServices((prev) =>
+          prev.map((s) =>
+            s._id === serviceId
+              ? {
+                  ...s,
+                  event: s.event
+                    ? { ...s.event, eventStatus: newStatus }
+                    : {
+                        date: '',
+                        startTime: '',
+                        endTime: '',
+                        timezone: 'Africa/Cairo',
+                        capacity: 25,
+                        registeredCount: 0,
+                        eventStatus: newStatus,
+                      },
+                }
+              : s
+          )
+        )
+      } else {
+        alert(json.error || 'Failed to update event status')
+      }
+    } catch {
+      alert('Error updating event status')
+    } finally {
+      setUpdatingStatusId(null)
     }
   }
 
@@ -375,14 +419,14 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
     setEventSessions(
       Array.isArray(s.event?.sessions)
         ? s.event.sessions.map((sess, idx) => ({
-            id: sess.id || `sess_${idx + 1}`,
-            titleEn: sess.title?.en || '',
-            titleAr: sess.title?.ar || '',
-            date: sess.date || '',
-            startTime: sess.startTime || '18:00',
-            endTime: sess.endTime || '20:00',
-            descEn: sess.description?.en || '',
-          }))
+          id: sess.id || `sess_${idx + 1}`,
+          titleEn: sess.title?.en || '',
+          titleAr: sess.title?.ar || '',
+          date: sess.date || '',
+          startTime: sess.startTime || '18:00',
+          endTime: sess.endTime || '20:00',
+          descEn: sess.description?.en || '',
+        }))
         : []
     )
     setEventPolicyEn(s.event?.cancellationPolicy?.en || '')
@@ -474,28 +518,28 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
           allowWaitlist: eventAllowWaitlist,
           ...(eventSessions.length > 0
             ? {
-                sessions: eventSessions.map((sess, idx) => ({
-                  id: sess.id || `sess_${idx + 1}`,
-                  title: {
-                    en: sess.titleEn.trim() || `Session ${idx + 1}`,
-                    ar: sess.titleAr.trim() || sess.titleEn.trim() || `الجلسة ${idx + 1}`,
-                  },
-                  date: sess.date,
-                  startTime: sess.startTime,
-                  endTime: sess.endTime,
-                  ...(sess.descEn.trim()
-                    ? { description: { en: sess.descEn.trim(), ar: sess.descEn.trim() } }
-                    : {}),
-                })),
-              }
+              sessions: eventSessions.map((sess, idx) => ({
+                id: sess.id || `sess_${idx + 1}`,
+                title: {
+                  en: sess.titleEn.trim() || `Session ${idx + 1}`,
+                  ar: sess.titleAr.trim() || sess.titleEn.trim() || `الجلسة ${idx + 1}`,
+                },
+                date: sess.date,
+                startTime: sess.startTime,
+                endTime: sess.endTime,
+                ...(sess.descEn.trim()
+                  ? { description: { en: sess.descEn.trim(), ar: sess.descEn.trim() } }
+                  : {}),
+              })),
+            }
             : {}),
           ...(eventPolicyEn.trim() || eventPolicyAr.trim()
             ? {
-                cancellationPolicy: {
-                  en: eventPolicyEn.trim() || eventPolicyAr.trim(),
-                  ar: eventPolicyAr.trim() || eventPolicyEn.trim(),
-                },
-              }
+              cancellationPolicy: {
+                en: eventPolicyEn.trim() || eventPolicyAr.trim(),
+                ar: eventPolicyAr.trim() || eventPolicyEn.trim(),
+              },
+            }
             : {}),
           ...(eventRecordingUrl.trim() ? { recordingUrl: eventRecordingUrl.trim() } : {}),
         }
@@ -541,7 +585,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
   return (
     <div className="space-y-6">
       {/* Top Bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#E8E2D8] pb-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#E2E8F0] pb-5">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-[#101F49]">Consultations, Workshops & Webinars</h2>
           <p className="text-xs text-[#637084] mt-1">
@@ -567,7 +611,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
       {loading ? (
         <div className="p-12 text-center text-xs font-semibold text-[#8b94a1]">Loading offerings...</div>
       ) : services.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-[#E8E2D8] bg-white p-12 text-center">
+        <div className="rounded-3xl border border-dashed border-[#E2E8F0] bg-white p-12 text-center">
           <p className="text-base font-bold text-[#101F49]">No offerings created yet</p>
           <p className="mt-1 text-xs text-[#637084]">
             Create your first consultation, workshop, or webinar within the approved taxonomy.
@@ -592,8 +636,8 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
               <div
                 key={s._id}
                 className={`group flex flex-col justify-between overflow-hidden rounded-3xl border bg-white shadow-sm transition hover:shadow-md ${s.isActive && s.approvalStatus === 'approved'
-                    ? 'border-[#E8E2D8]'
-                    : 'border-amber-300/70 bg-[#FFFDF9]'
+                  ? 'border-[#E2E8F0]'
+                  : 'border-amber-300/70 bg-[#F8FAFC]'
                   }`}
               >
                 <div>
@@ -658,9 +702,9 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                   {/* Card Body */}
                   <div className="p-5 sm:p-6 pb-0">
                     <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold text-[#637084]">
-                      <span className="rounded-md bg-[#f4f2ee] px-2 py-0.5">{catLabel}</span>
+                      <span className="rounded-md bg-[#F1F5F9] px-2 py-0.5">{catLabel}</span>
                       {subLabel && (
-                        <span className="rounded-md bg-[#FFF9EE] border border-[#E8E2D8] px-2 py-0.5 text-[#101F49]">
+                        <span className="rounded-md bg-[#F8FAFC] border border-[#E2E8F0] px-2 py-0.5 text-[#101F49]">
                           {subLabel}
                         </span>
                       )}
@@ -705,6 +749,86 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                       </p>
                     )}
 
+                    {/* Direct Event Status Quick Control (No modal or submission required) */}
+                    {Boolean(s.event || kind === 'WORKSHOP' || kind === 'WEBINAR') && (
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-2.5">
+                        <span className="text-[11px] font-bold text-[#101F49]">
+                          {isAr ? 'حالة الفعالية والتسجيل:' : 'Event Registration:'}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={s.event?.eventStatus || 'open'}
+                            onChange={(e) =>
+                              handleDirectEventStatusChange(
+                                s._id,
+                                e.target.value as 'open' | 'coming_soon' | 'closed'
+                              )
+                            }
+                            disabled={updatingStatusId === s._id}
+                            className={`rounded-lg border px-2.5 py-1 text-xs font-bold outline-none cursor-pointer transition ${
+                              (s.event?.eventStatus || 'open') === 'open'
+                                ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                                : s.event?.eventStatus === 'coming_soon'
+                                ? 'border-amber-300 bg-amber-50 text-amber-800'
+                                : 'border-slate-300 bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            <option value="open">{isAr ? '🟢 مفتوح للتسجيل' : '🟢 Open for Registration'}</option>
+                            <option value="coming_soon">{isAr ? '🟡 قريباً (إشعار عند الفتح)' : '🟡 Coming Soon (Notify Me)'}</option>
+                            <option value="closed">{isAr ? '🔴 التسجيل مغلق' : '🔴 Registration Closed'}</option>
+                          </select>
+                          {updatingStatusId === s._id && (
+                            <span className="text-[10px] font-bold text-accent animate-pulse">
+                              {isAr ? 'جاري الحفظ...' : 'Saving...'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Shared Google Meet Room Link (Online Webinars & Workshops) */}
+                    {(kind === 'WORKSHOP' || kind === 'WEBINAR') && s.deliveryMode !== 'IN_PERSON' && (
+                      <div className="mt-2.5">
+                        {s.event?.joinUrl ? (
+                          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-[11px]">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="font-bold text-emerald-900 shrink-0">
+                                🎥 {isAr ? 'رابط Google Meet المشترك:' : 'Shared Google Meet:'}
+                              </span>
+                              <a
+                                href={s.event.joinUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-mono text-emerald-700 underline hover:text-emerald-900 truncate"
+                              >
+                                {s.event.joinUrl}
+                              </a>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard?.writeText(s.event?.joinUrl || '')
+                              }}
+                              className="shrink-0 rounded-lg bg-white border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100 transition"
+                            >
+                              {isAr ? 'نسخ' : 'Copy'}
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="rounded-xl border border-slate-200 bg-[#F8FAFC] px-3 py-2 text-[11px] text-[#637084]">
+                            🎥{' '}
+                            {s.approvalStatus === 'approved'
+                              ? isAr
+                                ? 'سيتم ربط رابط Google Meet المشترك بواسطة إدارة المنصة.'
+                                : 'Shared Google Meet link pending platform sync.'
+                              : isAr
+                                ? 'سيتم إنشاء رابط Google Meet المشترك تلقائياً فور اعتماد الخدمة من الإدارة.'
+                                : 'Shared Google Meet room will be automatically created once approved by admin.'}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     {s.adminReviewNote && (
                       <p className="mt-2 rounded-xl bg-amber-50 border border-amber-200 p-2 text-[11px] text-amber-900">
                         <strong>Admin Review Note:</strong> {s.adminReviewNote}
@@ -719,11 +843,11 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                   </div>
                 </div>
 
-                <div className="p-5 sm:p-6 pt-4 mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#f4f2ee]">
+                <div className="p-5 sm:p-6 pt-4 mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#F1F5F9]">
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleCopyLink(s)}
-                      className="inline-flex items-center gap-1 rounded-full bg-[#FFF9EE] border border-[#E8E2D8] px-2.5 py-1 text-[11px] font-bold text-[#101F49] hover:bg-[#101F49] hover:text-white transition"
+                      className="inline-flex items-center gap-1 rounded-full bg-[#F8FAFC] border border-[#E2E8F0] px-2.5 py-1 text-[11px] font-bold text-[#101F49] hover:bg-[#101F49] hover:text-white transition"
                     >
                       {copiedId === s._id ? <Check size={12} className="text-emerald-500" /> : <Share2 size={12} />}
                       {copiedId === s._id ? 'Copied Link!' : 'Share Link'}
@@ -743,7 +867,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => openEditModal(s)}
-                      className="rounded-full border border-[#E8E2D8] bg-white px-3 py-1 text-xs font-bold text-[#101F49] hover:border-[#101F49]"
+                      className="rounded-full border border-[#E2E8F0] bg-white px-3 py-1 text-xs font-bold text-[#101F49] hover:border-[#101F49]"
                     >
                       Edit
                     </button>
@@ -765,7 +889,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
       {modalOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-xs">
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 sm:p-8 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#E8E2D8] pb-4">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-4">
               <div>
                 <h3 className="text-lg font-bold text-[#101F49]">
                   {editingService
@@ -778,7 +902,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
               </div>
               <button
                 onClick={() => setModalOpen(false)}
-                className="size-8 rounded-full bg-[#f4f2ee] text-xs font-bold text-[#637084] hover:bg-[#E8E2D8]"
+                className="size-8 rounded-full bg-[#F1F5F9] text-xs font-bold text-[#637084] hover:bg-[#E2E8F0]"
               >
                 ✕
               </button>
@@ -818,8 +942,8 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                       type="button"
                       onClick={() => setOfferingType(t.id as OfferingType)}
                       className={`rounded-2xl border p-3 text-left transition ${offeringType === t.id
-                          ? 'border-[#2855C5] bg-[#E8EFFF] text-[#2855C5]'
-                          : 'border-[#E8E2D8] bg-white text-[#101F49] hover:border-[#101F49]'
+                        ? 'border-[#2855C5] bg-[#E8EFFF] text-[#2855C5]'
+                        : 'border-[#E2E8F0] bg-white text-[#101F49] hover:border-[#101F49]'
                         }`}
                     >
                       <span className="block text-xs font-bold">{t.label}</span>
@@ -844,8 +968,8 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                       type="button"
                       onClick={() => setDeliveryMode(m.id as DeliveryMode)}
                       className={`rounded-xl border px-3 py-2 text-xs font-bold transition ${deliveryMode === m.id
-                          ? 'border-[#101F49] bg-[#101F49] text-white'
-                          : 'border-[#E8E2D8] bg-white text-[#637084] hover:text-[#101F49]'
+                        ? 'border-[#101F49] bg-[#101F49] text-white'
+                        : 'border-[#E2E8F0] bg-white text-[#637084] hover:text-[#101F49]'
                         }`}
                     >
                       {m.label}
@@ -856,7 +980,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
 
               {/* In-Person Location (Available whenever deliveryMode !== 'ONLINE') */}
               {deliveryMode !== 'ONLINE' && (
-                <div className="rounded-2xl bg-[#FFF9EE] p-4 border border-[#E8E2D8] space-y-3">
+                <div className="rounded-2xl bg-[#F8FAFC] p-4 border border-[#E2E8F0] space-y-3">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-[#101F49]">
                     <MapPin size={15} className="text-[#2855C5]" />
                     <span>{isAr ? 'بيانات الموقع والحضور الشخصي' : 'In-Person Venue & Location Details'}</span>
@@ -869,7 +993,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
                         placeholder={isAr ? 'مثال: القاهرة، الجيزة، دبي...' : 'e.g. Cairo, Giza, Dubai...'}
-                        className="mt-1 w-full rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
+                        className="mt-1 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                       />
                     </label>
                     <label className="text-xs font-bold text-[#101F49]">
@@ -878,7 +1002,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                         value={address}
                         onChange={(e) => setAddress(e.target.value)}
                         placeholder={isAr ? 'مثال: المعادي دجلة، شارع 214، مبنى تك هاب' : 'e.g. Maadi Degla, St 214, TechHub building'}
-                        className="mt-1 w-full rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
+                        className="mt-1 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                       />
                     </label>
                   </div>
@@ -890,7 +1014,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                         value={addressDescription}
                         onChange={(e) => setAddressDescription(e.target.value)}
                         placeholder={isAr ? 'مثال: الدور الثالث، شقة 5، بجوار محطة المترو' : 'e.g. 3rd floor, suite 5, next to metro station'}
-                        className="mt-1 w-full rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
+                        className="mt-1 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                       />
                     </label>
                     <label className="text-xs font-bold text-[#101F49]">
@@ -900,7 +1024,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                         value={googleMapsUrl}
                         onChange={(e) => setGoogleMapsUrl(e.target.value)}
                         placeholder="https://maps.app.goo.gl/... or https://goo.gl/maps/..."
-                        className="mt-1 w-full rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
+                        className="mt-1 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                       />
                     </label>
                   </div>
@@ -918,7 +1042,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                       const cat = categoriesList.find((c) => c.slug === e.target.value)
                       setSubcategorySlug(cat?.subcategories?.[0]?.slug || '')
                     }}
-                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] bg-white px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
+                    className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                   >
                     {categoriesList.map((c) => (
                       <option key={c.slug} value={c.slug}>
@@ -932,7 +1056,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                   <select
                     value={subcategorySlug}
                     onChange={(e) => setSubcategorySlug(e.target.value)}
-                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] bg-white px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
+                    className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                   >
                     {(selectedCategory?.subcategories || []).map((sub: any) => (
                       <option key={sub.slug} value={sub.slug}>
@@ -952,7 +1076,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                     value={titleEn}
                     onChange={(e) => setTitleEn(e.target.value)}
                     placeholder="e.g. 1-on-1 Marketing Strategy Review"
-                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
+                    className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                   />
                 </label>
                 <label className="text-xs font-bold text-[#101F49]">
@@ -963,16 +1087,16 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                     value={titleAr}
                     onChange={(e) => setTitleAr(e.target.value)}
                     placeholder="مثال: مراجعة فردية لاستراتيجية التسويق"
-                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
+                    className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                   />
                 </label>
               </div>
 
               {/* Service Thumbnail Upload */}
-              <div className="rounded-2xl border border-[#E8E2D8] bg-[#FFFDF9] p-4">
+              <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <label className="block text-xs font-bold text-[#101F49]">
+                    <label className="block text-xs font-bold text-[#101F49] ">
                       Service Card Thumbnail
                     </label>
                     <p className="text-[11px] text-[#637084] mt-0.5">
@@ -987,7 +1111,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                       cropping={true}
                       croppingAspectRatio={16 / 9}
                       buttonText={thumbnailUrl ? 'Change Thumbnail' : 'Upload Thumbnail'}
-                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#2855C5] px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#101F49]"
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#2855C5] px-3.5 py-2 text-[#101F49] text-xs font-bold hover:text-white shadow-xs transition hover:bg-[#101F49]"
                     />
                     {thumbnailUrl && (
                       <button
@@ -1003,7 +1127,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                 </div>
 
                 {thumbnailUrl && (
-                  <div className="mt-3 relative h-40 w-full sm:w-72 overflow-hidden rounded-2xl border border-[#E8E2D8] bg-[#101F49]">
+                  <div className="mt-3 relative h-40 w-full sm:w-72 overflow-hidden rounded-2xl border border-[#E2E8F0] bg-[#101F49]">
                     <img
                       src={thumbnailUrl}
                       alt="Service thumbnail preview"
@@ -1023,7 +1147,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                     value={descEn}
                     onChange={(e) => setDescEn(e.target.value)}
                     placeholder="Describe the exact scope, format, and activity of this session (min 20 characters)..."
-                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2 text-xs outline-none focus:border-[#2855C5]"
+                    className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] px-3.5 py-2 text-xs outline-none focus:border-[#2855C5]"
                   />
                 </label>
                 <label className="text-xs font-bold text-[#101F49]">
@@ -1035,7 +1159,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                     value={descAr}
                     onChange={(e) => setDescAr(e.target.value)}
                     placeholder="اشرح بوضوح النشاط الفعلي ونطاق الجلسة وما سيتم تقديمه..."
-                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2 text-xs outline-none focus:border-[#2855C5]"
+                    className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] px-3.5 py-2 text-xs outline-none focus:border-[#2855C5]"
                   />
                 </label>
               </div>
@@ -1049,7 +1173,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                     value={audienceEn}
                     onChange={(e) => setAudienceEn(e.target.value)}
                     placeholder="e.g. Startup founders and marketing managers"
-                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
+                    className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                   />
                 </label>
                 <label className="text-xs font-bold text-[#101F49]">
@@ -1060,13 +1184,13 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                     value={audienceAr}
                     onChange={(e) => setAudienceAr(e.target.value)}
                     placeholder="مثال: رواد الأعمال ومديرو التسويق"
-                    className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
+                    className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                   />
                 </label>
               </div>
 
               {/* What You Will Get / Key Deliverables & Outcomes (Bilingual & Arrangable) */}
-              <div className="rounded-2xl border border-[#E8E2D8] bg-[#FFFDF9] p-4 space-y-3">
+              <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 space-y-3">
                 <div>
                   <label className="block text-xs font-bold text-[#101F49]">
                     {isAr ? 'ماذا ستستفيد / تجد في هذه الجلسة (المخرجات باللغتين)' : 'What You Will Get / Outcomes (Bilingual)'}
@@ -1094,7 +1218,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                         }
                       }}
                       placeholder="e.g. 30-Day execution roadmap, customized review checklist..."
-                      className="w-full rounded-xl border border-[#E8E2D8] bg-white px-3.5 py-2 text-xs outline-none focus:border-[#2855C5]"
+                      className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs outline-none focus:border-[#2855C5]"
                     />
                   </div>
                   <div>
@@ -1113,7 +1237,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                         }
                       }}
                       placeholder="مثال: خطة عمل تنفيذية لـ 30 يوماً، قائمة تدقيق مخصصة..."
-                      className="w-full rounded-xl border border-[#E8E2D8] bg-white px-3.5 py-2 text-xs outline-none focus:border-[#2855C5]"
+                      className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs outline-none focus:border-[#2855C5]"
                     />
                   </div>
                 </div>
@@ -1138,9 +1262,8 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                         onDragStart={() => handleDragStartTakeaway(idx)}
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={() => handleDropTakeaway(idx)}
-                        className={`flex items-center justify-between gap-2.5 rounded-xl border border-[#E8E2D8] bg-white px-3 py-2.5 text-xs text-[#101F49] shadow-2xs transition ${
-                          draggedTakeawayIndex === idx ? 'opacity-40 border-dashed border-[#2855C5]' : ''
-                        }`}
+                        className={`flex items-center justify-between gap-2.5 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-xs text-[#101F49] shadow-2xs transition ${draggedTakeawayIndex === idx ? 'opacity-40 border-dashed border-[#2855C5]' : ''
+                          }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           <span
@@ -1173,7 +1296,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                             type="button"
                             disabled={idx === 0}
                             onClick={() => moveTakeaway(idx, 'up')}
-                            className="size-6 rounded-lg border border-[#E8E2D8] bg-[#faf8f5] flex items-center justify-center text-[#101F49] hover:bg-[#E8E2D8] disabled:opacity-30 disabled:cursor-not-allowed transition"
+                            className="size-6 rounded-lg border border-[#E2E8F0] bg-[#F1F5F9] flex items-center justify-center text-[#101F49] hover:bg-[#E2E8F0] disabled:opacity-30 disabled:cursor-not-allowed transition"
                             title={isAr ? 'تحريك للأعلى' : 'Move up'}
                           >
                             <ChevronUp size={13} />
@@ -1182,7 +1305,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                             type="button"
                             disabled={idx === whatYouWillGet.length - 1}
                             onClick={() => moveTakeaway(idx, 'down')}
-                            className="size-6 rounded-lg border border-[#E8E2D8] bg-[#faf8f5] flex items-center justify-center text-[#101F49] hover:bg-[#E8E2D8] disabled:opacity-30 disabled:cursor-not-allowed transition"
+                            className="size-6 rounded-lg border border-[#E2E8F0] bg-[#F1F5F9] flex items-center justify-center text-[#101F49] hover:bg-[#E2E8F0] disabled:opacity-30 disabled:cursor-not-allowed transition"
                             title={isAr ? 'تحريك للأسفل' : 'Move down'}
                           >
                             <ChevronDown size={13} />
@@ -1215,7 +1338,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                         step={15}
                         value={duration}
                         onChange={(e) => setDuration(Number(e.target.value))}
-                        className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
+                        className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                       />
                     </label>
                     <label className="text-xs font-bold text-[#101F49]">
@@ -1227,82 +1350,13 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                         step={5}
                         value={breakAfter}
                         onChange={(e) => setBreakAfter(Number(e.target.value))}
-                        className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
+                        className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                       />
                     </label>
                   </div>
-
-                  {/* Minimum Booking Notice Condition */}
-                  <div className="rounded-2xl border border-[#E8E2D8] bg-[#FFFDF9] p-4 space-y-2.5">
-                    <label className="block text-xs font-bold text-[#101F49]">
-                      {isAr ? 'مهلة الحجز المسبق المطلوبة *' : 'Minimum Booking Notice *'}
-                    </label>
-                    <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3 text-[11px] text-blue-950 space-y-1.5 leading-relaxed">
-                      {isAr ? (
-                        <>
-                          <p>
-                            <strong>🔒 إيقاف الحجز التلقائي:</strong> سيتم قفل وإخفاء أي مواعيد تقع ضمن هذه المهلة الزمنية من جدول الحجز؛ فلن يتمكن أي عميل من طلب موعد يبدأ خلال هذه المدة (مثال: عند اختيار 24 ساعة، لا يمكن للعميل حجز موعد يبدأ قبل مرور 24 ساعة من الآن).
-                          </p>
-                          <p>
-                            <strong>💡 الاستخدام الموصى به:</strong> يفضل وموصى به بشدة عند حاجتك لوقت مسبق لدراسة ملفات العميل، أو مراجعة أعماله ومواده، أو إرسال استبيان/أسئلة يحتاج العميل وقتاً للإجابة عليها قبل موعد الجلسة.
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p>
-                            <strong>🔒 Automatic Slot Locking:</strong> Any time slots falling within this advance notice window will be automatically locked and hidden on the booking calendar; clients cannot book any slot starting sooner than this timeframe (e.g. if set to 24 hours, clients cannot book any slot starting less than 24 hours from now).
-                          </p>
-                          <p>
-                            <strong>💡 Recommended Use:</strong> Strongly preferred when you require advance preparation time to study client files, review their materials/portfolio, or have the client complete an intake survey before the call.
-                          </p>
-                        </>
-                      )}
-                    </div>
-                    <select
-                      value={minNoticeHours}
-                      onChange={(e) => setMinNoticeHours(Number(e.target.value))}
-                      className="w-full rounded-xl border border-[#E8E2D8] bg-white px-3.5 py-2.5 text-xs font-semibold text-[#101F49] outline-none focus:border-[#2855C5]"
-                    >
-                      {isAr ? (
-                        <>
-                          <option value={0}>نفس اليوم (حجز فوري متاح)</option>
-                          <option value={24}>اليوم السابق (قبل 24 ساعة) — الافتراضي (موصى به)</option>
-                          <option value={48}>قبل يومين (48 ساعة)</option>
-                          <option value={72}>قبل 3 أيام (72 ساعة)</option>
-                          <option value={96}>قبل 4 أيام (96 ساعة)</option>
-                          <option value={120}>قبل 5 أيام (120 ساعة)</option>
-                          <option value={144}>قبل 6 أيام (144 ساعة)</option>
-                          <option value={168}>قبل 7 أيام (أسبوع كامل)</option>
-                          <option value={192}>قبل 8 أيام (192 ساعة)</option>
-                          <option value={216}>قبل 9 أيام (216 ساعة)</option>
-                          <option value={240}>قبل 10 أيام (240 ساعة)</option>
-                          <option value={336}>قبل 14 يوماً (أسبوعان / 336 ساعة)</option>
-                          <option value={504}>قبل 21 يوماً (3 أسابيع / 504 ساعات)</option>
-                          <option value={720}>قبل 30 يوماً (شهر كامل / 720 ساعة)</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value={0}>Same day (Immediate booking allowed)</option>
-                          <option value={24}>The day before (24 hours in advance) — Default (Recommended)</option>
-                          <option value={48}>2 days before (48 hours)</option>
-                          <option value={72}>3 days before (72 hours)</option>
-                          <option value={96}>4 days before (96 hours)</option>
-                          <option value={120}>5 days before (120 hours)</option>
-                          <option value={144}>6 days before (144 hours)</option>
-                          <option value={168}>7 days before (1 week)</option>
-                          <option value={192}>8 days before (192 hours)</option>
-                          <option value={216}>9 days before (216 hours)</option>
-                          <option value={240}>10 days before (240 hours)</option>
-                          <option value={336}>14 days before (2 weeks / 336 hours)</option>
-                          <option value={504}>21 days before (3 weeks / 504 hours)</option>
-                          <option value={720}>30 days before (1 month / 720 hours)</option>
-                        </>
-                      )}
-                    </select>
-                  </div>
                 </div>
               ) : (
-                <div className="rounded-2xl bg-[#FFF9EE] p-4 border border-[#E8E2D8] space-y-3">
+                <div className="rounded-2xl bg-[#F8FAFC] p-4 border border-[#E2E8F0] space-y-3">
                   <p className="text-xs font-bold uppercase tracking-wider text-[#2855C5]">
                     Event Schedule & Capacity
                   </p>
@@ -1314,7 +1368,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                         required
                         value={eventDate}
                         onChange={(e) => setEventDate(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
+                        className="mt-1 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                       />
                     </label>
                     <label className="text-xs font-bold text-[#101F49]">
@@ -1324,7 +1378,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                         required
                         value={eventStartTime}
                         onChange={(e) => setEventStartTime(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
+                        className="mt-1 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                       />
                     </label>
                     <label className="text-xs font-bold text-[#101F49]">
@@ -1334,74 +1388,63 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                         required
                         value={eventEndTime}
                         onChange={(e) => setEventEndTime(e.target.value)}
-                        className="mt-1 w-full rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
+                        className="mt-1 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                       />
                     </label>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <label className="text-xs font-bold text-[#101F49]">
-                      Capacity (Max Seats)
+                      {isAr ? 'السعة القصوى (عدد المقاعد)' : 'Capacity (Max Seats)'} *
                       <input
                         type="number"
                         min={1}
+                        required
                         value={eventCapacity}
-                        onChange={(e) => setEventCapacity(Number(e.target.value))}
-                        className="mt-1 w-full rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
+                        onChange={(e) => setEventCapacity(Math.max(1, Number(e.target.value)))}
+                        className="mt-1 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                       />
                     </label>
-                    <label className="text-xs font-bold text-[#101F49] sm:col-span-2">
-                      {isAr ? 'رابط الانضمام عبر الإنترنت' : 'Online Joining URL'} {offeringType === 'WEBINAR' && deliveryMode === 'ONLINE' && eventStatus !== 'coming_soon' && '*'}
-                      <input
-                        type="url"
-                        required={offeringType === 'WEBINAR' && deliveryMode === 'ONLINE' && eventStatus !== 'coming_soon'}
-                        value={eventJoinUrl}
-                        onChange={(e) => setEventJoinUrl(e.target.value)}
-                        placeholder="https://meet.google.com/..."
-                        className="mt-1 w-full rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
-                      />
-                    </label>
-                  </div>
-
-                  {/* Status & Waitlist Controls */}
-                  <div className="grid gap-3 sm:grid-cols-3 pt-1">
                     <label className="text-xs font-bold text-[#101F49]">
-                      Event Status
+                      {isAr ? 'حالة الفعالية' : 'Event Status'}
                       <select
                         value={eventStatus}
                         onChange={(e) => setEventStatus(e.target.value as 'open' | 'coming_soon' | 'closed')}
-                        className="mt-1 w-full rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
+                        className="mt-1 w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                       >
-                        <option value="open">Open for Registration</option>
-                        <option value="coming_soon">Coming Soon (Notify Me)</option>
-                        <option value="closed">Registration Closed</option>
+                        <option value="open">{isAr ? 'مفتوح للتسجيل' : 'Open for Registration'}</option>
+                        <option value="coming_soon">{isAr ? 'قريباً (إشعار عند الفتح)' : 'Coming Soon (Notify Me)'}</option>
+                        <option value="closed">{isAr ? 'التسجيل مغلق' : 'Registration Closed'}</option>
                       </select>
                     </label>
-                    <label className="text-xs font-bold text-[#101F49] sm:col-span-2">
-                      Recording URL (Optional — shown to confirmed attendees after session)
-                      <input
-                        type="url"
-                        value={eventRecordingUrl}
-                        onChange={(e) => setEventRecordingUrl(e.target.value)}
-                        placeholder="https://..."
-                        className="mt-1 w-full rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
-                      />
-                    </label>
                   </div>
+
+                  {deliveryMode === 'ONLINE' && (
+                    <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-xs text-[#101F49] flex items-center gap-2.5">
+                      <span className="text-base">🎥</span>
+                      <p className="text-[11px] leading-relaxed">
+                        {isAr
+                          ? 'سيتم إنشاء رابط جلسة Google Meet تلقائياً بواسطة منصة بوك بوك وإرساله للمشتركين المؤكدين.'
+                          : 'Google Meet room link will be automatically generated by Bok Bok and emailed to confirmed attendees.'}
+                      </p>
+                    </div>
+                  )}
 
                   <label className="flex items-center gap-2 text-xs font-semibold text-[#101F49] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={eventAllowWaitlist}
                       onChange={(e) => setEventAllowWaitlist(e.target.checked)}
-                      className="rounded border-[#E8E2D8]"
+                      className="rounded border-[#E2E8F0]"
                     />
-                    Enable Waitlist automatically when all seats are full
+                    {isAr
+                      ? 'تفعيل قائمة الانتظار تلقائياً عند اكتمال المقاعد'
+                      : 'Enable Waitlist automatically when all seats are full'}
                   </label>
 
                   {/* Multi-Session Builder (Workshops) */}
                   {offeringType === 'WORKSHOP' && (
-                    <div className="rounded-xl border border-[#E8E2D8] bg-white p-3 space-y-2.5">
+                    <div className="rounded-xl border border-[#E2E8F0] bg-white p-3 space-y-2.5">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-[11px] font-bold uppercase tracking-wider text-[#101F49]">
                           Multi-Session Schedule (Optional — {eventSessions.length} sessions)
@@ -1428,7 +1471,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                         </button>
                       </div>
                       {eventSessions.map((sess, idx) => (
-                        <div key={sess.id} className="rounded-xl border border-[#eeeae4] bg-[#faf8f5] p-2.5 space-y-2">
+                        <div key={sess.id} className="rounded-xl border border-[#E2E8F0] bg-[#F1F5F9] p-2.5 space-y-2">
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-[11px] font-bold text-[#2855C5]">Session #{idx + 1}</span>
                             <button
@@ -1449,7 +1492,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                                 )
                               }
                               placeholder="Session title (English)"
-                              className="rounded-lg border border-[#E8E2D8] bg-white px-2.5 py-1.5 text-xs outline-none"
+                              className="rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1.5 text-xs outline-none"
                             />
                             <input
                               type="text"
@@ -1460,7 +1503,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                                 )
                               }
                               placeholder="عنوان الجلسة (عربي)"
-                              className="rounded-lg border border-[#E8E2D8] bg-white px-2.5 py-1.5 text-xs outline-none"
+                              className="rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1.5 text-xs outline-none"
                             />
                           </div>
                           <div className="grid gap-2 sm:grid-cols-3">
@@ -1472,7 +1515,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                                   prev.map((item, i) => (i === idx ? { ...item, date: e.target.value } : item))
                                 )
                               }
-                              className="rounded-lg border border-[#E8E2D8] bg-white px-2.5 py-1.5 text-xs outline-none"
+                              className="rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1.5 text-xs outline-none"
                             />
                             <input
                               type="time"
@@ -1482,7 +1525,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                                   prev.map((item, i) => (i === idx ? { ...item, startTime: e.target.value } : item))
                                 )
                               }
-                              className="rounded-lg border border-[#E8E2D8] bg-white px-2.5 py-1.5 text-xs outline-none"
+                              className="rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1.5 text-xs outline-none"
                             />
                             <input
                               type="time"
@@ -1492,7 +1535,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                                   prev.map((item, i) => (i === idx ? { ...item, endTime: e.target.value } : item))
                                 )
                               }
-                              className="rounded-lg border border-[#E8E2D8] bg-white px-2.5 py-1.5 text-xs outline-none"
+                              className="rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1.5 text-xs outline-none"
                             />
                           </div>
                           <input
@@ -1504,7 +1547,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                               )
                             }
                             placeholder="Brief syllabus / topics covered (optional)"
-                            className="w-full rounded-lg border border-[#E8E2D8] bg-white px-2.5 py-1.5 text-xs outline-none"
+                            className="w-full rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1.5 text-xs outline-none"
                           />
                         </div>
                       ))}
@@ -1518,18 +1561,115 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                       value={eventPolicyEn}
                       onChange={(e) => setEventPolicyEn(e.target.value)}
                       placeholder="Cancellation policy EN (optional)"
-                      className="rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
+                      className="rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                     />
                     <input
                       type="text"
                       value={eventPolicyAr}
                       onChange={(e) => setEventPolicyAr(e.target.value)}
                       placeholder="سياسة الإلغاء بالعربية (اختياري)"
-                      className="rounded-xl border border-[#E8E2D8] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
+                      className="rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                     />
                   </div>
                 </div>
               )}
+
+              {/* Minimum Booking Notice Condition - Available for Consultations, Webinars, and Workshops */}
+              <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 space-y-2.5">
+                <label className="block text-xs font-bold text-[#101F49]">
+                  {offeringType === 'CONSULTATION'
+                    ? isAr
+                      ? 'مهلة الحجز المسبق المطلوبة *'
+                      : 'Minimum Booking Notice *'
+                    : isAr
+                      ? 'مهلة إغلاق التسجيل المسبق للفعالية *'
+                      : 'Event Registration Cutoff (Advance Notice) *'}
+                </label>
+                <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3 text-[11px] text-blue-950 space-y-1.5 leading-relaxed">
+                  {offeringType === 'CONSULTATION' ? (
+                    isAr ? (
+                      <>
+                        <p>
+                          <strong>🔒 إيقاف الحجز التلقائي:</strong> سيتم قفل وإخفاء أي مواعيد تقع ضمن هذه المهلة الزمنية من جدول الحجز؛ فلن يتمكن أي عميل من طلب موعد يبدأ خلال هذه المدة (مثال: عند اختيار 24 ساعة، لا يمكن للعميل حجز موعد يبدأ قبل مرور 24 ساعة من الآن).
+                        </p>
+                        <p>
+                          <strong>💡 الاستخدام الموصى به:</strong> يفضل وموصى به بشدة عند حاجتك لوقت مسبق لدراسة ملفات العميل، أو مراجعة أعماله ومواده، أو إرسال استبيان/أسئلة يحتاج العميل وقتاً للإجابة عليها قبل موعد الجلسة.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p>
+                          <strong>🔒 Automatic Slot Locking:</strong> Any time slots falling within this advance notice window will be automatically locked and hidden on the booking calendar; clients cannot book any slot starting sooner than this timeframe (e.g. if set to 24 hours, clients cannot book any slot starting less than 24 hours from now).
+                        </p>
+                        <p>
+                          <strong>💡 Recommended Use:</strong> Strongly preferred when you require advance preparation time to study client files, review their materials/portfolio, or have the client complete an intake survey before the call.
+                        </p>
+                      </>
+                    )
+                  ) : (
+                    isAr ? (
+                      <>
+                        <p>
+                          <strong>🔒 إغلاق التسجيل التلقائي:</strong> سيتم قفل وإغلاق باب التسجيل في الفعالية تلقائياً قبل بدء موعدها بهذه المهلة المحددة (مثال: عند اختيار 24 ساعة، يُغلق التسجيل قبل 24 ساعة تماماً من توقيت بدء الويبينار أو الورشة).
+                        </p>
+                        <p>
+                          <strong>💡 الاستخدام الموصى به:</strong> مفيد جداً لحصر قائمة الحضور وإعداد المادة العلمية وتجهيز دعوات اللقاء قبل بدء الفعالية بوقت كافٍ دون مفاجآت تسجيل اللحظات الأخيرة.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p>
+                          <strong>🔒 Automatic Registration Cutoff:</strong> Registration will automatically close and lock this many hours/days before the event start time (e.g. if set to 24 hours, booking closes 24 hours before the webinar begins).
+                        </p>
+                        <p>
+                          <strong>💡 Recommended Use:</strong> Ideal for finalizing attendee rosters, preparing worksheets or handouts, and setting up access links ahead of time without last-minute registration surprises.
+                        </p>
+                      </>
+                    )
+                  )}
+                </div>
+                <select
+                  value={minNoticeHours}
+                  onChange={(e) => setMinNoticeHours(Number(e.target.value))}
+                  className="w-full rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-xs font-semibold text-[#101F49] outline-none focus:border-[#2855C5]"
+                >
+                  {isAr ? (
+                    <>
+                      <option value={0}>نفس اليوم (حجز متاح حتى بدء الفعالية / الجلسة)</option>
+                      <option value={24}>قبل 24 ساعة (اليوم السابق) — الافتراضي (موصى به)</option>
+                      <option value={48}>قبل يومين (48 ساعة)</option>
+                      <option value={72}>قبل 3 أيام (72 ساعة)</option>
+                      <option value={96}>قبل 4 أيام (96 ساعة)</option>
+                      <option value={120}>قبل 5 أيام (120 ساعة)</option>
+                      <option value={144}>قبل 6 أيام (144 ساعة)</option>
+                      <option value={168}>قبل 7 أيام (أسبوع كامل)</option>
+                      <option value={192}>قبل 8 أيام (192 ساعة)</option>
+                      <option value={216}>قبل 9 أيام (216 ساعة)</option>
+                      <option value={240}>قبل 10 أيام (240 ساعة)</option>
+                      <option value={336}>قبل 14 يوماً (أسبوعان / 336 ساعة)</option>
+                      <option value={504}>قبل 21 يوماً (3 أسابيع / 504 ساعات)</option>
+                      <option value={720}>قبل 30 يوماً (شهر كامل / 720 ساعة)</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value={0}>Same day (Booking open until start time)</option>
+                      <option value={24}>24 hours in advance (The day before) — Default (Recommended)</option>
+                      <option value={48}>2 days before (48 hours)</option>
+                      <option value={72}>3 days before (72 hours)</option>
+                      <option value={96}>4 days before (96 hours)</option>
+                      <option value={120}>5 days before (120 hours)</option>
+                      <option value={144}>6 days before (144 hours)</option>
+                      <option value={168}>7 days before (1 week)</option>
+                      <option value={192}>8 days before (192 hours)</option>
+                      <option value={216}>9 days before (216 hours)</option>
+                      <option value={240}>10 days before (240 hours)</option>
+                      <option value={336}>14 days before (2 weeks / 336 hours)</option>
+                      <option value={504}>21 days before (3 weeks / 504 hours)</option>
+                      <option value={720}>30 days before (1 month / 720 hours)</option>
+                    </>
+                  )}
+                </select>
+              </div>
 
               {/* Multi-Currency Pricing */}
               <div>
@@ -1542,7 +1682,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                       min={0}
                       value={priceEGP}
                       onChange={(e) => setPriceEGP(Number(e.target.value))}
-                      className="mt-1 w-full rounded-xl border border-[#E8E2D8] px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
+                      className="mt-1 w-full rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                     />
                   </label>
                   <label className="text-[11px] font-semibold text-[#637084]">
@@ -1552,7 +1692,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                       min={0}
                       value={priceUSD}
                       onChange={(e) => setPriceUSD(Number(e.target.value))}
-                      className="mt-1 w-full rounded-xl border border-[#E8E2D8] px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
+                      className="mt-1 w-full rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                     />
                   </label>
                   <label className="text-[11px] font-semibold text-[#637084]">
@@ -1562,7 +1702,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                       min={0}
                       value={priceSAR}
                       onChange={(e) => setPriceSAR(Number(e.target.value))}
-                      className="mt-1 w-full rounded-xl border border-[#E8E2D8] px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
+                      className="mt-1 w-full rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
                     />
                   </label>
                 </div>
@@ -1575,12 +1715,12 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                   value={tagsStr}
                   onChange={(e) => setTagsStr(e.target.value)}
                   placeholder="e.g. strategy, seo, branding, portfolio"
-                  className="mt-1.5 w-full rounded-xl border border-[#E8E2D8] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
+                  className="mt-1.5 w-full rounded-xl border border-[#E2E8F0] px-3.5 py-2.5 text-xs outline-none focus:border-[#2855C5]"
                 />
               </label>
 
               {/* Additional Client Questions / Intake Form */}
-              <div className="rounded-2xl border border-[#E8E2D8] bg-[#FFFDF9] p-4 space-y-3">
+              <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <label className="block text-xs font-bold text-[#101F49]">
@@ -1618,7 +1758,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                     {intakeQuestions.map((q, idx) => (
                       <div
                         key={q.id || idx}
-                        className="rounded-xl border border-[#E8E2D8] bg-white p-3 space-y-2 shadow-2xs"
+                        className="rounded-xl border border-[#E2E8F0] bg-white p-3 space-y-2 shadow-2xs"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
@@ -1630,7 +1770,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                                 type="button"
                                 disabled={idx === 0}
                                 onClick={() => moveIntakeQuestion(idx, 'up')}
-                                className="size-5 rounded border border-[#E8E2D8] bg-[#faf8f5] flex items-center justify-center text-[#101F49] hover:bg-[#E8E2D8] disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                className="size-5 rounded border border-[#E2E8F0] bg-[#F1F5F9] flex items-center justify-center text-[#101F49] hover:bg-[#E2E8F0] disabled:opacity-30 disabled:cursor-not-allowed transition"
                                 title={isAr ? 'تحريك للأعلى' : 'Move up'}
                               >
                                 <ChevronUp size={11} />
@@ -1639,7 +1779,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                                 type="button"
                                 disabled={idx === intakeQuestions.length - 1}
                                 onClick={() => moveIntakeQuestion(idx, 'down')}
-                                className="size-5 rounded border border-[#E8E2D8] bg-[#faf8f5] flex items-center justify-center text-[#101F49] hover:bg-[#E8E2D8] disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                className="size-5 rounded border border-[#E2E8F0] bg-[#F1F5F9] flex items-center justify-center text-[#101F49] hover:bg-[#E2E8F0] disabled:opacity-30 disabled:cursor-not-allowed transition"
                                 title={isAr ? 'تحريك للأسفل' : 'Move down'}
                               >
                                 <ChevronDown size={11} />
@@ -1665,7 +1805,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                             setIntakeQuestions(updated)
                           }}
                           placeholder="e.g. Describe your current challenge, or upload your pitch deck (PDF) / design files (Image)"
-                          className="w-full rounded-xl border border-[#E8E2D8] px-3 py-1.5 text-xs outline-none focus:border-[#2855C5]"
+                          className="w-full rounded-xl border border-[#E2E8F0] px-3 py-1.5 text-xs outline-none focus:border-[#2855C5]"
                         />
                         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                           <div className="flex items-center gap-2">
@@ -1679,7 +1819,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                                 updated[idx].type = e.target.value as 'string' | 'pdf' | 'image'
                                 setIntakeQuestions(updated)
                               }}
-                              className="rounded-lg border border-[#E8E2D8] bg-white px-2.5 py-1 text-xs font-semibold text-[#101F49] outline-none"
+                              className="rounded-lg border border-[#E2E8F0] bg-white px-2.5 py-1 text-xs font-semibold text-[#101F49] outline-none"
                             >
                               <option value="string">Text Answer (String) — إجابة نصية</option>
                               <option value="pdf">PDF Document Upload — مستند PDF</option>
@@ -1707,7 +1847,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
               </div>
 
               {/* Compliance Controls & Toggles */}
-              <div className="rounded-2xl border border-[#E8E2D8] bg-[#FFF9EE] p-4 space-y-3">
+              <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 space-y-3">
                 <label className="flex items-start gap-2.5 text-xs font-bold text-[#101F49] cursor-pointer">
                   <input
                     type="checkbox"
@@ -1721,7 +1861,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                   </span>
                 </label>
 
-                <div className="flex flex-wrap items-center gap-6 pt-1 border-t border-[#E8E2D8]">
+                <div className="flex flex-wrap items-center gap-6 pt-1 border-t border-[#E2E8F0]">
                   <label className="flex items-center gap-2 text-xs font-bold text-[#101F49] cursor-pointer">
                     <input
                       type="checkbox"
@@ -1743,11 +1883,11 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 border-t border-[#E8E2D8] pt-4">
+              <div className="flex items-center justify-end gap-3 border-t border-[#E2E8F0] pt-4">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="rounded-full border border-[#E8E2D8] px-5 py-2 text-xs font-bold text-[#637084] hover:border-[#101F49]"
+                  className="rounded-full border border-[#E2E8F0] px-5 py-2 text-xs font-bold text-[#637084] hover:border-[#101F49]"
                 >
                   {isAr ? 'إلغاء' : 'Cancel'}
                 </button>

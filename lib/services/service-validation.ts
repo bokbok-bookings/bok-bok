@@ -368,11 +368,11 @@ function normalizeLocation(raw: any): ServiceLocation | undefined {
   const googleMapsUrl = str(raw.googleMapsUrl)
   return city || address
     ? {
-        city,
-        address,
-        ...(addressDescription ? { addressDescription } : {}),
-        ...(googleMapsUrl ? { googleMapsUrl } : {}),
-      }
+      city,
+      address,
+      ...(addressDescription ? { addressDescription } : {}),
+      ...(googleMapsUrl ? { googleMapsUrl } : {}),
+    }
     : undefined
 }
 
@@ -685,9 +685,6 @@ export function validateServiceInput(
     } else if (capacity < registeredCount) {
       errors.push(`Capacity cannot be lower than the ${registeredCount} seats already registered`)
     }
-    if (bookingType === 'WEBINAR' && deliveryMode === 'ONLINE' && eventStatus !== 'coming_soon' && !joinUrl) {
-      errors.push('A joining link is required for online webinars')
-    }
     if (joinUrl && !isHttpUrl(joinUrl)) {
       errors.push('Joining link must be a valid http(s) URL')
     }
@@ -758,7 +755,19 @@ export function validateServiceInput(
       eventStatus,
       registrationMode,
       allowWaitlist,
-      ...(joinUrl ? { joinUrl } : {}),
+      ...(joinUrl ? { joinUrl } : existing.event?.joinUrl ? { joinUrl: existing.event.joinUrl } : {}),
+      ...(existing.event?.googleCalendarEventId
+        ? { googleCalendarEventId: existing.event.googleCalendarEventId }
+        : {}),
+      ...(existing.event?.googleCalendarEventLink
+        ? { googleCalendarEventLink: existing.event.googleCalendarEventLink }
+        : {}),
+      ...(existing.event?.googleMeetSpaceName
+        ? { googleMeetSpaceName: existing.event.googleMeetSpaceName }
+        : {}),
+      ...(existing.event?.googleMeetSyncedAt
+        ? { googleMeetSyncedAt: existing.event.googleMeetSyncedAt }
+        : {}),
       ...(platform ? { platform } : {}),
       ...(sessions ? { sessions } : {}),
       ...(galleryUrls ? { galleryUrls } : {}),

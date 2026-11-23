@@ -20,8 +20,14 @@ export async function POST(request: Request) {
     }
 
     const email = rawEmail.trim().toLowerCase()
+    const escapedEmail = email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const usersCol = await getUsersCollection()
-    const user = await usersCol.findOne({ email })
+    const user = await usersCol.findOne({
+      $or: [
+        { email },
+        { email: { $regex: new RegExp(`^${escapedEmail}$`, 'i') } },
+      ],
+    })
 
     // Generic response to avoid revealing user registration status (security best practice)
     const genericSuccessResponse = {

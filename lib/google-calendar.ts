@@ -7,6 +7,7 @@ import {
   getServicesCollection,
   toObjectId,
   type BookingDoc,
+  type ServiceDoc,
   type GoogleMeetParticipantTelemetry,
   type GoogleMeetTelemetry,
   type MeetingJoinRecord,
@@ -241,8 +242,8 @@ export async function getGoogleCalendarConnectionStatus(
       updatedAt: updatedAtStr,
       hasMeetTelemetryScope,
       message: `Connected to Google Calendar (${calRes.data.id || calendarId}). Google Meet links are generated automatically on confirmation.${hasMeetTelemetryScope
-          ? ' Google Meet telemetry (join/leave times) is enabled.'
-          : ' Reconnect once to grant Google Meet leave-time telemetry scope.'
+        ? ' Google Meet telemetry (join/leave times) is enabled.'
+        : ' Reconnect once to grant Google Meet leave-time telemetry scope.'
         }`,
     }
     cachedStatus = { checkedAt: Date.now(), result }
@@ -469,24 +470,62 @@ export async function ensureBookingMeetDirectEntry(
     try {
       const calendar = await getOAuthCalendarClient()
       const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary'
-      const attendees: Array<{ email: string; displayName?: string; responseStatus: string }> = []
+      const isSharedGroupEvent =
+        booking.bookingType === 'WEBINAR' || booking.bookingType === 'WORKSHOP'
+
+      const attendeesMap = new Map<
+        string,
+        { email: string; displayName?: string; responseStatus?: string }
+      >()
+
+      // For shared group events (webinars/workshops), preserve existing attendees so we don't overwrite other registrants
+      if (isSharedGroupEvent) {
+        try {
+          const existingEv = await Promise.race([
+            calendar.events.get({
+              calendarId,
+              eventId: booking.googleCalendarEventId,
+            }),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('Google Calendar event.get timed out (5s)')), 5000),
+            ),
+          ])
+          for (const a of existingEv.data.attendees || []) {
+            if (a.email?.trim()) {
+              attendeesMap.set(a.email.trim().toLowerCase(), {
+                email: a.email.trim(),
+                displayName: a.displayName || undefined,
+                responseStatus: a.responseStatus || 'accepted',
+              })
+            }
+          }
+        } catch {
+          // proceed with adding current attendee + expert
+        }
+      }
+
       if (booking.clientEmail?.trim()) {
-        attendees.push({
-          email: booking.clientEmail.trim(),
-          displayName: booking.clientName || 'Client',
-          responseStatus: 'accepted',
-        })
+        const key = booking.clientEmail.trim().toLowerCase()
+        if (!attendeesMap.has(key)) {
+          attendeesMap.set(key, {
+            email: booking.clientEmail.trim(),
+            displayName: booking.clientName || 'Client',
+            responseStatus: 'accepted',
+          })
+        }
       }
-      if (
-        expertEmail?.trim() &&
-        expertEmail.trim().toLowerCase() !== booking.clientEmail?.trim().toLowerCase()
-      ) {
-        attendees.push({
-          email: expertEmail.trim(),
-          displayName: expertName,
-          responseStatus: 'accepted',
-        })
+      if (expertEmail?.trim()) {
+        const key = expertEmail.trim().toLowerCase()
+        if (!attendeesMap.has(key)) {
+          attendeesMap.set(key, {
+            email: expertEmail.trim(),
+            displayName: expertName,
+            responseStatus: 'accepted',
+          })
+        }
       }
+
+      const attendees = Array.from(attendeesMap.values())
 
       if (attendees.length > 0) {
         await Promise.race([
@@ -691,7 +730,144 @@ export async function deleteCalendarEvent(eventId: string): Promise<void> {
 }
 
 /**
+ * Creates (or reuses) a single shared Google Calendar event + Google Meet room
+ * for an online WEBINAR or WORKSHOP service.
+ * Called automatically when an Admin approves the service, and reused for every attendee.
+ */
+export async function ensureEventServiceMeetLink(
+  serviceOrId: string | ServiceDoc,
+  options?: { forceRecreate?: boolean },
+): Promise<{
+  joinUrl: string
+  googleCalendarEventId?: string
+  googleCalendarEventLink?: string
+  googleMeetSpaceName?: string
+  created: boolean
+} | null> {
+  const servicesCol = await getServicesCollection()
+  const expertsCol = await getExpertsCollection()
+  const usersCol = await getUsersCollection()
+
+  let service: ServiceDoc | null = null
+  if (typeof serviceOrId === 'string') {
+    service = await servicesCol.findOne({ _id: toObjectId(serviceOrId) })
+  } else {
+    service = serviceOrId
+  }
+
+  if (!service) {
+    throw new Error(`Service not found: ${typeof serviceOrId === 'string' ? serviceOrId : serviceOrId?._id}`)
+  }
+
+  const isEventService = service.bookingType === 'WEBINAR' || service.bookingType === 'WORKSHOP'
+  if (!isEventService || service.deliveryMode === 'IN_PERSON') {
+    return null
+  }
+
+  // Reuse existing shared Meet link unless forceRecreate is explicitly requested
+  if (service.event?.joinUrl?.trim() && !options?.forceRecreate) {
+    return {
+      joinUrl: service.event.joinUrl.trim(),
+      googleCalendarEventId: service.event.googleCalendarEventId,
+      googleCalendarEventLink: service.event.googleCalendarEventLink,
+      googleMeetSpaceName: service.event.googleMeetSpaceName,
+      created: false,
+    }
+  }
+
+  // Resolve expert details
+  let expertName = 'BokBok Expert'
+  let expertEmail: string | undefined = undefined
+  if (service.expertId) {
+    const expertDoc = await expertsCol.findOne({ _id: service.expertId })
+    if (expertDoc) {
+      expertName = expertDoc.name
+      if (expertDoc.userId) {
+        const userDoc = await usersCol.findOne({ _id: expertDoc.userId })
+        if (userDoc?.email) expertEmail = userDoc.email
+      }
+      if (!expertEmail) {
+        const userByExpertId = await usersCol.findOne({ expertId: expertDoc._id })
+        if (userByExpertId?.email) expertEmail = userByExpertId.email
+      }
+    }
+  }
+
+  const eventDate = service.event?.date || getCairoTodayDateString()
+  const eventStartTime = service.event?.startTime || '18:00'
+  let durationMinutes = service.durationMinutes || 60
+  if (service.event?.startTime && service.event?.endTime) {
+    const [sh, sm] = service.event.startTime.split(':').map(Number)
+    const [eh, em] = service.event.endTime.split(':').map(Number)
+    const diff = eh * 60 + em - (sh * 60 + sm)
+    if (Number.isFinite(diff) && diff > 0) {
+      durationMinutes = diff
+    }
+  }
+
+  const typeLabel = service.bookingType === 'WEBINAR' ? 'Webinar' : 'Workshop'
+  const serviceTitle = service.title?.en || service.title?.ar || typeLabel
+
+  try {
+    if (service.event?.googleCalendarEventId && options?.forceRecreate) {
+      await deleteCalendarEvent(service.event.googleCalendarEventId)
+    }
+
+    const calendarResult = await createCalendarEvent({
+      summary: `BokBok ${typeLabel}: ${serviceTitle} — ${expertName}`,
+      description: `BokBok ${typeLabel}\nTitle: ${serviceTitle}\nHost: ${expertName}\nService ID: ${service._id.toString()}`,
+      date: eventDate,
+      time: eventStartTime,
+      durationMinutes,
+      clientEmail: '',
+      clientName: '',
+      expertEmail,
+      expertName,
+      includeGoogleMeet: true,
+    })
+
+    const now = new Date()
+    await servicesCol.updateOne(
+      { _id: service._id },
+      {
+        $set: {
+          'event.joinUrl': calendarResult.meetLink,
+          'event.googleCalendarEventId': calendarResult.eventId,
+          'event.googleCalendarEventLink': calendarResult.eventLink,
+          ...(calendarResult.spaceName ? { 'event.googleMeetSpaceName': calendarResult.spaceName } : {}),
+          'event.googleMeetSyncedAt': now,
+          updatedAt: now,
+        },
+        $unset: { 'event.googleMeetError': '' },
+      },
+    )
+
+    return {
+      joinUrl: calendarResult.meetLink,
+      googleCalendarEventId: calendarResult.eventId,
+      googleCalendarEventLink: calendarResult.eventLink,
+      googleMeetSpaceName: calendarResult.spaceName,
+      created: true,
+    }
+  } catch (err: any) {
+    const formattedErr = formatCalendarError(err)
+    await servicesCol.updateOne(
+      { _id: service._id },
+      {
+        $set: {
+          'event.googleMeetError': formattedErr,
+          updatedAt: new Date(),
+        },
+      },
+    )
+    throw new Error(formattedErr)
+  }
+}
+
+/**
  * Confirms a booking, resolves expert email, and creates calendar event + Meet link.
+ * For Webinars and online Workshops, reuses the single shared service Meet room
+ * instead of generating a separate Meet link per attendee.
  */
 export async function confirmBookingAndCreateCalendar(
   bookingIdOrReference: string,
@@ -718,16 +894,62 @@ export async function confirmBookingAndCreateCalendar(
     return booking
   }
 
-  // Check if booking or service is strictly IN_PERSON
+  // Check service details (deliveryMode & whether it's a shared WEBINAR/WORKSHOP)
   let includeGoogleMeet = booking.deliveryMode !== 'IN_PERSON'
-  if (includeGoogleMeet && booking.serviceId) {
+  let serviceDoc: ServiceDoc | null = null
+  if (booking.serviceId) {
     try {
-      const srv = await servicesCol.findOne({ _id: booking.serviceId })
-      if (srv?.deliveryMode === 'IN_PERSON') {
+      serviceDoc = await servicesCol.findOne({ _id: booking.serviceId })
+      if (serviceDoc?.deliveryMode === 'IN_PERSON') {
         includeGoogleMeet = false
       }
     } catch {
       // keep existing includeGoogleMeet value
+    }
+  }
+
+  const isGroupEvent =
+    booking.bookingType === 'WEBINAR' ||
+    booking.bookingType === 'WORKSHOP' ||
+    serviceDoc?.bookingType === 'WEBINAR' ||
+    serviceDoc?.bookingType === 'WORKSHOP'
+
+  // For Webinars & Online Workshops: NEVER create a separate Meet link per attendee!
+  // Reuse (or lazily create once) the single shared Meet room stored on the service.
+  if (isGroupEvent && includeGoogleMeet && serviceDoc) {
+    const sharedRoom = await ensureEventServiceMeetLink(serviceDoc)
+    if (sharedRoom?.joinUrl) {
+      const now = new Date()
+      const updateData = {
+        googleMeetLink: sharedRoom.joinUrl,
+        ...(sharedRoom.googleCalendarEventId ? { googleCalendarEventId: sharedRoom.googleCalendarEventId } : {}),
+        ...(sharedRoom.googleCalendarEventLink
+          ? { googleCalendarEventLink: sharedRoom.googleCalendarEventLink }
+          : {}),
+        ...(sharedRoom.googleMeetSpaceName ? { googleMeetSpaceName: sharedRoom.googleMeetSpaceName } : {}),
+        googleMeetSyncedAt: now,
+        googleMeetUpdatedAt: now,
+        updatedAt: now,
+      }
+
+      await bookingsCol.updateOne(
+        { _id: booking._id },
+        {
+          $set: updateData,
+          $unset: { googleMeetError: '' },
+        },
+      )
+
+      // Add this attendee to the shared Meet space so they can join without knocking
+      if (booking.clientEmail?.trim()) {
+        await configureMeetSpaceOpenAccess({
+          meetLinkOrCode: sharedRoom.joinUrl,
+          spaceName: sharedRoom.googleMeetSpaceName,
+          clientEmail: booking.clientEmail,
+        })
+      }
+
+      return { ...booking, ...updateData, googleMeetError: undefined }
     }
   }
 

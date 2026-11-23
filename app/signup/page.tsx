@@ -18,6 +18,7 @@ export default function SignupPage() {
   const [accountType, setAccountType] = useState<'expert' | 'organization'>('expert')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [isGoogleAccountNotice, setIsGoogleAccountNotice] = useState(false)
   const [successNotice, setSuccessNotice] = useState<{
     show: boolean
     email: string
@@ -28,6 +29,7 @@ export default function SignupPage() {
     event.preventDefault()
     setLoading(true)
     setError('')
+    setIsGoogleAccountNotice(false)
 
     const displayName = `${fName.trim()} ${lName.trim()}`.trim()
 
@@ -48,7 +50,9 @@ export default function SignupPage() {
       const data = await res.json()
 
       if (!data.success) {
-        setError(data.error || (isAr ? 'فشل إنشاء الحساب' : 'Failed to create account'))
+        const errorMsg = isAr && data.errorAr ? data.errorAr : (data.error || (isAr ? 'فشل إنشاء الحساب' : 'Failed to create account'))
+        setError(errorMsg)
+        setIsGoogleAccountNotice(Boolean(data.isGoogleAccount))
         setLoading(false)
         return
       }
@@ -142,8 +146,31 @@ export default function SignupPage() {
               </p>
 
               {error && (
-                <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-3.5 text-xs font-semibold text-red-700">
-                  {error}
+                <div
+                  className={`mt-5 rounded-2xl border p-3.5 text-xs font-semibold ${
+                    isGoogleAccountNotice
+                      ? 'border-amber-200 bg-amber-50 text-amber-900 leading-relaxed'
+                      : 'border-red-200 bg-red-50 text-red-700'
+                  }`}
+                >
+                  <p>{error}</p>
+                  {isGoogleAccountNotice && (
+                    <div className="mt-2.5 flex flex-wrap items-center gap-3 text-[11px] font-bold">
+                      <a
+                        href={`/api/auth/google/signin?role=${role}`}
+                        className="underline hover:text-amber-950"
+                      >
+                        {isAr ? '← المتابعة عبر Google' : '← Continue with Google'}
+                      </a>
+                      <span className="text-amber-400">•</span>
+                      <Link
+                        href={localeHref(`/forgot-password?email=${encodeURIComponent(email)}`)}
+                        className="underline hover:text-amber-950"
+                      >
+                        {isAr ? 'تعيين كلمة مرور للحساب' : 'Set a password for account'}
+                      </Link>
+                    </div>
+                  )}
                 </div>
               )}
 

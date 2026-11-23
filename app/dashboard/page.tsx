@@ -45,7 +45,7 @@ export default async function DashboardPage() {
 
   if (!expertObjId) {
     return (
-      <div className="rounded-3xl border border-[#dedbd5] bg-white p-10 text-center">
+      <div className="rounded-3xl border border-[#E2E8F0] bg-white p-10 text-center">
         <h2 className="text-xl font-bold text-[#14243b]">No expert profile linked</h2>
         <p className="mt-2 text-xs text-[#637084]">
           This user account is not currently linked with an expert record.
@@ -108,9 +108,9 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#eeeae4] pb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#E2E8F0] pb-6">
         <div className="flex items-center gap-4">
-          <div className="relative size-14 shrink-0 overflow-hidden rounded-full bg-[#14243b] text-white flex items-center justify-center font-bold text-lg uppercase border border-[#dedbd5]">
+          <div className="relative size-14 shrink-0 overflow-hidden rounded-full bg-[#14243b] text-white flex items-center justify-center font-bold text-lg uppercase border border-[#E2E8F0]">
             {avatarImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={avatarImage} alt={displayName} className="size-full object-cover" />
@@ -142,7 +142,7 @@ export default async function DashboardPage() {
         <div className="flex items-center gap-2">
           <Link
             href="/dashboard/services"
-            className="rounded-full border border-[#dedbd5] bg-white px-4 py-2 text-xs font-bold text-[#14243b] hover:border-[#14243b]"
+            className="rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-xs font-bold text-[#14243b] hover:border-[#14243b]"
           >
             Services ({activeServicesCount})
           </Link>
@@ -188,7 +188,7 @@ export default async function DashboardPage() {
           <p className="mt-1 text-xs text-white/70">Receipts awaiting verification</p>
         </div>
 
-        <div className="rounded-3xl border border-[#e7e2da] bg-white p-6 shadow-sm">
+        <div className="rounded-3xl border border-[#E2E8F0] bg-white p-6 shadow-sm">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b94a1]">
             Today&apos;s Sessions
           </span>
@@ -196,7 +196,7 @@ export default async function DashboardPage() {
           <p className="mt-1 text-xs text-[#637084]">Appointments for today</p>
         </div>
 
-        <div className="rounded-3xl border border-[#e7e2da] bg-white p-6 shadow-sm">
+        <div className="rounded-3xl border border-[#E2E8F0] bg-white p-6 shadow-sm">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b94a1]">
             Confirmed Sessions
           </span>
@@ -204,7 +204,7 @@ export default async function DashboardPage() {
           <p className="mt-1 text-xs text-[#637084]">Completed or upcoming</p>
         </div>
 
-        <div className="rounded-3xl border border-[#e7e2da] bg-white p-6 shadow-sm">
+        <div className="rounded-3xl border border-[#E2E8F0] bg-white p-6 shadow-sm">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b94a1]">
             Active Offerings
           </span>
@@ -216,8 +216,8 @@ export default async function DashboardPage() {
       {/* Today's Schedule + Quick Actions */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Today's Schedule Card */}
-        <div className="lg:col-span-2 rounded-3xl border border-[#e7e2da] bg-white p-6 sm:p-7 shadow-sm">
-          <div className="flex items-center justify-between border-b border-[#eeeae4] pb-4">
+        <div className="lg:col-span-2 rounded-3xl border border-[#E2E8F0] bg-white p-6 sm:p-7 shadow-sm">
+          <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-4">
             <div>
               <h2 className="text-base font-bold text-[#14243b]">Today&apos;s Booked Slots</h2>
               <p className="text-xs text-[#8b94a1] mt-0.5">{todayDateStr}</p>
@@ -261,7 +261,7 @@ export default async function DashboardPage() {
                 return (
                   <div
                     key={b._id.toString()}
-                    className="flex items-center justify-between rounded-2xl border border-[#eeeae4] bg-[#faf8f5] p-4"
+                    className="flex items-center justify-between rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4"
                   >
                     <div>
                       <span className="text-sm font-black text-[#14243b]">{b.time}</span>
@@ -311,7 +311,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Quick Tools */}
-        <div className="rounded-3xl border border-[#e7e2da] bg-white p-6 sm:p-7 shadow-sm flex flex-col justify-between">
+        <div className="rounded-3xl border border-[#E2E8F0] bg-white p-6 sm:p-7 shadow-sm flex flex-col justify-between">
           <div>
             <h2 className="text-base font-bold text-[#14243b]">Quick Management</h2>
             <p className="text-xs text-[#8b94a1] mt-0.5">Shortcuts for your day-to-day</p>
@@ -319,7 +319,7 @@ export default async function DashboardPage() {
             <div className="mt-5 space-y-2.5">
               <Link
                 href="/dashboard/services"
-                className="block rounded-2xl border border-[#eeeae4] p-3.5 hover:border-[#14243b] transition"
+                className="block rounded-2xl border border-[#E2E8F0] p-3.5 hover:border-[#14243b] transition"
               >
                 <p className="text-xs font-bold text-[#14243b]">Add or Edit Services</p>
                 <p className="text-[11px] text-[#637084] mt-0.5">
@@ -329,7 +329,7 @@ export default async function DashboardPage() {
 
               <Link
                 href="/dashboard/availability"
-                className="block rounded-2xl border border-[#eeeae4] p-3.5 hover:border-[#14243b] transition"
+                className="block rounded-2xl border border-[#E2E8F0] p-3.5 hover:border-[#14243b] transition"
               >
                 <p className="text-xs font-bold text-[#14243b]">Adjust Working Hours</p>
                 <p className="text-[11px] text-[#637084] mt-0.5">
@@ -339,7 +339,7 @@ export default async function DashboardPage() {
 
               <Link
                 href="/dashboard/profile"
-                className="block rounded-2xl border border-[#eeeae4] p-3.5 hover:border-[#14243b] transition"
+                className="block rounded-2xl border border-[#E2E8F0] p-3.5 hover:border-[#14243b] transition"
               >
                 <p className="text-xs font-bold text-[#14243b]">Info</p>
                 <p className="text-[11px] text-[#637084] mt-0.5">
@@ -350,11 +350,11 @@ export default async function DashboardPage() {
           </div>
 
           {expertDoc?.slug && (
-            <div className="mt-6 pt-4 border-t border-[#eeeae4]">
+            <div className="mt-6 pt-4 border-t border-[#E2E8F0]">
               <Link
                 href={`/experts/${expertDoc.slug}`}
                 target="_blank"
-                className="w-full inline-flex items-center justify-center rounded-full bg-[#faf8f5] border border-[#dedbd5] py-2.5 text-xs font-bold text-[#14243b] hover:bg-white hover:border-[#14243b] transition"
+                className="w-full inline-flex items-center justify-center rounded-full bg-[#F8FAFC] border border-[#E2E8F0] py-2.5 text-xs font-bold text-[#14243b] hover:bg-white hover:border-[#14243b] transition"
               >
                 Open Live Booking Page ↗
               </Link>
@@ -364,8 +364,8 @@ export default async function DashboardPage() {
       </div>
 
       {/* Recent Bookings Table */}
-      <div className="rounded-3xl border border-[#e7e2da] bg-white p-6 sm:p-7 shadow-sm">
-        <div className="flex items-center justify-between border-b border-[#eeeae4] pb-4">
+      <div className="rounded-3xl border border-[#E2E8F0] bg-white p-6 sm:p-7 shadow-sm">
+        <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-4">
           <div>
             <h2 className="text-base font-bold text-[#14243b]">Recent Bookings</h2>
             <p className="text-xs text-[#8b94a1] mt-0.5">Latest client appointment submissions</p>
@@ -384,7 +384,7 @@ export default async function DashboardPage() {
           ) : (
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-[#f4f2ee] text-[#8b94a1]">
+                <tr className="border-b border-[#F1F5F9] text-[#8b94a1]">
                   <th className="pb-3 font-semibold">Ref</th>
                   <th className="pb-3 font-semibold">Client</th>
                   <th className="pb-3 font-semibold">Date & Time</th>
@@ -394,7 +394,7 @@ export default async function DashboardPage() {
                   <th className="pb-3 font-semibold">Google Meet</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#f4f2ee]">
+              <tbody className="divide-y divide-[#F1F5F9]">
                 {recentBookings.map((b) => {
                   const safeMeet = getSafeHttpsUrl(b.googleMeetLink)
                   const bounds =
@@ -415,7 +415,7 @@ export default async function DashboardPage() {
                     Boolean(safeMeet) && msUntilStart <= 15 * 60 * 1000 && !isSessionEnded
 
                   return (
-                    <tr key={b._id.toString()} className="hover:bg-[#faf8f5]">
+                    <tr key={b._id.toString()} className="hover:bg-[#F8FAFC]">
                       <td className="py-3 font-mono font-bold text-[#14243b]">
                         {b.reference || b._id.toString().slice(-6).toUpperCase()}
                       </td>

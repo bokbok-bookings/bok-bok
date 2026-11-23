@@ -249,7 +249,7 @@ export default function HowItWorksPage() {
           </p>
 
           {/* Audience Switcher */}
-          <div className="mt-6 inline-flex rounded-full bg-[#f4f2ee] p-1.5 border border-border">
+          <div className="mt-6 inline-flex rounded-full bg-[#F1F5F9] p-1.5 border border-border">
             <button
               type="button"
               onClick={() => setActiveAudience('clients')}

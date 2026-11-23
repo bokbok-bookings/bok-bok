@@ -49,9 +49,15 @@ interface ServiceItem {
   event?: {
     startDate?: string
     date?: string
+    startTime?: string
+    endTime?: string
     capacity?: number
     enrolledCount?: number
     registeredCount?: number
+    joinUrl?: string
+    googleCalendarEventId?: string
+    googleCalendarEventLink?: string
+    googleMeetError?: string
   }
   tags?: string[]
   durationMinutes: number
@@ -117,7 +123,13 @@ export default function AdminServicesPage() {
 
   const handleServiceAction = async (
     serviceId: string,
-    action: 'approve' | 'reject' | 'unpublish' | 'approve_licensing' | 'reject_licensing'
+    action:
+      | 'approve'
+      | 'reject'
+      | 'unpublish'
+      | 'approve_licensing'
+      | 'reject_licensing'
+      | 'generate_meet_link'
   ) => {
     let rejectionReason = ''
     let adminReviewNote = ''
@@ -134,6 +146,8 @@ export default function AdminServicesPage() {
       adminReviewNote = note
     } else if (action === 'approve_licensing') {
       if (!confirm('Approve separate vocational/licensing review for this programme?')) return
+    } else if (action === 'generate_meet_link') {
+      // No confirmation needed for generating missing Meet link
     } else {
       if (!confirm('Approve this offering and publish it to the marketplace?')) return
     }
@@ -146,6 +160,9 @@ export default function AdminServicesPage() {
       })
       const json = await res.json()
       if (json.success) {
+        if (json.calendarWarning) {
+          alert(`Approved with warning: ${json.calendarWarning}`)
+        }
         await loadServices()
         router.refresh()
       } else {
@@ -268,7 +285,7 @@ export default function AdminServicesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#eeeae4] pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-5">
         <div>
           <span className="text-[10px] font-black uppercase tracking-wider text-primary">
             Marketplace Offerings
@@ -282,7 +299,7 @@ export default function AdminServicesPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-full border border-[#dedbd5] bg-white p-1">
+          <div className="inline-flex rounded-full border border-[#E2E8F0] bg-white p-1">
             {[
               { id: 'all', label: `All (${services.length})` },
               { id: 'pending', label: `Pending (${pendingCount})` },
@@ -312,7 +329,7 @@ export default function AdminServicesPage() {
           <button
             type="button"
             onClick={() => loadServices()}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#dedbd5] bg-white px-4 py-2 text-xs font-bold text-[#14243b] hover:border-[#14243b] transition"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-xs font-bold text-[#14243b] hover:border-[#14243b] transition"
           >
             <RefreshCw size={13} /> Refresh
           </button>
@@ -329,7 +346,7 @@ export default function AdminServicesPage() {
           </div>
         </div>
       ) : filteredServices.length === 0 ? (
-        <div className="rounded-3xl border border-[#e7e2da] bg-white p-12 text-center shadow-xs">
+        <div className="rounded-3xl border border-[#E2E8F0] bg-white p-12 text-center shadow-xs">
           <p className="text-base font-bold text-[#14243b]">No Matching Offers Found</p>
           <p className="mt-1 text-xs text-[#637084]">
             No service offerings match the selected filter.
@@ -366,12 +383,12 @@ export default function AdminServicesPage() {
                   ? 'border-amber-300 bg-amber-50/20'
                   : srv.approvalStatus === 'rejected'
                     ? 'border-rose-200 bg-rose-50/10'
-                    : 'border-[#e7e2da]'
+                    : 'border-[#E2E8F0]'
                   }`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div className="flex flex-col sm:flex-row items-start gap-4 flex-1">
-                    <div className="relative h-24 w-40 shrink-0 overflow-hidden rounded-xl border border-[#e7e2da] bg-gradient-to-br from-[#101F49] via-[#1c3575] to-[#2855C5]">
+                    <div className="relative h-24 w-40 shrink-0 overflow-hidden rounded-xl border border-[#E2E8F0] bg-gradient-to-br from-[#101F49] via-[#1c3575] to-[#2855C5]">
                       {srv.thumbnailUrl ? (
                         <img
                           src={srv.thumbnailUrl}
@@ -483,6 +500,63 @@ export default function AdminServicesPage() {
                         Pricing: {srv.pricing?.prices?.EGP ?? 0} EGP • ${srv.pricing?.prices?.USD ?? 0} •{' '}
                         {srv.pricing?.prices?.SAR ?? 0} SAR
                       </p>
+
+                      {(bType === 'WEBINAR' || bType === 'WORKSHOP') &&
+                        srv.deliveryMode !== 'IN_PERSON' && (
+                          <div className="pt-1">
+                            {srv.event?.joinUrl ? (
+                              <div className="inline-flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs">
+                                <span className="font-bold text-emerald-900">🎥 Shared Google Meet:</span>
+                                <a
+                                  href={srv.event.joinUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="font-mono text-emerald-700 underline hover:text-emerald-900 break-all"
+                                >
+                                  {srv.event.joinUrl}
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard?.writeText(srv.event?.joinUrl || '')
+                                    alert('Google Meet link copied!')
+                                  }}
+                                  className="rounded-md bg-white border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100"
+                                >
+                                  Copy
+                                </button>
+                              </div>
+                            ) : srv.event?.googleMeetError ? (
+                              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-800">
+                                <span>
+                                  <strong>⚠ Google Meet Error:</strong> {srv.event.googleMeetError}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleServiceAction(srv._id, 'generate_meet_link')}
+                                  className="rounded-full bg-rose-600 px-2.5 py-0.5 text-[10px] font-bold text-white hover:bg-rose-700 transition"
+                                >
+                                  Retry Generate Meet Link
+                                </button>
+                              </div>
+                            ) : srv.approvalStatus === 'approved' ? (
+                              <div className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-900">
+                                <span>🎥 No shared Google Meet link yet.</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleServiceAction(srv._id, 'generate_meet_link')}
+                                  className="rounded-full bg-amber-600 px-2.5 py-0.5 text-[10px] font-bold text-white hover:bg-amber-700 transition"
+                                >
+                                  Generate Meet Link
+                                </button>
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-muted-foreground">
+                                🎥 Shared Google Meet room will be created automatically upon approval.
+                              </p>
+                            )}
+                          </div>
+                        )}
 
                       {srv.description?.en && (
                         <p className="text-xs text-muted-foreground pt-1 max-w-2xl">

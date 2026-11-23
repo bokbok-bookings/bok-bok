@@ -793,15 +793,26 @@ export function ServiceDetailView({
             const evAllowWaitlist = service.event?.allowWaitlist !== false
             const isComingSoon = isEvent && evStatus === 'coming_soon'
             const isEventClosed = isEvent && evStatus === 'closed'
+            const minNoticeHours = service.minNoticeHours !== undefined ? Number(service.minNoticeHours) : 0
+            const eventStartMs = service.event?.date
+              ? new Date(`${service.event.date}T${service.event.startTime || '23:59'}:00`).getTime()
+              : 0
+            const isEventCutoffPassed = Boolean(
+              isEvent &&
+                !isComingSoon &&
+                eventStartMs > 0 &&
+                minNoticeHours > 0 &&
+                Date.now() > (eventStartMs - minNoticeHours * 3600000)
+            )
             const isEventPast = Boolean(
               isEvent &&
                 !isComingSoon &&
-                service.event?.date &&
-                new Date(`${service.event.date}T${service.event.startTime || '23:59'}:00`).getTime() < Date.now()
+                eventStartMs > 0 &&
+                eventStartMs < Date.now()
             )
             const isEventFull = isEvent && !isComingSoon && evCapacity > 0 && evSpotsLeft <= 0
             const isWaitlistMode = isEvent && (isComingSoon || (isEventFull && evAllowWaitlist))
-            const isBlockedEvent = isEvent && (isEventClosed || isEventPast || (isEventFull && !evAllowWaitlist))
+            const isBlockedEvent = isEvent && (isEventClosed || isEventPast || isEventCutoffPassed || (isEventFull && !evAllowWaitlist))
             const showInstaPay = !isFree && !isWaitlistMode && !isBlockedEvent
 
             return (
@@ -839,13 +850,15 @@ export function ServiceDetailView({
                     ? isAr ? 'قريباً' : 'Coming Soon'
                     : isEventPast
                       ? isAr ? 'انتهى الحدث' : 'Ended'
-                      : isEventClosed
-                        ? isAr ? 'مغلق' : 'Closed'
-                        : isEventFull
-                          ? isAr ? 'قائمة الانتظار' : 'Waitlist'
-                          : isAr
-                            ? `${evSpotsLeft} مقاعد متبقية`
-                            : `${evSpotsLeft} spots left`}
+                      : isEventCutoffPassed
+                        ? isAr ? 'انتهت مهلة الحجز' : 'Cutoff Passed'
+                        : isEventClosed
+                          ? isAr ? 'مغلق' : 'Closed'
+                          : isEventFull
+                            ? isAr ? 'قائمة الانتظار' : 'Waitlist'
+                            : isAr
+                              ? `${evSpotsLeft} مقاعد متبقية`
+                              : `${evSpotsLeft} spots left`}
                 </span>
               )}
             </div>
@@ -909,9 +922,11 @@ export function ServiceDetailView({
                 <p className="text-sm font-bold text-white">
                   {isEventPast
                     ? isAr ? 'انتهى موعد هذا الحدث' : 'This Event Has Ended'
-                    : isEventClosed
-                      ? isAr ? 'التسجيل مغلق حالياً' : 'Registration Is Closed'
-                      : isAr ? 'اكتمل العدد بالكامل' : 'Event Is Full'}
+                    : isEventCutoffPassed
+                      ? isAr ? 'انتهت مهلة التسجيل المسبق في هذا الحدث' : 'Advance Registration Has Closed'
+                      : isEventClosed
+                        ? isAr ? 'التسجيل مغلق حالياً' : 'Registration Is Closed'
+                        : isAr ? 'اكتمل العدد بالكامل' : 'Event Is Full'}
                 </p>
                 <p className="text-xs text-white/70">
                   {isAr

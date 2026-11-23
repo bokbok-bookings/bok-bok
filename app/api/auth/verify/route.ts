@@ -100,8 +100,8 @@ function renderHtmlPage(title: string, message: string, success: boolean, redire
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${safeTitle} - Bok Bok</title>
   <style>
-    body { margin: 0; padding: 0; background-color: #fbfaf7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #142D4E; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-    .card { background: #ffffff; border-radius: 24px; border: 1px solid #e7e2da; max-width: 480px; width: 90%; padding: 40px 32px; text-align: center; box-shadow: 0 10px 25px rgba(20,45,78,0.05); }
+    body { margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #142D4E; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    .card { background: #ffffff; border-radius: 24px; border: 1px solid #E2E8F0; max-width: 480px; width: 90%; padding: 40px 32px; text-align: center; box-shadow: 0 10px 25px rgba(20,45,78,0.05); }
     .logo { font-size: 28px; font-weight: 800; color: #142D4E; margin-bottom: 24px; }
     .logo span { color: #FCAD35; }
     .icon { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 32px; }

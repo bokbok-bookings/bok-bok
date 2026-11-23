@@ -13,6 +13,7 @@ import {
   detectStructuredVocationalProgramme,
   detectUnverifiedAccreditationClaim,
 } from '@/lib/services/service-validation'
+import { ensureEventServiceMeetLink } from '@/lib/google-calendar'
 
 export const dynamic = 'force-dynamic'
 
@@ -235,6 +236,34 @@ export async function PATCH(request: Request) {
         'Rejected during separate vocational/licensing review. Calling an offer a consultation, workshop, or webinar does not exempt it from licensing requirements.'
     } else if (action === 'verify_accreditation') {
       updateDoc.hasVerifiedAccreditationAuthorization = Boolean(body.verified)
+    } else if (action === 'generate_meet_link') {
+      if (
+        (existing.bookingType !== 'WEBINAR' && existing.bookingType !== 'WORKSHOP') ||
+        existing.deliveryMode === 'IN_PERSON'
+      ) {
+        return NextResponse.json(
+          { success: false, error: 'Google Meet links can only be generated for online webinars and workshops.' },
+          { status: 400 }
+        )
+      }
+      try {
+        const meetRes = await ensureEventServiceMeetLink(serviceObjId.toString(), {
+          forceRecreate: Boolean(body.forceRecreate),
+        })
+        return NextResponse.json({
+          success: true,
+          googleMeetCreated: Boolean(meetRes?.created),
+          googleMeetLink: meetRes?.joinUrl || '',
+          message: meetRes?.joinUrl
+            ? 'Shared Google Meet room link is ready.'
+            : 'No Google Meet link generated.',
+        })
+      } catch (calErr: any) {
+        return NextResponse.json(
+          { success: false, error: calErr?.message || 'Failed to generate Google Meet link.' },
+          { status: 500 }
+        )
+      }
     } else if (action === 'edit') {
       const { updates } = body
       if (updates && typeof updates === 'object') {
@@ -263,9 +292,46 @@ export async function PATCH(request: Request) {
 
     await servicesCol.updateOne({ _id: serviceObjId }, { $set: updateDoc })
 
+    // Automatically create a single shared Google Meet room when approving an online Webinar or Workshop
+    let googleMeetLink: string | undefined = existing.event?.joinUrl
+    let googleMeetCreated = false
+    let calendarWarning: string | undefined = undefined
+
+    const effectiveBookingType = updateDoc.bookingType || existing.bookingType
+    const effectiveDeliveryMode = existing.deliveryMode || 'ONLINE'
+    const isNowApproved =
+      action === 'approve' ||
+      (action === 'edit' && updateDoc.approvalStatus === 'approved')
+
+    if (
+      isNowApproved &&
+      (effectiveBookingType === 'WEBINAR' || effectiveBookingType === 'WORKSHOP') &&
+      effectiveDeliveryMode !== 'IN_PERSON'
+    ) {
+      try {
+        const meetRes = await ensureEventServiceMeetLink(serviceObjId.toString())
+        if (meetRes?.joinUrl) {
+          googleMeetLink = meetRes.joinUrl
+          googleMeetCreated = meetRes.created
+        }
+      } catch (calErr: any) {
+        console.error('[Admin Services] Failed to generate Google Meet link on approval:', calErr?.message)
+        calendarWarning =
+          calErr?.message ||
+          'Service was approved, but automatic Google Meet link generation failed.'
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      message: `Service action "${action}" completed successfully`,
+      googleMeetCreated,
+      googleMeetLink: googleMeetLink || '',
+      calendarWarning,
+      message: calendarWarning
+        ? `Service approved, but Google Meet link could not be created: ${calendarWarning}`
+        : googleMeetCreated
+          ? `Service approved and shared Google Meet room created successfully.`
+          : `Service action "${action}" completed successfully`,
     })
   } catch (error: any) {
     return NextResponse.json(

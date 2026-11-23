@@ -201,7 +201,7 @@ export default function AdminUsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#eeeae4] pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-5">
         <div>
           <span className="text-[10px] font-black uppercase tracking-wider text-primary">
             Accounts &amp; Permissions
@@ -220,12 +220,12 @@ export default function AdminUsersPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name, email, or role..."
-            className="rounded-full border border-[#dedbd5] bg-white px-4 py-2 text-xs text-[#14243b] outline-none focus:border-[#14243b] w-60"
+            className="rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-xs text-[#14243b] outline-none focus:border-[#14243b] w-60"
           />
           <button
             type="button"
             onClick={() => loadUsers()}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#dedbd5] bg-white px-4 py-2 text-xs font-bold text-[#14243b] hover:border-[#14243b] transition"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-xs font-bold text-[#14243b] hover:border-[#14243b] transition"
           >
             <RefreshCw size={13} /> Refresh
           </button>
@@ -249,7 +249,7 @@ export default function AdminUsersPage() {
           </div>
         </div>
       ) : (
-        <div className="rounded-3xl border border-[#e7e2da] bg-white overflow-x-auto shadow-xs">
+        <div className="rounded-3xl border border-[#E2E8F0] bg-white overflow-x-auto shadow-xs">
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="border-b border-border bg-neutral-50/80 text-muted-foreground font-semibold">

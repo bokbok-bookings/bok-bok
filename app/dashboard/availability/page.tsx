@@ -39,7 +39,7 @@ export default async function ExpertAvailabilityPage({ searchParams }: PageProps
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-[#eeeae4] pb-4">
+      <div className="border-b border-[#E2E8F0] pb-4">
         <h1 className="text-2xl font-bold tracking-tight text-[#14243b]">Working Hours & Availability</h1>
         <p className="text-xs text-[#637084] mt-0.5">
           {isPlatformAdmin

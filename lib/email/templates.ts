@@ -16,8 +16,8 @@ function emailLayout({
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
   <style>
-    body { margin: 0; padding: 0; background-color: #fbfaf7; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #14243b; }
-    .wrapper { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; border: 1px solid #e7e2da; overflow: hidden; margin-top: 24px; margin-bottom: 24px; }
+    body { margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #14243b; }
+    .wrapper { width: 100%; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; border: 1px solid #E2E8F0; overflow: hidden; margin-top: 24px; margin-bottom: 24px; }
     .header { background-color: #14243b; padding: 32px 32px 28px; text-align: center; }
     .brand { font-size: 26px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px; margin: 0; }
     .brand-accent { color: #FCAD35; }
@@ -25,24 +25,24 @@ function emailLayout({
     .body { padding: 36px 32px; }
     .h1 { font-size: 22px; font-weight: 700; color: #14243b; margin: 0 0 16px; line-height: 1.3; }
     .p { font-size: 14px; line-height: 1.6; color: #4a5568; margin: 0 0 16px; }
-    .highlight-card { background-color: #faf8f5; border: 1px solid #eeeae4; border-radius: 16px; padding: 20px; margin: 24px 0; }
-    .meta-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eeeae4; font-size: 13px; }
+    .highlight-card { background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 16px; padding: 20px; margin: 24px 0; }
+    .meta-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #E2E8F0; font-size: 13px; }
     .meta-row:last-child { border-bottom: none; }
     .meta-label { color: #8b94a1; font-weight: 600; }
     .meta-val { color: #14243b; font-weight: 700; text-align: right; }
     .btn { display: inline-block; background-color: #FCAD35; color: #142D4E !important; font-size: 14px; font-weight: 700; padding: 14px 28px; text-decoration: none; border-radius: 9999px; text-align: center; margin: 12px 0; }
     .btn-secondary { background-color: #14243b; }
     .btn-meet { background-color: #00796b; }
-    .footer { background-color: #faf8f5; border-top: 1px solid #eeeae4; padding: 24px 32px; text-align: center; font-size: 12px; color: #8b94a1; }
-    .alert-box { background-color: #FFF6D9; border: 1px solid #FCAD35; border-radius: 12px; padding: 14px 18px; margin: 20px 0; font-size: 13px; color: #142D4E; line-height: 1.5; }
+    .footer { background-color: #F8FAFC; border-top: 1px solid #E2E8F0; padding: 24px 32px; text-align: center; font-size: 12px; color: #8b94a1; }
+    .alert-box { background-color: #F1F5F9; border: 1px solid #FCAD35; border-radius: 12px; padding: 14px 18px; margin: 20px 0; font-size: 13px; color: #142D4E; line-height: 1.5; }
     .success-box { background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; padding: 14px 18px; margin: 20px 0; font-size: 13px; color: #065f46; line-height: 1.5; }
   </style>
 </head>
 <body>
-  <div style="display:none;font-size:1px;color:#fbfaf7;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">
+  <div style="display:none;font-size:1px;color:#F8FAFC;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">
     ${preheader}
   </div>
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #fbfaf7; padding: 16px;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #F8FAFC; padding: 16px;">
     <tr>
       <td align="center">
         <div class="wrapper">
@@ -522,7 +522,7 @@ export function renderBookingConfirmationEmail(params: CommonEmailParams & {
       </div>
     </div>
 
-    <div style="background-color: #FFF6D9; border: 1px solid #FCAD35; border-radius: 12px; padding: 16px 20px; margin: 24px 0;">
+    <div style="background-color: #F1F5F9; border: 1px solid #FCAD35; border-radius: 12px; padding: 16px 20px; margin: 24px 0;">
       <div style="font-weight: 700; color: #142D4E; margin-bottom: 6px; font-size: 14px; display: flex; align-items: center; gap: 8px;">
         <span>📹</span>
         <span>Where to Find Your Meeting Link</span>
@@ -541,7 +541,7 @@ export function renderBookingConfirmationEmail(params: CommonEmailParams & {
           Booking Link: <a href="${rescheduleUrl}" target="_blank" style="color: #142D4E;">${rescheduleUrl}</a>
         </p>
       </div>
-      <div style="margin: 20px 0 8px; border-top: 1px solid #eeeae4; padding-top: 16px;">
+      <div style="margin: 20px 0 8px; border-top: 1px solid #E2E8F0; padding-top: 16px;">
         <p class="p" style="font-size: 12px; color: #637084; margin: 0;">
           ${isClient
         ? `Need to reschedule? You can manage your appointment or change your time up to ${booking.rescheduleDeadlineHours || 24} hours before the session via your booking page above.`
@@ -732,7 +732,7 @@ export function renderDayOfReminderEmail(params: CommonEmailParams & {
       </div>
     </div>
 
-    <div style="background-color: #FFF6D9; border: 1px solid #FCAD35; border-radius: 12px; padding: 16px 20px; margin: 24px 0;">
+    <div style="background-color: #F1F5F9; border: 1px solid #FCAD35; border-radius: 12px; padding: 16px 20px; margin: 24px 0;">
       <div style="font-weight: 700; color: #142D4E; margin-bottom: 6px; font-size: 14px; display: flex; align-items: center; gap: 8px;">
         <span>📹</span>
         <span>Meeting Link Provided on Your Booking Page</span>
@@ -1017,6 +1017,73 @@ Resolve at: ${adminDisputeUrl}`
     html: emailLayout({
       title: subject,
       preheader: `Conflicting attendance reports for booking ${booking.reference || ''}.`,
+      contentHtml,
+    }),
+    text,
+  }
+}
+
+/**
+ * 9. Post-Session Review Invitation Email to Client
+ * Sent automatically once the post-session refund/problem reporting period ends and nothing is on hold.
+ */
+export function renderReviewInviteEmail(params: CommonEmailParams & {
+  reviewUrl: string
+}): { subject: string; html: string; text: string } {
+  const { booking, expertName, clientName, serviceTitle, reviewUrl } = params
+
+  const subject = `How was your session with ${expertName}? Share your review — Bok Bok`
+
+  const contentHtml = `
+    <h2 class="h1">Your Review Window Is Now Open ⭐</h2>
+    <p class="p">
+      Hi ${clientName},<br/><br/>
+      We hope you had a valuable session with <strong>${expertName}</strong> for <strong>${serviceTitle}</strong>!
+      Your feedback helps other learners discover great experts and helps us keep Bok Bok's quality high.
+    </p>
+
+    <div class="highlight-card">
+      <div class="meta-row">
+        <span class="meta-label">Session</span>
+        <span class="meta-val">${serviceTitle}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Expert</span>
+        <span class="meta-val">${expertName}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Date</span>
+        <span class="meta-val">${booking.date} at ${booking.time}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Reference</span>
+        <span class="meta-val">${booking.reference || booking._id?.toString() || ''}</span>
+      </div>
+    </div>
+
+    <div style="text-align: center; margin: 28px 0;">
+      <a href="${reviewUrl}" target="_blank" class="btn">Rate &amp; Review Your Session</a>
+    </div>
+
+    <p class="p" style="font-size: 13px; color: #637084;">
+      It only takes 30 seconds — you can rate both the expert and the service directly on your booking page.
+    </p>
+  `
+
+  const text = `Hi ${clientName},
+
+Your review window is now open for your session "${serviceTitle}" with ${expertName} (${booking.date} at ${booking.time}).
+
+Please share your rating and feedback here:
+${reviewUrl}
+
+Thank you for using Bok Bok!`
+
+  return {
+    subject,
+    html: emailLayout({
+      title: subject,
+      preheader: `Share your rating and review for your session with ${expertName}.`,
       contentHtml,
     }),
     text,

@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import { getBookingsCollection, getExpertsCollection, getServicesCollection, getReviewsCollection, getComplaintsCollection } from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
-import { computeSessionBounds } from '@/lib/email/scheduler'
+import { computeSessionBounds, getPlatformMeetingSettings } from '@/lib/email/scheduler'
 import { MEET_UNLOCK_MINUTES_BEFORE, MEET_GRACE_MINUTES_AFTER_END } from '@/lib/booking/access'
+import { evaluateReviewEligibility } from '@/lib/booking/review-eligibility'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,6 +63,9 @@ export async function GET(request: Request) {
 
     const reviewMap = new Map(existingReviews.map((r) => [r.bookingId.toString(), r]))
     const complaintMap = new Map(existingComplaints.map((c) => [c.bookingId.toString(), c]))
+
+    const platformSettings = await getPlatformMeetingSettings()
+    const reportingWindowHours = platformSettings.attendanceReportingWindowHours || 24
 
     const now = new Date()
     const todayStr = new Intl.DateTimeFormat('en-CA', {
@@ -155,12 +159,16 @@ export async function GET(request: Request) {
         (isPast || (sessionStart && now >= sessionStart))
       )
 
-      // Review eligibility: session is past or attendance marked completed, and hasn't reviewed yet
-      const canReview = Boolean(
-        (isPast || booking.attendanceStatus === 'completed') &&
-        !isCancelled &&
-        !existingReview
-      )
+      // Review eligibility: opens only after the post-session refund/problem period ends and nothing is on hold
+      const reviewEligibility = evaluateReviewEligibility({
+        booking,
+        sessionEndAt: sessionEnd,
+        complaint: existingComplaint,
+        hasExistingReview: Boolean(existingReview),
+        reportingWindowHours,
+        now,
+      })
+      const canReview = reviewEligibility.isOpen
 
       // Complaint eligibility: can file if hasn't filed yet or not cancelled
       const canComplain = Boolean(!existingComplaint)

@@ -241,7 +241,7 @@ export default function AdminOverviewPage() {
   return (
     <div className="space-y-8">
       {/* Page Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#eeeae4] pb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#E2E8F0] pb-6">
         <div>
           <span className="text-[10px] font-black uppercase tracking-wider text-primary">
             Administrator Workspace
@@ -258,7 +258,7 @@ export default function AdminOverviewPage() {
           <button
             type="button"
             onClick={() => loadOverviewData()}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#dedbd5] bg-white px-4 py-2 text-xs font-bold text-[#14243b] hover:border-[#14243b] transition"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-xs font-bold text-[#14243b] hover:border-[#14243b] transition"
           >
             <RefreshCw size={13} /> Refresh
           </button>
@@ -336,7 +336,7 @@ export default function AdminOverviewPage() {
 
         <Link
           href="/admin/services"
-          className="group rounded-3xl border border-[#e7e2da] bg-white p-5 shadow-xs hover:border-[#14243b] transition"
+          className="group rounded-3xl border border-[#E2E8F0] bg-white p-5 shadow-xs hover:border-[#14243b] transition"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b94a1]">
@@ -353,7 +353,7 @@ export default function AdminOverviewPage() {
 
         <Link
           href="/admin/experts"
-          className="group rounded-3xl border border-[#e7e2da] bg-white p-5 shadow-xs hover:border-[#14243b] transition"
+          className="group rounded-3xl border border-[#E2E8F0] bg-white p-5 shadow-xs hover:border-[#14243b] transition"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b94a1]">
@@ -370,7 +370,7 @@ export default function AdminOverviewPage() {
 
         <Link
           href="/admin/users"
-          className="group rounded-3xl border border-[#e7e2da] bg-white p-5 shadow-xs hover:border-[#14243b] transition"
+          className="group rounded-3xl border border-[#E2E8F0] bg-white p-5 shadow-xs hover:border-[#14243b] transition"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#8b94a1]">
@@ -387,8 +387,8 @@ export default function AdminOverviewPage() {
       </div>
 
       {/* SECTION 1: Pending Bookings (All Recent) */}
-      <section className="rounded-3xl border border-[#e7e2da] bg-white p-6 sm:p-7 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#eeeae4] pb-4">
+      <section className="rounded-3xl border border-[#E2E8F0] bg-white p-6 sm:p-7 shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-4">
           <div className="flex items-center gap-3">
             <div className="size-10 rounded-2xl bg-[#14243b] text-accent flex items-center justify-center shrink-0">
               <CalendarCheck size={18} />
@@ -409,7 +409,7 @@ export default function AdminOverviewPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-full border border-[#dedbd5] bg-[#faf8f5] p-1">
+            <div className="inline-flex rounded-full border border-[#E2E8F0] bg-[#F8FAFC] p-1">
               <button
                 type="button"
                 onClick={() => setBookingViewMode('pending')}
@@ -434,7 +434,7 @@ export default function AdminOverviewPage() {
 
             <Link
               href="/admin/bookings"
-              className="inline-flex items-center gap-1 rounded-full border border-[#dedbd5] bg-white px-3.5 py-1.5 text-xs font-bold text-[#14243b] hover:border-[#14243b] transition"
+              className="inline-flex items-center gap-1 rounded-full border border-[#E2E8F0] bg-white px-3.5 py-1.5 text-xs font-bold text-[#14243b] hover:border-[#14243b] transition"
             >
               Full Bookings Manager <ArrowRight size={13} />
             </Link>
@@ -442,7 +442,7 @@ export default function AdminOverviewPage() {
         </div>
 
         {displayedBookings.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[#dedbd5] bg-[#faf8f5] py-12 text-center">
+          <div className="rounded-2xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] py-12 text-center">
             <p className="text-sm font-bold text-[#14243b]">
               {bookingViewMode === 'pending'
                 ? 'All Pending Bookings Have Been Verified!'
@@ -467,13 +467,13 @@ export default function AdminOverviewPage() {
                   key={b._id}
                   className={`rounded-2xl border p-4 sm:p-5 transition ${isPendingBooking
                     ? 'border-amber-200 bg-amber-50/30'
-                    : 'border-[#eeeae4] bg-[#faf8f5]'
+                    : 'border-[#E2E8F0] bg-[#F8FAFC]'
                     }`}
                 >
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div className="space-y-1.5">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono text-xs font-black text-primary bg-white border border-[#dedbd5] px-2.5 py-0.5 rounded-lg">
+                        <span className="font-mono text-xs font-black text-primary bg-white border border-[#E2E8F0] px-2.5 py-0.5 rounded-lg">
                           #{b.reference || b._id.slice(-6)}
                         </span>
                         <span
@@ -531,7 +531,7 @@ export default function AdminOverviewPage() {
                         <button
                           type="button"
                           onClick={() => setReceiptModal(b)}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-[#dedbd5] bg-white px-3.5 py-1.5 text-xs font-bold text-[#14243b] hover:border-[#14243b] transition shadow-2xs"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3.5 py-1.5 text-xs font-bold text-[#14243b] hover:border-[#14243b] transition shadow-2xs"
                         >
                           <Eye size={13} /> View Receipt
                         </button>
@@ -540,7 +540,7 @@ export default function AdminOverviewPage() {
                       <Link
                         href={`/bookings/${b._id}${b.rescheduleToken ? `?token=${b.rescheduleToken}` : ''}`}
                         target="_blank"
-                        className="rounded-full border border-[#dedbd5] bg-white px-3.5 py-1.5 text-xs font-bold text-[#637084] hover:text-[#14243b] transition"
+                        className="rounded-full border border-[#E2E8F0] bg-white px-3.5 py-1.5 text-xs font-bold text-[#637084] hover:text-[#14243b] transition"
                       >
                         Booking Page ↗
                       </Link>
@@ -576,8 +576,8 @@ export default function AdminOverviewPage() {
       </section>
 
       {/* SECTION 2: Experts Pending Activation */}
-      <section className="rounded-3xl border border-[#e7e2da] bg-white p-6 sm:p-7 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#eeeae4] pb-4">
+      <section className="rounded-3xl border border-[#E2E8F0] bg-white p-6 sm:p-7 shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-4">
           <div className="flex items-center gap-3">
             <div className="size-10 rounded-2xl bg-amber-100 text-amber-900 border border-amber-300 flex items-center justify-center shrink-0">
               <UserCheck size={18} />
@@ -599,14 +599,14 @@ export default function AdminOverviewPage() {
 
           <Link
             href="/admin/queue"
-            className="inline-flex items-center gap-1 rounded-full border border-[#dedbd5] bg-white px-3.5 py-1.5 text-xs font-bold text-[#14243b] hover:border-[#14243b] transition self-start sm:self-auto"
+            className="inline-flex items-center gap-1 rounded-full border border-[#E2E8F0] bg-white px-3.5 py-1.5 text-xs font-bold text-[#14243b] hover:border-[#14243b] transition self-start sm:self-auto"
           >
             Open Full Expert Queue <ArrowRight size={13} />
           </Link>
         </div>
 
         {pendingExperts.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[#dedbd5] bg-[#faf8f5] py-12 text-center">
+          <div className="rounded-2xl border border-dashed border-[#E2E8F0] bg-[#F8FAFC] py-12 text-center">
             <p className="text-sm font-bold text-[#14243b]">Expert Activation Queue is Clear</p>
             <p className="mt-1 text-xs text-[#637084]">
               No experts are currently waiting for profile activation or info edit approval.

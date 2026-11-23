@@ -65,14 +65,14 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
   const isDraft = user.status === 'draft'
 
   return (
-    <div className="min-h-screen bg-[#fbfaf7] text-[#14243b] flex flex-col md:flex-row">
+    <div className="min-h-screen bg-[#F8FAFC] text-[#14243b] flex flex-col md:flex-row">
       {/* Mobile Top Header */}
-      <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-[#e7e2da] sticky top-0 z-40">
+      <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-[#E2E8F0] sticky top-0 z-40">
         <BrandLogo href="/" size="sm" subtitle="Expert Workspace" />
         <button
           type="button"
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="rounded-lg border border-[#dedbd5] bg-white px-3 py-1.5 text-xs font-bold text-[#14243b]"
+          className="rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-bold text-[#14243b]"
         >
           {mobileOpen ? 'Close' : 'Menu'}
         </button>
@@ -80,11 +80,11 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
 
       {/* Sidebar Navigation */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 shrink-0 bg-white border-r border-[#e7e2da] flex flex-col transition-transform duration-200 md:sticky md:top-0 md:h-screen md:max-h-screen md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed inset-y-0 left-0 z-50 w-64 shrink-0 bg-white border-r border-[#E2E8F0] flex flex-col transition-transform duration-200 md:sticky md:top-0 md:h-screen md:max-h-screen md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
       >
         {/* Brand Header */}
-        <div className="p-6 border-b border-[#eeeae4] flex items-center justify-between">
+        <div className="p-6 border-b border-[#E2E8F0] flex items-center justify-between">
           <BrandLogo href="/" size="sm" subtitle="Expert Workspace" />
           <button
             type="button"
@@ -96,9 +96,9 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
         </div>
 
         {/* User Card */}
-        <div className="p-4 mx-4 my-4 rounded-2xl bg-[#faf8f5] border border-[#eeeae4]">
+        <div className="p-4 mx-4 my-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0]">
           <div className="flex items-center gap-3">
-            <div className="relative size-10 shrink-0 overflow-hidden rounded-full bg-[#14243b] text-white flex items-center justify-center font-bold text-xs uppercase border border-[#dedbd5]">
+            <div className="relative size-10 shrink-0 overflow-hidden rounded-full bg-[#14243b] text-white flex items-center justify-center font-bold text-xs uppercase border border-[#E2E8F0]">
               {user.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -118,7 +118,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
             </div>
           </div>
           {user.status && (
-            <div className="mt-3 pt-2.5 border-t border-[#eeeae4] flex items-center justify-between text-[11px]">
+            <div className="mt-3 pt-2.5 border-t border-[#E2E8F0] flex items-center justify-between text-[11px]">
               <span className="text-[#8b94a1]">Status:</span>
               <span
                 className={`font-bold ${user.status === 'approved'
@@ -153,7 +153,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
                 onClick={() => setMobileOpen(false)}
                 className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${isActive
                     ? 'bg-[#14243b] text-white'
-                    : 'text-[#637084] hover:bg-[#faf8f5] hover:text-[#14243b]'
+                    : 'text-[#637084] hover:bg-[#F8FAFC] hover:text-[#14243b]'
                   }`}
               >
                 <span>{item.name}</span>
@@ -164,12 +164,12 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
         </nav>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-[#eeeae4] space-y-2">
+        <div className="p-4 border-t border-[#E2E8F0] space-y-2">
           {user.slug && (
             <Link
               href={`/experts/${user.slug}`}
               target="_blank"
-              className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-[#637084] hover:bg-[#faf8f5] hover:text-[#14243b]"
+              className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-[#637084] hover:bg-[#F8FAFC] hover:text-[#14243b]"
             >
               <span>View Public Page</span>
               <span className="text-[10px] text-[#8b94a1]">↗</span>

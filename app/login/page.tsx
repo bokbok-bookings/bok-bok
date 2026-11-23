@@ -18,11 +18,13 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(queryError || '')
+  const [isGoogleAccountNotice, setIsGoogleAccountNotice] = useState(false)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setLoading(true)
     setError('')
+    setIsGoogleAccountNotice(false)
 
     try {
       const res = await fetch('/api/auth/login', {
@@ -33,7 +35,9 @@ function LoginForm() {
       const data = await res.json()
 
       if (!data.success) {
-        setError(data.error || (isAr ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة' : 'Invalid email or password'))
+        const errorMsg = isAr && data.errorAr ? data.errorAr : (data.error || (isAr ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة' : 'Invalid email or password'))
+        setError(errorMsg)
+        setIsGoogleAccountNotice(Boolean(data.isGoogleAccount))
         setLoading(false)
         return
       }
@@ -66,8 +70,21 @@ function LoginForm() {
       </p>
 
       {error && (
-        <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-3.5 text-xs font-semibold text-red-700">
-          {error}
+        <div className={`mt-5 rounded-2xl border p-3.5 text-xs font-semibold ${isGoogleAccountNotice
+            ? 'border-amber-200 bg-amber-50 text-amber-900 leading-relaxed'
+            : 'border-red-200 bg-red-50 text-red-700'
+          }`}>
+          <p>{error}</p>
+          {isGoogleAccountNotice && (
+            <div className="mt-2 flex items-center gap-2 text-[11px] font-bold">
+              <Link
+                href={localeHref(`/forgot-password?email=${encodeURIComponent(email)}`)}
+                className="underline hover:text-amber-950"
+              >
+                {isAr ? '← اضغط هنا لتعيين كلمة مرور لهذا الحساب' : '← Click here to set a password for this account'}
+              </Link>
+            </div>
+          )}
         </div>
       )}
 

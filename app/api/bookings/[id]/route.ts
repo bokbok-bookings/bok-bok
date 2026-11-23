@@ -1,9 +1,20 @@
 import { NextResponse } from 'next/server'
-import { getBookingsCollection, getServicesCollection, toObjectId } from '@/lib/db'
+import {
+  getBookingsCollection,
+  getServicesCollection,
+  getReviewsCollection,
+  getComplaintsCollection,
+  toObjectId,
+} from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
-import { resolveExpertContact, computeSessionBounds } from '@/lib/email/scheduler'
+import {
+  resolveExpertContact,
+  computeSessionBounds,
+  getPlatformMeetingSettings,
+} from '@/lib/email/scheduler'
 import { resolveTokenRole, MEET_UNLOCK_MINUTES_BEFORE, MEET_GRACE_MINUTES_AFTER_END } from '@/lib/booking/access'
 import { applyJoinTrackingAttendance } from '@/lib/booking/attendance'
+import { evaluateReviewEligibility } from '@/lib/booking/review-eligibility'
 import { syncBookingMeetTelemetry, ensureBookingMeetDirectEntry } from '@/lib/google-calendar'
 import { checkRateLimit } from '@/lib/rate-limit'
 
@@ -118,8 +129,10 @@ export async function GET(request: Request, context: RouteContext) {
       booking.status !== 'rejected' &&
       now < rescheduleDeadlineAt
 
-    // Check attendance reporting window
-    const reportingDeadlineAt = new Date(endAt.getTime() + 24 * 60 * 60 * 1000)
+    // Check attendance reporting window (also the post-session issue/refund period)
+    const platformSettings = await getPlatformMeetingSettings()
+    const reportingWindowHours = platformSettings.attendanceReportingWindowHours || 24
+    const reportingDeadlineAt = new Date(endAt.getTime() + reportingWindowHours * 60 * 60 * 1000)
     const isAttendanceReportingOpen = now >= endAt && now <= reportingDeadlineAt
 
     // Sync Google Meet conferenceRecords & participantSessions (join, leave, duration)
@@ -160,6 +173,24 @@ export async function GET(request: Request, context: RouteContext) {
     const isMeetWindowOpen =
       booking.status === 'confirmed' && now >= meetUnlockAt && now <= meetCloseAt
 
+    // Evaluate post-session review eligibility (opens after refund/problem period is over & nothing is on hold)
+    const [reviewsCol, complaintsCol] = await Promise.all([
+      getReviewsCollection(),
+      getComplaintsCollection(),
+    ])
+    const [existingReview, existingComplaint] = await Promise.all([
+      reviewsCol.findOne({ bookingId: bookingObjId }),
+      complaintsCol.findOne({ bookingId: bookingObjId }),
+    ])
+    const reviewEligibility = evaluateReviewEligibility({
+      booking,
+      sessionEndAt: endAt,
+      complaint: existingComplaint,
+      hasExistingReview: Boolean(existingReview),
+      reportingWindowHours,
+      now,
+    })
+
     return NextResponse.json({
       success: true,
       data: {
@@ -196,6 +227,7 @@ export async function GET(request: Request, context: RouteContext) {
         attendanceStatus: booking.attendanceStatus || 'pending',
         attendanceSource: booking.attendanceSource,
         isAttendanceReportingOpen,
+        reportingDeadlineAt,
         expertAttendanceReport: booking.expertAttendanceReport,
         clientAttendanceReport: booking.clientAttendanceReport,
         meetingJoins: {
@@ -206,6 +238,35 @@ export async function GET(request: Request, context: RouteContext) {
         meetJoinUrl: `/api/bookings/${booking._id?.toString()}/join${viewerToken ? `?token=${encodeURIComponent(viewerToken)}` : ''
           }`,
         rescheduleHistory: booking.rescheduleHistory || [],
+        hasReview: Boolean(existingReview || booking.hasReview),
+        review: existingReview
+          ? {
+            _id: existingReview._id?.toString(),
+            expertRating: existingReview.expertRating,
+            expertReviewText: existingReview.expertReviewText,
+            serviceRating: existingReview.serviceRating,
+            serviceReviewText: existingReview.serviceReviewText,
+            platformFeedback: existingReview.platformFeedback,
+            createdAt: existingReview.createdAt,
+          }
+          : null,
+        hasComplaint: Boolean(existingComplaint || booking.hasComplaint),
+        complaint: existingComplaint
+          ? {
+            _id: existingComplaint._id?.toString(),
+            category: existingComplaint.category,
+            subject: existingComplaint.subject,
+            status: existingComplaint.status,
+            createdAt: existingComplaint.createdAt,
+          }
+          : null,
+        reviewEligibility: {
+          isOpen: reviewEligibility.isOpen,
+          reason: reviewEligibility.reason,
+          opensAt: reviewEligibility.opensAt?.toISOString() || null,
+          reportingWindowHours: reviewEligibility.reportingWindowHours,
+          isOnHold: reviewEligibility.isOnHold,
+        },
         userRoleInView,
       },
     })

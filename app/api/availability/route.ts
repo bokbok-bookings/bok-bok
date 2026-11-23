@@ -20,6 +20,7 @@ import {
   renderEventWaitlistJoinedEmail,
 } from '@/lib/email/templates'
 import { getBookingRoleLinks } from '@/lib/booking/access'
+import { ensureEventServiceMeetLink, configureMeetSpaceOpenAccess } from '@/lib/google-calendar'
 
 export const dynamic = 'force-dynamic'
 
@@ -201,6 +202,21 @@ export async function POST(request: Request) {
             { success: false, error: 'This event has already started or ended.' },
             { status: 400 },
           )
+        }
+
+        const minNotice = Number(serviceDoc.minNoticeHours) || 0
+        if (eventStatus !== 'coming_soon' && minNotice > 0) {
+          const cutoffMs = bounds.sessionStartAt.getTime() - (minNotice * 60 * 60 * 1000)
+          if (Date.now() > cutoffMs) {
+            const noticeMsg =
+              minNotice === 24
+                ? 'Registration for this event closes 24 hours prior to start time.'
+                : `Registration for this event closes ${Math.round(minNotice / 24)} days prior to start time.`
+            return NextResponse.json(
+              { success: false, error: noticeMsg },
+              { status: 400 },
+            )
+          }
         }
 
         // Duplicate registration guard (case-insensitive email per event)
@@ -399,6 +415,38 @@ export async function POST(request: Request) {
             ? 'pending'
             : 'awaiting_verification'
 
+        // Reuse the single shared Google Meet room created on service approval (never create separate rooms per attendee)
+        let sharedMeetLink = eventMeta?.joinUrl?.trim() || undefined
+        let sharedCalendarEventId = eventMeta?.googleCalendarEventId
+        let sharedCalendarEventLink = eventMeta?.googleCalendarEventLink
+        let sharedMeetSpaceName = eventMeta?.googleMeetSpaceName
+
+        if (serviceDoc.deliveryMode !== 'IN_PERSON' && !sharedMeetLink && isInstantFree) {
+          try {
+            const room = await ensureEventServiceMeetLink(serviceDoc)
+            if (room?.joinUrl) {
+              sharedMeetLink = room.joinUrl
+              sharedCalendarEventId = room.googleCalendarEventId
+              sharedCalendarEventLink = room.googleCalendarEventLink
+              sharedMeetSpaceName = room.googleMeetSpaceName
+            }
+          } catch (calErr: any) {
+            console.error('[Availability] Shared event Meet link fallback failed:', calErr?.message)
+          }
+        }
+
+        if (serviceDoc.deliveryMode !== 'IN_PERSON' && sharedMeetLink && isInstantFree && normalizedClientEmail) {
+          try {
+            await configureMeetSpaceOpenAccess({
+              meetLinkOrCode: sharedMeetLink,
+              spaceName: sharedMeetSpaceName,
+              clientEmail: normalizedClientEmail,
+            })
+          } catch {
+            // non-blocking
+          }
+        }
+
         const booking = await createExpertBooking({
           reference,
           expertId,
@@ -426,8 +474,17 @@ export async function POST(request: Request) {
           attendanceStatus: 'pending',
           googleMeetLink:
             serviceDoc.deliveryMode !== 'IN_PERSON'
-              ? eventMeta?.joinUrl || expertDoc?.defaultGoogleMeetLink || undefined
+              ? sharedMeetLink || undefined
               : undefined,
+          ...(serviceDoc.deliveryMode !== 'IN_PERSON' && sharedCalendarEventId
+            ? { googleCalendarEventId: sharedCalendarEventId }
+            : {}),
+          ...(serviceDoc.deliveryMode !== 'IN_PERSON' && sharedCalendarEventLink
+            ? { googleCalendarEventLink: sharedCalendarEventLink }
+            : {}),
+          ...(serviceDoc.deliveryMode !== 'IN_PERSON' && sharedMeetSpaceName
+            ? { googleMeetSpaceName: sharedMeetSpaceName }
+            : {}),
           ...(isFreeEvent ? {} : { paymentMethod: 'instapay' }),
           paymentStatus: isFreeEvent ? 'verified' : paymentReceiptUrl ? 'receipt_uploaded' : 'pending',
           paymentReceiptUrl: isFreeEvent ? undefined : paymentReceiptUrl || undefined,

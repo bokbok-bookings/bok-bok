@@ -4,7 +4,7 @@ import React, { useState, useEffect, use } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { BrandLogo } from '@/components/brand/logo'
-import { Video, Calendar, Clock, AlertCircle, CheckCircle, ArrowRight, ShieldCheck, UserCheck, XCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Video, Calendar, Clock, AlertCircle, CheckCircle, ArrowRight, ShieldCheck, UserCheck, XCircle, ChevronLeft, ChevronRight, Star, X } from 'lucide-react'
 import type { TimeSlot, DayAvailability } from '@/lib/data/availability'
 import { formatDateLabel, formatSlotLabel } from '@/lib/data/availability'
 import { useLanguage } from '@/lib/i18n/language-context'
@@ -47,6 +47,18 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
   const [syncingMeet, setSyncingMeet] = useState(false)
   const [showManualReportOverride, setShowManualReportOverride] = useState(false)
 
+  // Post-session review window & popup modal states
+  const [showReviewModal, setShowReviewModal] = useState(false)
+  const [reviewPopupDismissed, setReviewPopupDismissed] = useState(false)
+  const [expertRating, setExpertRating] = useState(5)
+  const [expertReviewText, setExpertReviewText] = useState('')
+  const [serviceRating, setServiceRating] = useState(5)
+  const [serviceReviewText, setServiceReviewText] = useState('')
+  const [platformFeedback, setPlatformFeedback] = useState('')
+  const [submittingReview, setSubmittingReview] = useState(false)
+  const [reviewError, setReviewError] = useState<string | null>(null)
+  const [reviewSuccess, setReviewSuccess] = useState<string | null>(null)
+
   // Real-time clock to evaluate the 15-minute meeting link access window
   const [currentTime, setCurrentTime] = useState<number>(() => Date.now())
 
@@ -76,6 +88,59 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
       fetchBooking(urlToken)
     }
   }, [bookingId])
+
+  // Auto-open the review popup when the refund/problem period is over, nothing is on hold, and client hasn't reviewed yet
+  useEffect(() => {
+    if (
+      booking &&
+      booking.userRoleInView === 'client' &&
+      booking.reviewEligibility?.isOpen &&
+      !booking.hasReview &&
+      !reviewPopupDismissed
+    ) {
+      setShowReviewModal(true)
+    }
+  }, [booking, reviewPopupDismissed])
+
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!booking?._id) return
+
+    setSubmittingReview(true)
+    setReviewError(null)
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId: booking._id,
+          token: token || undefined,
+          expertRating,
+          expertReviewText,
+          serviceRating,
+          serviceReviewText,
+          platformFeedback,
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setShowReviewModal(false)
+        setReviewPopupDismissed(true)
+        setReviewSuccess(
+          isAr
+            ? 'شكراً لك! تم إرسال تقييمك بنجاح.'
+            : 'Thank you! Your review has been submitted successfully.'
+        )
+        fetchBooking(token, { silent: true })
+      } else {
+        setReviewError(json.error || (isAr ? 'تعذر إرسال التقييم' : 'Failed to submit review'))
+      }
+    } catch (err: any) {
+      setReviewError(err.message || (isAr ? 'خطأ في إرسال التقييم' : 'Error submitting review'))
+    } finally {
+      setSubmittingReview(false)
+    }
+  }
 
   // Automatically sync Google Meet telemetry (join/leave/duration) when user returns to this tab
   useEffect(() => {
@@ -1076,7 +1141,365 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
             )
           })()}
         </div>
+
+        {/* SECTION 4: Post-Session Review Window (Client Only) */}
+        {booking.userRoleInView === 'client' && booking.status === 'confirmed' && (
+          <div id="review" className="rounded-3xl border border-border bg-surface p-6 sm:p-8 shadow-xs space-y-5">
+            <div className="border-b border-border pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h2 className="text-xl font-bold tracking-tight text-primary flex items-center gap-2">
+                  {/* <Star size={20} className="text-amber-500 fill-amber-400" /> */}
+                  <span>{isAr ? 'تقييم الجلسة والخبير' : 'Session & Expert Review'}</span>
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isAr
+                    ? 'تُفتح نافذة التقييم تلقائياً بعد انتهاء مهلة الإبلاغ عن المشاكل أو طلب الاسترداد، بشرط عدم وجود طلب معلق.'
+                    : 'The review window opens automatically once the post-session issue/refund period ends and nothing is on hold.'}
+                </p>
+              </div>
+              <span
+                className={`self-start sm:self-auto rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider ${booking.hasReview
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                  : booking.reviewEligibility?.isOpen
+                    ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                    : booking.reviewEligibility?.isOnHold
+                      ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                      : 'bg-slate-100 text-slate-700 border border-slate-200'
+                  }`}
+              >
+                {booking.hasReview
+                  ? isAr ? 'تم التقييم' : 'Reviewed'
+                  : booking.reviewEligibility?.isOpen
+                    ? isAr ? 'مفتوح الآن' : 'Window Open'
+                    : booking.reviewEligibility?.isOnHold
+                      ? isAr ? 'معلق للمراجعة' : 'On Hold'
+                      : isAr ? 'قريباً' : 'Scheduled'}
+              </span>
+            </div>
+
+            {reviewSuccess && (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-800">
+                {reviewSuccess}
+              </div>
+            )}
+
+            {booking.review ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-border bg-background p-4 space-y-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {isAr ? 'تقييم الخبير' : 'Expert Rating'}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        size={16}
+                        className={
+                          s <= booking.review.expertRating
+                            ? 'text-amber-400 fill-amber-400'
+                            : 'text-slate-300'
+                        }
+                      />
+                    ))}
+                    <span className="ms-1.5 text-xs font-bold text-primary">
+                      {booking.review.expertRating}/5
+                    </span>
+                  </div>
+                  {booking.review.expertReviewText && (
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {booking.review.expertReviewText}
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-border bg-background p-4 space-y-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {isAr ? 'تقييم الخدمة' : 'Service Rating'}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        size={16}
+                        className={
+                          s <= booking.review.serviceRating
+                            ? 'text-amber-400 fill-amber-400'
+                            : 'text-slate-300'
+                        }
+                      />
+                    ))}
+                    <span className="ms-1.5 text-xs font-bold text-primary">
+                      {booking.review.serviceRating}/5
+                    </span>
+                  </div>
+                  {booking.review.serviceReviewText && (
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {booking.review.serviceReviewText}
+                    </p>
+                  )}
+                </div>
+
+                {booking.review.platformFeedback && (
+                  <div className="sm:col-span-2 rounded-2xl border border-border bg-background p-4 space-y-1.5">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      {isAr ? 'رأيك واقتراحاتك لمنصة بوك بوك' : 'Your Feedback for Bok Bok'}
+                    </p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {booking.review.platformFeedback}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : booking.reviewEligibility?.isOpen ? (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-primary">
+                    {isAr
+                      ? `كيف كانت تجربتك مع ${booking.expertName}؟`
+                      : `How was your session with ${booking.expertName}?`}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {isAr
+                      ? 'شاركنا تقييمك للخبير ومحتوى الخدمة لمساعدة المستفيدين الآخرين.'
+                      : 'Share your rating for both the expert and the service to help future learners.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReviewError(null)
+                    setShowReviewModal(true)
+                  }}
+                  className="shrink-0 inline-flex items-center justify-center gap-2 rounded-full bg-accent hover:bg-accent-hover px-6 py-2.5 text-xs font-bold text-primary shadow-xs transition"
+                >
+                  <Star size={15} className="fill-current" />
+                  <span>{isAr ? 'تقييم الجلسة الآن' : 'Rate & Review Session'}</span>
+                </button>
+              </div>
+            ) : booking.reviewEligibility?.isOnHold ? (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 flex items-start gap-3 text-xs text-rose-900">
+                <AlertCircle size={18} className="text-rose-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold">
+                    {isAr ? 'نافذة التقييم متوقفة مؤقتاً' : 'Review Window Paused (On Hold)'}
+                  </p>
+                  <p className="leading-relaxed">
+                    {isAr
+                      ? 'يوجد حالياً بلاغ أو طلب استرداد أو نزاع حضور قيد المراجعة لهذه الجلسة. سيتم تفعيل التقييم فقط عند عدم وجود أي مشكلة معلقة.'
+                      : 'There is currently an open issue report, refund request, or attendance dispute under review for this booking. Reviews only open when nothing is on hold.'}
+                  </p>
+                </div>
+              </div>
+            ) : booking.reviewEligibility?.reason === 'waiting_period' ? (
+              <div className="rounded-2xl border border-border bg-background p-5 flex items-start gap-3 text-xs text-muted-foreground">
+                <Clock size={18} className="text-primary shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold text-primary">
+                    {isAr
+                      ? 'ستُفتح نافذة التقييم بعد انتهاء مهلة الإبلاغ والاسترداد'
+                      : 'Review Window Opens After Issue/Refund Period Ends'}
+                  </p>
+                  <p className="leading-relaxed">
+                    {isAr
+                      ? `ستُفتح نافذة التقييم تلقائياً وسنرسل لك إشعاراً عبر البريد الإلكتروني بعد انتهاء فترة الـ ${booking.reviewEligibility.reportingWindowHours || 24} ساعة المخصصة للإبلاغ عن أي مشكلة${booking.reviewEligibility.opensAt
+                        ? ` (بتاريخ ${new Date(booking.reviewEligibility.opensAt).toLocaleString()})`
+                        : ''
+                      }.`
+                      : `Your review window will open automatically — and we'll send you an email notification — once the ${booking.reviewEligibility.reportingWindowHours || 24}-hour issue/refund reporting period ends${booking.reviewEligibility.opensAt
+                        ? ` (${new Date(booking.reviewEligibility.opensAt).toLocaleString()})`
+                        : ''
+                      }, provided nothing is on hold.`}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-border bg-background p-5 text-center text-xs text-muted-foreground">
+                <p className="font-bold text-primary">
+                  {isAr ? 'التقييم يتاح بعد انتهاء الجلسة' : 'Reviews Unlock After Session Completion'}
+                </p>
+                <p className="mt-1">
+                  {isAr
+                    ? 'بعد انتهاء الجلسة وانقضاء مهلة الـ 24 ساعة للإبلاغ عن أي مشكلة، ستُفتح نافذة التقييم تلقائياً ويصلك بريد إلكتروني للتنبيه.'
+                    : 'After your session concludes and the 24-hour issue/refund period passes with no holds, the review window will open and you will be notified by email.'}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Review Popup Modal */}
+      {showReviewModal && booking.userRoleInView === 'client' && booking.reviewEligibility?.isOpen && !booking.hasReview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-3xl border border-border bg-surface p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Star size={20} className="text-amber-500 fill-amber-400" />
+                <h2 className="text-lg font-bold text-primary">
+                  {isAr ? 'شاركنا تقييمك للجلسة' : 'Rate & Review Your Session'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowReviewModal(false)
+                  setReviewPopupDismissed(true)
+                }}
+                className="rounded-full p-1.5 text-muted-foreground hover:bg-background transition"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleReviewSubmit} className="mt-5 space-y-5">
+              {reviewError && (
+                <div className="rounded-2xl bg-rose-50 border border-rose-200 p-3 text-xs font-semibold text-rose-800">
+                  {reviewError}
+                </div>
+              )}
+
+              {/* 1. Expert Rating */}
+              <div className="rounded-2xl border border-border bg-background p-4 space-y-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    {isAr ? 'تقييم الخبير' : 'Rate the Expert'}
+                  </p>
+                  <p className="text-sm font-bold text-primary">{booking.expertName}</p>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setExpertRating(star)}
+                      className="p-1 transition transform hover:scale-110"
+                    >
+                      <Star
+                        size={28}
+                        className={
+                          star <= expertRating
+                            ? 'text-amber-400 fill-amber-400'
+                            : 'text-slate-300'
+                        }
+                      />
+                    </button>
+                  ))}
+                  <span className="ms-2 text-xs font-bold text-primary">{expertRating}/5</span>
+                </div>
+
+                <textarea
+                  rows={2}
+                  placeholder={
+                    isAr
+                      ? 'ما الذي أعجبك في تعامل وخبرة المحاضر؟ (اختياري)'
+                      : 'How was the expert communication, depth, and helpfulness? (Optional)'
+                  }
+                  value={expertReviewText}
+                  onChange={(e) => setExpertReviewText(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground outline-none focus:border-accent"
+                />
+              </div>
+
+              {/* 2. Service Rating */}
+              <div className="rounded-2xl border border-border bg-background p-4 space-y-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    {isAr ? 'تقييم محتوى الخدمة' : 'Rate the Service'}
+                  </p>
+                  <p className="text-sm font-bold text-primary">
+                    {isAr
+                      ? booking.serviceTitle?.ar || booking.serviceTitle?.en
+                      : booking.serviceTitle?.en || booking.serviceTitle?.ar}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setServiceRating(star)}
+                      className="p-1 transition transform hover:scale-110"
+                    >
+                      <Star
+                        size={28}
+                        className={
+                          star <= serviceRating
+                            ? 'text-amber-400 fill-amber-400'
+                            : 'text-slate-300'
+                        }
+                      />
+                    </button>
+                  ))}
+                  <span className="ms-2 text-xs font-bold text-primary">{serviceRating}/5</span>
+                </div>
+
+                <textarea
+                  rows={2}
+                  placeholder={
+                    isAr
+                      ? 'هل حققت الجلسة توقعاتك؟ (اختياري)'
+                      : 'Did the session meet your goals and expectations? (Optional)'
+                  }
+                  value={serviceReviewText}
+                  onChange={(e) => setServiceReviewText(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground outline-none focus:border-accent"
+                />
+              </div>
+
+              {/* 3. Optional Bok Bok Platform Feedback */}
+              <div className="rounded-2xl border border-border bg-background p-4 space-y-2.5">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    {isAr ? 'رأيك في منصة بوك بوك (اختياري)' : 'Your Opinion About Bok Bok (Optional)'}
+                  </p>
+                  <p className="text-xs font-medium text-primary mt-0.5 leading-relaxed">
+                    {isAr
+                      ? 'ما رأيك في منصة بوك بوك؟ وهل هناك شيء يمكننا إضافته لجعل خدماتنا أفضل؟'
+                      : "What's your opinion about Bok Bok, and is there anything we can add to make our service better?"}
+                  </p>
+                </div>
+
+                <textarea
+                  rows={3}
+                  placeholder={
+                    isAr
+                      ? 'شاركنا أفكارك أو أي ميزة أو تحسين تتمنى وجوده في بوك بوك...'
+                      : "Share your thoughts, suggestions, or features you'd love to see on Bok Bok..."
+                  }
+                  value={platformFeedback}
+                  onChange={(e) => setPlatformFeedback(e.target.value)}
+                  className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground outline-none focus:border-accent"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowReviewModal(false)
+                    setReviewPopupDismissed(true)
+                  }}
+                  className="rounded-full px-5 py-2.5 text-xs font-bold text-muted-foreground hover:bg-background transition"
+                >
+                  {isAr ? 'لاحقاً' : 'Maybe Later'}
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingReview}
+                  className="rounded-full bg-accent hover:bg-accent-hover px-6 py-2.5 text-xs font-bold text-primary shadow-xs transition disabled:opacity-50"
+                >
+                  {submittingReview
+                    ? isAr ? 'جاري الإرسال...' : 'Submitting...'
+                    : isAr ? 'إرسال التقييم' : 'Submit Review'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

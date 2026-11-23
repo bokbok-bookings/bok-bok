@@ -55,7 +55,7 @@
 
 :root {
   color-scheme: light;
-  --background: #FAFAF7;
+  --background: #F8FAFC;
   --foreground: #142D4E;
   --surface: #FFFFFF;
   --surface-foreground: #142D4E;
@@ -65,7 +65,7 @@
   --popover-foreground: #142D4E;
   --primary: #142D4E;
   --primary-foreground: #FFFFFF;
-  --secondary: #FFF6D9;
+  --secondary: #F1F5F9;
   --secondary-foreground: #142D4E;
   --accent: #FCAD35;
   --accent-foreground: #142D4E;
@@ -82,7 +82,7 @@
   --sidebar-foreground: #142D4E;
   --sidebar-primary: #142D4E;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #FFF6D9;
+  --sidebar-accent: #F1F5F9;
   --sidebar-accent-foreground: #142D4E;
   --sidebar-border: #E2E8F0;
   --sidebar-ring: #FCAD35;
@@ -194,6 +194,7 @@
 @utility scrollbar-none {
   scrollbar-width: none;
   -ms-overflow-style: none;
+
   &::-webkit-scrollbar {
     display: none;
   }

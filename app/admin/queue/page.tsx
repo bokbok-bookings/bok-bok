@@ -73,7 +73,7 @@ export default function AdminQueuePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#eeeae4] pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E2E8F0] pb-5">
         <div>
           <span className="text-[10px] font-black uppercase tracking-wider text-primary">
             Expert Verification
@@ -89,7 +89,7 @@ export default function AdminQueuePage() {
         <button
           type="button"
           onClick={() => loadQueue()}
-          className="inline-flex items-center gap-1.5 rounded-full border border-[#dedbd5] bg-white px-4 py-2 text-xs font-bold text-[#14243b] hover:border-[#14243b] transition self-start sm:self-auto"
+          className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-xs font-bold text-[#14243b] hover:border-[#14243b] transition self-start sm:self-auto"
         >
           <RefreshCw size={13} /> Refresh Queue
         </button>
@@ -105,7 +105,7 @@ export default function AdminQueuePage() {
           </div>
         </div>
       ) : pendingExperts.length === 0 ? (
-        <div className="rounded-3xl border border-[#e7e2da] bg-white p-12 text-center shadow-xs">
+        <div className="rounded-3xl border border-[#E2E8F0] bg-white p-12 text-center shadow-xs">
           <p className="text-base font-bold text-[#14243b]">Expert Queue is Clear</p>
           <p className="mt-1 text-xs text-[#637084]">
             No expert profiles are waiting for activation or info edit approval at this moment.

@@ -114,14 +114,14 @@ export function AdminShell({ children, user, counts }: AdminShellProps) {
   ]
 
   return (
-    <div className="min-h-screen bg-[#fbfaf7] text-[#14243b] flex flex-col md:flex-row">
+    <div className="min-h-screen bg-[#F8FAFC] text-[#14243b] flex flex-col md:flex-row">
       {/* Mobile Top Header */}
-      <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-[#e7e2da] sticky top-0 z-40">
+      <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-[#E2E8F0] sticky top-0 z-40">
         <BrandLogo href="/admin" size="sm" subtitle="Admin Console" />
         <button
           type="button"
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-[#dedbd5] bg-white px-3 py-1.5 text-xs font-bold text-[#14243b]"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-bold text-[#14243b]"
         >
           {mobileOpen ? <X size={15} /> : <Menu size={15} />}
           <span>{mobileOpen ? 'Close' : 'Menu'}</span>
@@ -130,11 +130,11 @@ export function AdminShell({ children, user, counts }: AdminShellProps) {
 
       {/* Sidebar Navigation */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-68 shrink-0 bg-white border-r border-[#e7e2da] flex flex-col transition-transform duration-200 md:sticky md:top-0 md:h-screen md:max-h-screen md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed inset-y-0 left-0 z-50 w-68 shrink-0 bg-white border-r border-[#E2E8F0] flex flex-col transition-transform duration-200 md:sticky md:top-0 md:h-screen md:max-h-screen md:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
       >
         {/* Brand Header */}
-        <div className="p-6 border-b border-[#eeeae4] flex items-center justify-between">
+        <div className="p-6 border-b border-[#E2E8F0] flex items-center justify-between">
           <BrandLogo href="/admin" size="sm" subtitle="Administrator Console" />
           <button
             type="button"
@@ -146,9 +146,9 @@ export function AdminShell({ children, user, counts }: AdminShellProps) {
         </div>
 
         {/* Admin User Card */}
-        <div className="p-4 mx-4 my-4 rounded-2xl bg-[#faf8f5] border border-[#eeeae4]">
+        <div className="p-4 mx-4 my-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0]">
           <div className="flex items-center gap-3">
-            <div className="relative size-10 shrink-0 overflow-hidden rounded-full bg-[#14243b] text-white flex items-center justify-center font-bold text-xs uppercase border border-[#dedbd5]">
+            <div className="relative size-10 shrink-0 overflow-hidden rounded-full bg-[#14243b] text-white flex items-center justify-center font-bold text-xs uppercase border border-[#E2E8F0]">
               {(user.displayName || user.email || 'A').charAt(0)}
             </div>
             <div className="min-w-0 flex-1">
@@ -179,7 +179,7 @@ export function AdminShell({ children, user, counts }: AdminShellProps) {
                 onClick={() => setMobileOpen(false)}
                 className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition ${isActive
                     ? 'bg-[#14243b] text-white shadow-xs'
-                    : 'text-[#637084] hover:bg-[#faf8f5] hover:text-[#14243b]'
+                    : 'text-[#637084] hover:bg-[#F8FAFC] hover:text-[#14243b]'
                   }`}
               >
                 <span className="flex items-center gap-2.5 truncate">
@@ -195,7 +195,7 @@ export function AdminShell({ children, user, counts }: AdminShellProps) {
                         ? 'bg-accent text-primary'
                         : item.badgeHighlight
                           ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                          : 'bg-[#eeeae4] text-[#637084]'
+                          : 'bg-[#E2E8F0] text-[#637084]'
                       }`}
                   >
                     {item.badge}
@@ -207,7 +207,7 @@ export function AdminShell({ children, user, counts }: AdminShellProps) {
         </nav>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-[#eeeae4] space-y-1.5">
+        <div className="p-4 border-t border-[#E2E8F0] space-y-1.5">
           {/* <Link
             href="/admin/users?new=1"
             onClick={() => setMobileOpen(false)}
@@ -219,7 +219,7 @@ export function AdminShell({ children, user, counts }: AdminShellProps) {
           <Link
             href="/"
             target="_blank"
-            className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-[#637084] hover:bg-[#faf8f5] hover:text-[#14243b]"
+            className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-[#637084] hover:bg-[#F8FAFC] hover:text-[#14243b]"
           >
             <span>Public Site</span>
             <ExternalLink size={13} className="text-[#8b94a1]" />

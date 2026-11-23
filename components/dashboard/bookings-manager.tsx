@@ -633,7 +633,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
       )}
 
       {/* Header & Tabs */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-[#eeeae4] pb-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-[#E2E8F0] pb-5">
         <div>
           <h2
             className={`text-2xl font-bold tracking-tight ${isAdmin ? 'text-white' : 'text-[#14243b]'
@@ -648,7 +648,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
         </div>
 
         {/* Status Filter Buttons */}
-        <div className="flex gap-1.5 rounded-2xl bg-[#faf8f5] p-1 border border-[#eeeae4]">
+        <div className="flex gap-1.5 rounded-2xl bg-[#F8FAFC] p-1 border border-[#E2E8F0]">
           <button
             type="button"
             onClick={() => setStatusFilter('awaiting_verification')}
@@ -723,7 +723,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
 
         if (groups.length === 0) {
           return (
-            <div className="rounded-3xl border border-dashed border-[#dedbd5] bg-white p-12 text-center">
+            <div className="rounded-3xl border border-dashed border-[#E2E8F0] bg-white p-12 text-center">
               <p className="text-base font-bold text-[#14243b]">No workshop or webinar registrations yet</p>
               <p className="mt-1 text-xs text-[#637084]">
                 Registrations, approval requests, and waitlists for your events will appear grouped here.
@@ -741,8 +741,8 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
               const canManageGroup = isAdmin || group.isFree
 
               return (
-                <div key={groupKey} className="rounded-3xl border border-[#e7e2da] bg-white p-5 shadow-xs space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eeeae4] pb-3.5">
+                <div key={groupKey} className="rounded-3xl border border-[#E2E8F0] bg-white p-5 shadow-xs space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E2E8F0] pb-3.5">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-base font-bold text-[#14243b]">{group.title}</h3>
@@ -764,7 +764,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                     <button
                       type="button"
                       onClick={() => handleExportEventCsv(group.title, group.items)}
-                      className="rounded-full border border-[#d6d0c7] bg-[#faf8f5] px-4 py-1.5 text-xs font-bold text-[#14243b] hover:bg-[#14243b] hover:text-white transition"
+                      className="rounded-full border border-[#d6d0c7] bg-[#F8FAFC] px-4 py-1.5 text-xs font-bold text-[#14243b] hover:bg-[#14243b] hover:text-white transition"
                     >
                       Export CSV ({group.items.length})
                     </button>
@@ -773,7 +773,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
                       <thead>
-                        <tr className="border-b border-[#eeeae4] text-[11px] uppercase text-[#8b94a1]">
+                        <tr className="border-b border-[#E2E8F0] text-[11px] uppercase text-[#8b94a1]">
                           <th className="py-2 pr-3">Ref</th>
                           <th className="py-2 pr-3">Attendee</th>
                           <th className="py-2 pr-3">Contact</th>
@@ -786,7 +786,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                           const isPending = ['pending', 'awaiting_verification', 'awaiting_payment'].includes(att.status)
                           const isWaitlisted = att.status === 'waitlisted'
                           return (
-                            <tr key={att._id} className="hover:bg-[#faf8f5]/70">
+                            <tr key={att._id} className="hover:bg-[#F8FAFC]/70">
                               <td className="py-2.5 pr-3 font-mono font-bold text-[#14243b]">{att.reference || '—'}</td>
                               <td className="py-2.5 pr-3 font-bold text-[#14243b]">{att.clientName}</td>
                               <td className="py-2.5 pr-3 text-[#637084]">
@@ -862,7 +862,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
           </div>
         )
       })() : bookings.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-[#dedbd5] bg-white p-12 text-center">
+        <div className="rounded-3xl border border-dashed border-[#E2E8F0] bg-white p-12 text-center">
           <p className="text-base font-bold text-[#14243b]">No bookings found</p>
           <p className="mt-1 text-xs text-[#637084]">
             {statusFilter === 'awaiting_verification'
@@ -871,10 +871,10 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-3xl border border-[#e7e2da] bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-3xl border border-[#E2E8F0] bg-white shadow-sm">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-[#f4f2ee] bg-[#faf8f5] text-[#8b94a1]">
+              <tr className="border-b border-[#F1F5F9] bg-[#F8FAFC] text-[#8b94a1]">
                 <th className="py-3.5 px-4 font-semibold">Ref</th>
                 <th className="py-3.5 px-4 font-semibold">Client</th>
                 <th className="py-3.5 px-4 font-semibold">Service</th>
@@ -886,7 +886,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                 <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#f4f2ee]">
+            <tbody className="divide-y divide-[#F1F5F9]">
               {bookings.map((b) => {
                 const isRowLoading = actionLoadingId === b._id
                 const isOnline = b.deliveryMode !== 'IN_PERSON'
@@ -906,7 +906,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                   isAdmin || (msUntilStart <= 15 * 60 * 1000 && !sessionEnded)
 
                 return (
-                  <tr key={b._id} className="hover:bg-[#faf8f5]/60">
+                  <tr key={b._id} className="hover:bg-[#F8FAFC]/60">
                     <td className="py-3.5 px-4 font-mono font-bold text-[#14243b]">
                       {b.reference || b._id.slice(-6).toUpperCase()}
                     </td>
@@ -959,7 +959,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                               <button
                                 type="button"
                                 onClick={() => handleCopyMeet(b._id, b.googleMeetLink!)}
-                                className="rounded-full border border-[#dedbd5] bg-[#faf8f5] px-2 py-0.5 text-[10px] font-bold text-[#14243b] hover:bg-[#eeeae4]"
+                                className="rounded-full border border-[#E2E8F0] bg-[#F8FAFC] px-2 py-0.5 text-[10px] font-bold text-[#14243b] hover:bg-[#E2E8F0]"
                               >
                                 {copiedId === b._id ? 'Copied ✓' : 'Copy'}
                               </button>
@@ -1151,7 +1151,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                           <Link
                             href={`/bookings/${b._id}?token=${b.rescheduleToken}`}
                             target="_blank"
-                            className="rounded-full bg-[#f4f2ee] px-2.5 py-1 text-[10px] font-bold text-[#14243b] hover:bg-[#dedbd5]"
+                            className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-bold text-[#14243b] hover:bg-[#E2E8F0]"
                           >
                             Hub ↗
                           </Link>
@@ -1160,7 +1160,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                           <button
                             type="button"
                             onClick={() => setSelectedReceipt(b)}
-                            className="rounded-full bg-[#f4f2ee] px-2.5 py-1 text-[10px] font-bold text-[#14243b] hover:bg-[#dedbd5]"
+                            className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[10px] font-bold text-[#14243b] hover:bg-[#E2E8F0]"
                           >
                             Receipt
                           </button>
@@ -1233,7 +1233,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
       {meetModalBooking && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 text-[#14243b] shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-[#eeeae4] pb-3">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
               <div>
                 <h3 className="text-base font-bold text-[#14243b]">Google Meet Link</h3>
                 <p className="text-[11px] text-[#8b94a1]">
@@ -1245,7 +1245,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
               <button
                 type="button"
                 onClick={() => setMeetModalBooking(null)}
-                className="size-7 rounded-full bg-[#f4f2ee] text-xs font-bold text-[#637084] hover:bg-[#dedbd5]"
+                className="size-7 rounded-full bg-[#F1F5F9] text-xs font-bold text-[#637084] hover:bg-[#E2E8F0]"
               >
                 ✕
               </button>
@@ -1262,7 +1262,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                   placeholder="https://meet.google.com/xxx-yyyy-zzz"
                   value={newMeetLink}
                   onChange={(e) => setNewMeetLink(e.target.value)}
-                  className="w-full rounded-xl border border-[#dedbd5] bg-[#faf8f5] px-3.5 py-2.5 text-xs text-[#14243b] outline-none focus:border-[#2855C5]"
+                  className="w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3.5 py-2.5 text-xs text-[#14243b] outline-none focus:border-[#2855C5]"
                 />
                 <p className="mt-1 text-[10px] text-[#8b94a1]">
                   If this booking is confirmed, both client and expert will receive an email update
@@ -1270,11 +1270,11 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                 </p>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#eeeae4]">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
                 <button
                   type="button"
                   onClick={() => setMeetModalBooking(null)}
-                  className="rounded-full px-4 py-2 text-xs font-bold text-[#637084] hover:bg-[#f4f2ee]"
+                  className="rounded-full px-4 py-2 text-xs font-bold text-[#637084] hover:bg-[#F1F5F9]"
                 >
                   Cancel
                 </button>
@@ -1295,7 +1295,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
       {approvalBooking && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="w-full max-w-lg rounded-3xl bg-white p-6 text-[#14243b] shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-[#eeeae4] pb-3">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
               <div>
                 <h3 className="text-base font-bold text-[#14243b]">
                   Confirm Booking &amp; Create Google Meet
@@ -1309,13 +1309,13 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
               <button
                 type="button"
                 onClick={() => setApprovalBooking(null)}
-                className="size-7 rounded-full bg-[#f4f2ee] text-xs font-bold text-[#637084] hover:bg-[#dedbd5]"
+                className="size-7 rounded-full bg-[#F1F5F9] text-xs font-bold text-[#637084] hover:bg-[#E2E8F0]"
               >
                 ✕
               </button>
             </div>
 
-            <div className="rounded-2xl bg-[#faf8f5] border border-[#eeeae4] p-4 text-xs space-y-2">
+            <div className="rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] p-4 text-xs space-y-2">
               <div className="flex justify-between gap-2">
                 <span className="text-[#8b94a1]">Client:</span>
                 <span className="font-bold text-[#14243b] text-right">
@@ -1346,7 +1346,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                   placeholder="Leave empty to auto-create via Google Calendar OAuth"
                   value={approvalMeetLink}
                   onChange={(e) => setApprovalMeetLink(e.target.value)}
-                  className="w-full rounded-xl border border-[#dedbd5] bg-[#faf8f5] px-3.5 py-2.5 text-xs text-[#14243b] outline-none focus:border-[#2855C5]"
+                  className="w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-3.5 py-2.5 text-xs text-[#14243b] outline-none focus:border-[#2855C5]"
                 />
                 <p className="mt-1 text-[10px] text-[#8b94a1]">
                   Leaving this blank automatically creates a Google Calendar event + Google Meet
@@ -1355,11 +1355,11 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
               </div>
             )}
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#eeeae4]">
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#E2E8F0]">
               <button
                 type="button"
                 onClick={() => setApprovalBooking(null)}
-                className="rounded-full px-4 py-2 text-xs font-bold text-[#637084] hover:bg-[#f4f2ee]"
+                className="rounded-full px-4 py-2 text-xs font-bold text-[#637084] hover:bg-[#F1F5F9]"
               >
                 Cancel
               </button>
@@ -1389,7 +1389,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
       {actionModal && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 text-[#14243b] shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-[#eeeae4] pb-3">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
               <h3 className="text-base font-bold">
                 {actionModal.action === 'reject'
                   ? 'Decline Booking / Receipt'
@@ -1398,7 +1398,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
               <button
                 type="button"
                 onClick={() => setActionModal(null)}
-                className="size-7 rounded-full bg-[#f4f2ee] text-xs font-bold text-[#637084] hover:bg-[#dedbd5]"
+                className="size-7 rounded-full bg-[#F1F5F9] text-xs font-bold text-[#637084] hover:bg-[#E2E8F0]"
               >
                 ✕
               </button>
@@ -1419,14 +1419,14 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
               value={declineNotes}
               onChange={(e) => setDeclineNotes(e.target.value)}
               placeholder="Optional notes or reason..."
-              className="w-full rounded-2xl border border-[#dedbd5] bg-[#faf8f5] p-3 text-xs text-[#14243b] outline-none focus:border-[#2855C5]"
+              className="w-full rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs text-[#14243b] outline-none focus:border-[#2855C5]"
             />
 
-            <div className="flex items-center justify-end gap-2 border-t border-[#eeeae4] pt-4">
+            <div className="flex items-center justify-end gap-2 border-t border-[#E2E8F0] pt-4">
               <button
                 type="button"
                 onClick={() => setActionModal(null)}
-                className="rounded-full px-4 py-2 text-xs font-bold text-[#637084] hover:bg-[#f4f2ee]"
+                className="rounded-full px-4 py-2 text-xs font-bold text-[#637084] hover:bg-[#F1F5F9]"
               >
                 Back
               </button>
@@ -1460,7 +1460,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
             onSubmit={handleAttendanceSubmit}
             className="w-full max-w-md rounded-3xl bg-white p-6 text-[#14243b] shadow-2xl space-y-4"
           >
-            <div className="flex items-center justify-between border-b border-[#eeeae4] pb-3">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
               <h3 className="text-base font-bold">
                 {attendanceModal.response === 'attended'
                   ? 'Confirm Session Completion'
@@ -1469,7 +1469,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
               <button
                 type="button"
                 onClick={() => setAttendanceModal(null)}
-                className="size-7 rounded-full bg-[#f4f2ee] text-xs font-bold text-[#637084] hover:bg-[#dedbd5]"
+                className="size-7 rounded-full bg-[#F1F5F9] text-xs font-bold text-[#637084] hover:bg-[#E2E8F0]"
               >
                 ✕
               </button>
@@ -1490,14 +1490,14 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                   ? 'Optional session completion notes...'
                   : 'Reason or notes regarding client absence...'
               }
-              className="w-full rounded-2xl border border-[#dedbd5] bg-[#faf8f5] p-3 text-xs text-[#14243b] outline-none focus:border-[#2855C5]"
+              className="w-full rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs text-[#14243b] outline-none focus:border-[#2855C5]"
             />
 
-            <div className="flex items-center justify-end gap-2 border-t border-[#eeeae4] pt-4">
+            <div className="flex items-center justify-end gap-2 border-t border-[#E2E8F0] pt-4">
               <button
                 type="button"
                 onClick={() => setAttendanceModal(null)}
-                className="rounded-full px-4 py-2 text-xs font-bold text-[#637084] hover:bg-[#f4f2ee]"
+                className="rounded-full px-4 py-2 text-xs font-bold text-[#637084] hover:bg-[#F1F5F9]"
               >
                 Cancel
               </button>
@@ -1520,7 +1520,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
       {selectedReceipt && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="w-full max-w-lg rounded-3xl bg-white p-6 text-[#14243b] shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#eeeae4] pb-3">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
               <div>
                 <h3 className="text-base font-bold text-[#14243b]">InstaPay Receipt</h3>
                 <p className="text-[11px] text-[#8b94a1]">
@@ -1532,13 +1532,13 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
               <button
                 type="button"
                 onClick={() => setSelectedReceipt(null)}
-                className="size-7 rounded-full bg-[#f4f2ee] text-xs font-bold text-[#637084] hover:bg-[#dedbd5]"
+                className="size-7 rounded-full bg-[#F1F5F9] text-xs font-bold text-[#637084] hover:bg-[#E2E8F0]"
               >
                 ✕
               </button>
             </div>
 
-            <div className="my-4 max-h-[60vh] overflow-y-auto rounded-2xl bg-[#faf8f5] p-2 border border-[#eeeae4] text-center">
+            <div className="my-4 max-h-[60vh] overflow-y-auto rounded-2xl bg-[#F8FAFC] p-2 border border-[#E2E8F0] text-center">
               {isSafeReceiptImageUrl(selectedReceipt.paymentReceiptUrl) ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -1551,7 +1551,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
               )}
             </div>
 
-            <div className="flex items-center justify-between border-t border-[#eeeae4] pt-4">
+            <div className="flex items-center justify-between border-t border-[#E2E8F0] pt-4">
               <span className="text-xs font-bold text-[#14243b]">
                 Amount: {selectedReceipt.amount} {selectedReceipt.currency || 'EGP'}
               </span>
@@ -1604,7 +1604,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
       {viewIntakeBooking && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-3xl bg-white p-6 sm:p-7 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-[#dedbd5] pb-3">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
               <div>
                 <h3 className="text-base font-bold text-[#14243b]">
                   Client Intake Form &amp; Files
@@ -1616,7 +1616,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
               <button
                 type="button"
                 onClick={() => setViewIntakeBooking(null)}
-                className="size-8 rounded-full bg-[#f4f2ee] text-xs font-bold text-[#637084] hover:bg-[#dedbd5]"
+                className="size-8 rounded-full bg-[#F1F5F9] text-xs font-bold text-[#637084] hover:bg-[#E2E8F0]"
               >
                 ✕
               </button>
@@ -1624,7 +1624,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
 
             <div className="space-y-3">
               {viewIntakeBooking.intakeAnswers?.map((ans, idx) => (
-                <div key={idx} className="rounded-2xl border border-[#dedbd5] bg-[#faf8f5] p-3.5 space-y-2">
+                <div key={idx} className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-3.5 space-y-2">
                   <p className="text-xs font-bold text-[#14243b]">
                     <span className="text-[#8b94a1] mr-1">Q{idx + 1}:</span>
                     {ans.question}
@@ -1649,7 +1649,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                           <img
                             src={ans.answer}
                             alt="Client upload"
-                            className="max-h-48 rounded-xl border border-[#dedbd5] object-cover"
+                            className="max-h-48 rounded-xl border border-[#E2E8F0] object-cover"
                           />
                         </a>
                         <a
@@ -1665,7 +1665,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                       <span className="text-xs text-[#8b94a1] italic">No image uploaded</span>
                     )
                   ) : (
-                    <p className="text-xs text-[#14243b] whitespace-pre-line bg-white p-2.5 rounded-xl border border-[#dedbd5]">
+                    <p className="text-xs text-[#14243b] whitespace-pre-line bg-white p-2.5 rounded-xl border border-[#E2E8F0]">
                       {ans.answer || '—'}
                     </p>
                   )}
@@ -1673,7 +1673,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
               ))}
             </div>
 
-            <div className="flex justify-end pt-2 border-t border-[#dedbd5]">
+            <div className="flex justify-end pt-2 border-t border-[#E2E8F0]">
               <button
                 type="button"
                 onClick={() => setViewIntakeBooking(null)}
@@ -1693,7 +1693,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
             onSubmit={handleSaveEditBooking}
             className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 text-[#14243b] shadow-2xl space-y-4"
           >
-            <div className="flex items-center justify-between border-b border-[#eeeae4] pb-3">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
               <div>
                 <h3 className="text-base font-bold text-[#14243b]">Edit Booking Record</h3>
                 <p className="text-[11px] text-[#8b94a1]">
@@ -1703,7 +1703,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
               <button
                 type="button"
                 onClick={() => setEditingBooking(null)}
-                className="size-7 rounded-full bg-[#f4f2ee] text-xs font-bold text-[#637084] hover:bg-[#dedbd5]"
+                className="size-7 rounded-full bg-[#F1F5F9] text-xs font-bold text-[#637084] hover:bg-[#E2E8F0]"
               >
                 ✕
               </button>
@@ -1853,7 +1853,7 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2 border-t border-[#eeeae4] pt-4">
+            <div className="flex items-center justify-end gap-2 border-t border-[#E2E8F0] pt-4">
               <button
                 type="button"
                 onClick={() => setEditingBooking(null)}

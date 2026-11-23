@@ -97,6 +97,10 @@ export interface UserDoc {
   phone?: string
   whatsapp?: string
   status: UserStatus
+  googleId?: string
+  authProvider?: 'google' | 'local' | 'both'
+  avatarUrl?: string
+  image?: string
   emailVerified?: boolean
   emailVerificationToken?: string
   emailVerificationExpiresAt?: Date
@@ -230,6 +234,11 @@ export interface ServiceEventDetails {
   capacity: number
   registeredCount: number
   joinUrl?: string
+  googleCalendarEventId?: string
+  googleCalendarEventLink?: string
+  googleMeetSpaceName?: string
+  googleMeetError?: string
+  googleMeetSyncedAt?: Date
   platform?: string
   eventStatus?: EventStatus
   registrationMode?: EventRegistrationMode
@@ -388,6 +397,7 @@ export interface BookingReminders {
   beforeSessionReminderSentAt?: Date
   missingMeetLinkAlertSentAt?: Date
   attendancePromptSentAt?: Date
+  reviewInviteSentAt?: Date
   activeReminderLock?: Date
 }
 
@@ -509,6 +519,7 @@ export interface ReviewDoc {
   expertReviewText?: string
   serviceRating: number // 1 to 5
   serviceReviewText?: string
+  platformFeedback?: string
   createdAt: Date
   updatedAt?: Date
 }
@@ -561,6 +572,7 @@ export interface EmailLogDoc {
   | 'reschedule_confirmed'
   | 'attendance_prompt'
   | 'attendance_dispute_admin'
+  | 'review_invite'
   recipientEmail: string
   recipientRole: 'client' | 'expert' | 'admin'
   subject: string
@@ -761,8 +773,9 @@ export async function ensureDbIndexes(): Promise<void> {
         // Reviews indexes
         safeCreateIndex(db.collection('reviews'), { bookingId: 1 }, { unique: true }),
         safeCreateIndex(db.collection('reviews'), { expertId: 1, createdAt: -1 }),
+        safeCreateIndex(db.collection('reviews'), { serviceId: 1, createdAt: -1 }),
         safeCreateIndex(db.collection('reviews'), { serviceId: 1 }),
-        safeCreateIndex(db.collection('reviews'), { clientId: 1 }),
+        safeCreateIndex(db.collection('reviews'), { clientId: 1, createdAt: -1 }),
         // Complaints indexes
         safeCreateIndex(db.collection('complaints'), { bookingId: 1 }),
         safeCreateIndex(db.collection('complaints'), { clientId: 1, createdAt: -1 }),

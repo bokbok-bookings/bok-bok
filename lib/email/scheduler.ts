@@ -5,18 +5,22 @@ import {
   getExpertsCollection,
   getUsersCollection,
   getSettingsCollection,
+  getComplaintsCollection,
+  getReviewsCollection,
   type BookingDoc,
   type ExpertDoc,
 } from '@/lib/db'
 import { sendTransactionalEmail, processEmailRetries } from '@/lib/email/mailer'
 import { getBookingRoleLinks } from '@/lib/booking/access'
 import { applyJoinTrackingAttendance } from '@/lib/booking/attendance'
+import { evaluateReviewEligibility } from '@/lib/booking/review-eligibility'
 import { ensureBookingMeetDirectEntry } from '@/lib/google-calendar'
 import {
   renderDayOfReminderEmail,
   renderBeforeSessionReminderEmail,
   renderMissingMeetLinkAlertEmail,
   renderAttendancePromptEmail,
+  renderReviewInviteEmail,
 } from '@/lib/email/templates'
 
 const DEFAULT_TIMEZONE = 'Africa/Cairo'
@@ -178,9 +182,12 @@ export async function processAutomatedReminders(): Promise<{
   beforeSessionReminders: number
   missingMeetAlerts: number
   attendancePrompts: number
+  reviewInvites: number
   retriedEmails: number
 }> {
   const bookingsCol = await getBookingsCollection()
+  const complaintsCol = await getComplaintsCollection()
+  const reviewsCol = await getReviewsCollection()
   const platformSettings = await getPlatformMeetingSettings()
   const baseUrl = getAppBaseUrl()
   const now = new Date()
@@ -189,6 +196,7 @@ export async function processAutomatedReminders(): Promise<{
   let beforeSessionReminders = 0
   let missingMeetAlerts = 0
   let attendancePrompts = 0
+  let reviewInvites = 0
 
   // 1. Fetch confirmed bookings that might require notifications
   // Looking at bookings active from today onwards, or completed recently
@@ -537,6 +545,76 @@ export async function processAutomatedReminders(): Promise<{
         attendancePrompts++
       }
     }
+
+    // ------------------------------------------------------------------------
+    // CHECK 5: Post-Session Review Invitation Email (to Client)
+    // Sent once after the 24h refund/problem reporting period ends and nothing is on hold.
+    // ------------------------------------------------------------------------
+    const reviewInviteMaxAgeMs = 30 * 24 * 60 * 60 * 1000
+    if (
+      hasSessionEnded &&
+      now.getTime() >= deadlineMs &&
+      now.getTime() - endAt.getTime() <= reviewInviteMaxAgeMs &&
+      !booking.hasReview &&
+      !booking.reminders?.reviewInviteSentAt &&
+      booking.clientEmail &&
+      booking._id
+    ) {
+      const [existingComplaint, existingReview] = await Promise.all([
+        complaintsCol.findOne({ bookingId: booking._id }),
+        reviewsCol.findOne({ bookingId: booking._id }),
+      ])
+
+      const reviewEligibility = evaluateReviewEligibility({
+        booking,
+        sessionEndAt: endAt,
+        complaint: existingComplaint,
+        hasExistingReview: Boolean(existingReview),
+        reportingWindowHours: reportingHours,
+        now,
+      })
+
+      if (reviewEligibility.isOpen) {
+        const lock = await bookingsCol.updateOne(
+          {
+            _id: booking._id,
+            'reminders.reviewInviteSentAt': { $exists: false },
+          },
+          {
+            $set: {
+              'reminders.reviewInviteSentAt': now,
+            },
+          }
+        )
+
+        if (lock.modifiedCount > 0) {
+          const reviewUrl = clientPageUrl.includes('?')
+            ? `${clientPageUrl}&review=1#review`
+            : `${clientPageUrl}?review=1#review`
+
+          const inviteEmail = renderReviewInviteEmail({
+            booking,
+            expertName,
+            clientName: booking.clientName,
+            serviceTitle,
+            reviewUrl,
+          })
+
+          await sendTransactionalEmail({
+            bookingId: booking._id,
+            emailType: 'review_invite',
+            recipientEmail: booking.clientEmail,
+            recipientName: booking.clientName,
+            recipientRole: 'client',
+            subject: inviteEmail.subject,
+            html: inviteEmail.html,
+            text: inviteEmail.text,
+          })
+
+          reviewInvites++
+        }
+      }
+    }
   }
 
   // 2. Process any failed emails eligible for retry
@@ -547,6 +625,7 @@ export async function processAutomatedReminders(): Promise<{
     beforeSessionReminders,
     missingMeetAlerts,
     attendancePrompts,
+    reviewInvites,
     retriedEmails,
   }
 }

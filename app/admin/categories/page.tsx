@@ -6,7 +6,7 @@ import { CategoriesManager } from '@/components/dashboard/categories-manager'
 export default function AdminCategoriesPage() {
   return (
     <div className="space-y-6">
-      <div className="border-b border-[#eeeae4] pb-5">
+      <div className="border-b border-[#E2E8F0] pb-5">
         <span className="text-[10px] font-black uppercase tracking-wider text-primary">
           Taxonomy Management
         </span>

@@ -78,7 +78,7 @@ export function ExpertVerificationCard({
   onPreviewDoc,
 }: ExpertVerificationCardProps) {
   return (
-    <div className="rounded-2xl border border-[#e7e2da] bg-white p-5 sm:p-6 space-y-4 shadow-xs">
+    <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5 sm:p-6 space-y-4 shadow-xs">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex items-start gap-4">
           <div className="relative size-16 shrink-0 overflow-hidden rounded-2xl bg-neutral-100 border border-border">
@@ -200,7 +200,7 @@ export function ExpertVerificationCard({
                       return (
                         <div
                           key={c.categorySlug}
-                          className="rounded-xl border border-border bg-[#faf8f5] p-2.5 space-y-1.5"
+                          className="rounded-xl border border-border bg-[#F8FAFC] p-2.5 space-y-1.5"
                         >
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-bold text-[#14243b]">
@@ -234,7 +234,7 @@ export function ExpertVerificationCard({
                       )
                     })
                   ) : (
-                    <div className="rounded-xl border border-border bg-[#faf8f5] p-2.5 space-y-1.5">
+                    <div className="rounded-xl border border-border bg-[#F8FAFC] p-2.5 space-y-1.5">
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-bold text-[#14243b]">
                           📁 {getCategoryLabel(exp.categorySlug, 'en') || exp.categorySlug}

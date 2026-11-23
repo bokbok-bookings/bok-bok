@@ -4,6 +4,7 @@ import { getServicesCollection, toObjectId } from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
 import { validateServiceInput, stripUnverifiedAccreditationClaims } from '@/lib/services/service-validation'
 import { slugify } from '@/lib/services/service-types'
+import { ensureEventServiceMeetLink } from '@/lib/google-calendar'
 
 export const dynamic = 'force-dynamic'
 
@@ -191,6 +192,26 @@ export async function POST(request: Request) {
 
     await servicesCol.insertOne(newService)
 
+    // If auto-approved (e.g. created by an admin) and online Webinar/Workshop, create its single shared Google Meet room immediately
+    if (
+      canAutoApprove &&
+      (newService.bookingType === 'WEBINAR' || newService.bookingType === 'WORKSHOP') &&
+      newService.deliveryMode !== 'IN_PERSON' &&
+      !newService.event?.joinUrl
+    ) {
+      try {
+        const meetRes = await ensureEventServiceMeetLink(newService._id.toString())
+        if (meetRes?.joinUrl && newService.event) {
+          newService.event.joinUrl = meetRes.joinUrl
+          newService.event.googleCalendarEventId = meetRes.googleCalendarEventId
+          newService.event.googleCalendarEventLink = meetRes.googleCalendarEventLink
+          newService.event.googleMeetSpaceName = meetRes.googleMeetSpaceName
+        }
+      } catch (calErr: any) {
+        console.error('[Dashboard Services] Auto-approve Meet link generation failed:', calErr?.message)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -284,7 +305,6 @@ export async function PUT(request: Request) {
       subcategorySlug: validation.value.subcategorySlug,
       tags: validation.value.tags,
       bookingType: validation.value.bookingType,
-      serviceKind: validation.value.serviceKind,
       deliveryMode: validation.value.deliveryMode,
       durationMinutes: validation.value.durationMinutes,
       breakAfterMinutes: validation.value.breakAfterMinutes,
@@ -295,6 +315,10 @@ export async function PUT(request: Request) {
       licensingReviewStatus: validation.value.licensingReviewStatus,
       licensingReviewReason: validation.value.licensingReviewReason,
       hasVerifiedAccreditationAuthorization: validation.value.hasVerifiedAccreditationAuthorization,
+    }
+
+    if (validation.value.serviceKind && !validation.unset.includes('serviceKind')) {
+      updateDoc.serviceKind = validation.value.serviceKind
     }
 
     // Ensure slug exists on existing document or handle custom update
@@ -331,22 +355,46 @@ export async function PUT(request: Request) {
     if (body.isMostBooked !== undefined) updateDoc.isMostBooked = Boolean(body.isMostBooked)
     if (body.sortOrder !== undefined) updateDoc.sortOrder = Number(body.sortOrder)
 
-    // MVP control: Expert edits always require admin review before publishing.
-    // Also if licensing review is required and not yet approved, hold in pending.
+    // Check if core content was changed. Operational changes (like eventStatus or capacity) on already approved services do not reset approval status.
+    const isCoreContentChanged =
+      JSON.stringify(existing.title) !== JSON.stringify(sanitizedTitle) ||
+      JSON.stringify(existing.description) !== JSON.stringify(sanitizedDescription) ||
+      existing.categorySlug !== validation.value.categorySlug ||
+      existing.subcategorySlug !== validation.value.subcategorySlug ||
+      existing.bookingType !== validation.value.bookingType
+
     if (
-      auth.session.role !== 'admin' ||
-      (validation.value.requiresLicensingReview &&
-        validation.value.licensingReviewStatus !== 'licensing_approved')
+      auth.session.role !== 'admin' &&
+      isCoreContentChanged
     ) {
       updateDoc.approvalStatus = 'pending'
       updateDoc.rejectionReason = null
+    } else if (existing.approvalStatus) {
+      updateDoc.approvalStatus = existing.approvalStatus
     }
 
     const unsets: Record<string, string> = {}
-    if (validation.unset.includes('event')) unsets.event = ''
-    if (validation.unset.includes('serviceKind')) unsets.serviceKind = ''
-    if (validation.unset.includes('location')) unsets.location = ''
-    if (validation.unset.includes('thumbnailUrl')) unsets.thumbnailUrl = ''
+    if (validation.unset.includes('event')) {
+      delete updateDoc.event
+      unsets.event = ''
+    }
+    if (validation.unset.includes('serviceKind')) {
+      delete updateDoc.serviceKind
+      unsets.serviceKind = ''
+    }
+    if (validation.unset.includes('location')) {
+      delete updateDoc.location
+      unsets.location = ''
+    }
+    if (validation.unset.includes('thumbnailUrl')) {
+      delete updateDoc.thumbnailUrl
+      unsets.thumbnailUrl = ''
+    }
+
+    // Guarantee no path is both in $set and $unset to avoid MongoDB path conflict
+    for (const unsetKey of Object.keys(unsets)) {
+      delete updateDoc[unsetKey]
+    }
 
     const updateOps: any = { $set: updateDoc }
     if (Object.keys(unsets).length > 0) {
@@ -355,10 +403,72 @@ export async function PUT(request: Request) {
 
     await servicesCol.updateOne({ _id: serviceObjId }, updateOps)
 
-    return NextResponse.json({ success: true, message: 'Service updated and submitted for admin review' })
+    return NextResponse.json({
+      success: true,
+      message: isCoreContentChanged && auth.session.role !== 'admin'
+        ? 'Service updated and submitted for admin review'
+        : 'Service updated successfully',
+    })
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to update service' },
+      { status: 500 }
+    )
+  }
+}
+
+// PATCH: Direct operational updates (eventStatus, isActive) that update immediately without full resubmission
+export async function PATCH(request: Request) {
+  try {
+    const auth = await resolveExpertObjectId(request)
+    if (auth.error || !auth.session) {
+      return NextResponse.json({ success: false, error: auth.error || 'Unauthorized' }, { status: auth.status })
+    }
+
+    const body = await request.json()
+    const { id, eventStatus, isActive } = body
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Service ID is required' }, { status: 400 })
+    }
+
+    const serviceObjId = toObjectId(id)
+    const servicesCol = await getServicesCollection()
+
+    const filter: any = { _id: serviceObjId }
+    if (auth.session.role !== 'admin' && auth.expertId) {
+      filter.expertId = auth.expertId
+    }
+
+    const existing = await servicesCol.findOne(filter)
+    if (!existing) {
+      return NextResponse.json({ success: false, error: 'Service not found or unauthorized' }, { status: 404 })
+    }
+
+    const updates: any = { updatedAt: new Date() }
+
+    if (eventStatus !== undefined) {
+      if (!['open', 'coming_soon', 'closed'].includes(eventStatus)) {
+        return NextResponse.json({ success: false, error: 'Invalid event status' }, { status: 400 })
+      }
+      updates['event.eventStatus'] = eventStatus
+    }
+
+    if (isActive !== undefined) {
+      updates.isActive = Boolean(isActive)
+    }
+
+    await servicesCol.updateOne({ _id: serviceObjId }, { $set: updates })
+
+    return NextResponse.json({
+      success: true,
+      message: 'Status updated successfully',
+      eventStatus: eventStatus ?? existing.event?.eventStatus,
+      isActive: isActive ?? existing.isActive,
+    })
+  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, error: error.message || 'Failed to update status' },
       { status: 500 }
     )
   }
