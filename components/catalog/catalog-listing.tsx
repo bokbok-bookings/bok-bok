@@ -417,7 +417,9 @@ function CatalogListingContent({ view, title, subtitle }: CatalogListingProps) {
                           </span>
 
                           {(() => {
-                            const itemPrice = item.pricing?.prices?.[item.pricing?.baseCurrency || 'EGP'] ?? 0
+                            const resPrice = (item as any).resolvedPrice
+                            const itemPrice = resPrice ? resPrice.amount : (item.pricing?.prices?.[item.pricing?.baseCurrency || 'EGP'] ?? 0)
+                            const itemCurrency = resPrice ? (isAr ? resPrice.symbolAr : resPrice.symbolEn) : (isAr ? 'ج.م' : (item.pricing?.baseCurrency || 'EGP'))
                             const isFreeItem = Number(itemPrice) <= 0
                             return isFreeItem ? (
                               <span className="rounded-2xl bg-emerald-600 px-3 py-1 text-xs font-black text-white shadow-sm shrink-0">
@@ -425,7 +427,7 @@ function CatalogListingContent({ view, title, subtitle }: CatalogListingProps) {
                               </span>
                             ) : (
                               <span className="rounded-2xl bg-white/95 backdrop-blur-xs px-3 py-1 text-xs font-black text-[#101F49] shadow-sm shrink-0">
-                                {itemPrice} {item.pricing?.baseCurrency || 'EGP'}
+                                {itemPrice} {itemCurrency}
                               </span>
                             )
                           })()}
@@ -525,8 +527,8 @@ function CatalogListingContent({ view, title, subtitle }: CatalogListingProps) {
                           {item.event?.eventStatus === 'coming_soon'
                             ? isAr ? 'أبلغني' : 'Notify Me'
                             : item.event &&
-                                (item.event.capacity || 0) > 0 &&
-                                (item.event.capacity || 0) - (item.event.registeredCount || 0) <= 0
+                              (item.event.capacity || 0) > 0 &&
+                              (item.event.capacity || 0) - (item.event.registeredCount || 0) <= 0
                               ? isAr ? 'قائمة الانتظار' : 'Join Waitlist'
                               : t.catalog.bookNow}{' '}
                           {isAr ? '←' : '→'}

@@ -22,6 +22,12 @@ import {
 import { getBookingRoleLinks } from '@/lib/booking/access'
 import { ensureEventServiceMeetLink, configureMeetSpaceOpenAccess } from '@/lib/google-calendar'
 import { createBookingRefundPolicySnapshot } from '@/lib/services/refund-policies'
+import { getServerGeo } from '@/lib/geo/server'
+import {
+  isServiceAvailableInMarket,
+  getServicePriceForMarket,
+  type MarketCode,
+} from '@/lib/geo/markets'
 
 export const dynamic = 'force-dynamic'
 
@@ -172,11 +178,32 @@ export async function POST(request: Request) {
       verifiedDuration = serviceDoc.durationMinutes || 45
       verifiedBreak = serviceDoc.breakAfterMinutes || 0
       verifiedServiceTitle = serviceDoc.title
-      verifiedCurrency = serviceDoc.pricing?.baseCurrency || 'EGP'
-      verifiedAmount =
-        serviceDoc.pricing?.prices?.[verifiedCurrency] ??
-        serviceDoc.pricing?.prices?.EGP ??
-        500
+
+      // Resolve visitor's market and lock verified price/currency
+      const geo = await getServerGeo(request)
+      const requestedMarket: MarketCode = (body.market as MarketCode) || geo.market
+
+      if (!isServiceAvailableInMarket(serviceDoc, requestedMarket)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'This service is not available in your country/region.',
+          },
+          { status: 400 },
+        )
+      }
+
+      const marketPrice = getServicePriceForMarket(serviceDoc, requestedMarket)
+      if (marketPrice) {
+        verifiedCurrency = marketPrice.currency
+        verifiedAmount = marketPrice.amount
+      } else {
+        verifiedCurrency = serviceDoc.pricing?.baseCurrency || 'EGP'
+        verifiedAmount =
+          serviceDoc.pricing?.prices?.[verifiedCurrency] ??
+          serviceDoc.pricing?.prices?.EGP ??
+          500
+      }
 
       // If it's a WORKSHOP or WEBINAR, event registration logic applies
       if (serviceDoc.bookingType === 'WORKSHOP' || serviceDoc.bookingType === 'WEBINAR') {

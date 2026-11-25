@@ -128,11 +128,14 @@ export async function GET(request: Request, context: RouteContext) {
       serviceDoc?.bookingType === 'WEBINAR' ||
       booking.reference?.startsWith('EV-')
     )
+    const MAX_CLIENT_RESCHEDULES = 2
+    const rescheduleCount = booking.rescheduleCount || 0
     const isRescheduleAllowed =
       !isEventBooking &&
       booking.status !== 'cancelled' &&
       booking.status !== 'rejected' &&
-      now < rescheduleDeadlineAt
+      now < rescheduleDeadlineAt &&
+      (isAdmin || isExpertOwner || rescheduleCount < MAX_CLIENT_RESCHEDULES)
 
     // Check attendance reporting window (opens when session starts and extends through the dispute/refund window)
     const platformSettings = await getPlatformMeetingSettings()
@@ -220,6 +223,10 @@ export async function GET(request: Request, context: RouteContext) {
         amount: booking.amount,
         currency: booking.currency || 'EGP',
         status: booking.status,
+        paymentMethod: booking.paymentMethod || (booking.paymentReceiptUrl ? 'instapay' : null),
+        paymentStatus: booking.paymentStatus || null,
+        hasPaymentReceipt: Boolean(booking.paymentReceiptUrl),
+        cancellation: booking.cancellation || null,
         deliveryMode: booking.deliveryMode || 'ONLINE',
         hasMeetLink: Boolean(booking.googleMeetLink),
         googleMeetLink: isAdmin || isMeetWindowOpen ? booking.googleMeetLink : undefined,
@@ -230,6 +237,13 @@ export async function GET(request: Request, context: RouteContext) {
         rescheduleDeadlineHours: deadlineHours,
         rescheduleDeadlineAt,
         isRescheduleAllowed,
+        rescheduleCount,
+        maxReschedules: MAX_CLIENT_RESCHEDULES,
+        originalSessionStartAt: booking.originalSessionStartAt || null,
+        maxRefundPercentageCap:
+          typeof booking.maxRefundPercentageCap === 'number'
+            ? booking.maxRefundPercentageCap
+            : null,
         refundPolicy:
           booking.refundPolicy ||
           (serviceDoc?.refundPolicy

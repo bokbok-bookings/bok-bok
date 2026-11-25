@@ -288,7 +288,13 @@ export function ExpertProfileView({ slug }: { slug: string }) {
     setBookingLoading(true)
 
     try {
-      const priceEGP = selectedService.pricing?.prices?.EGP ?? 0
+      const currentResolvedPrice = (selectedService as any)?.resolvedPrice
+      const currentPrice = currentResolvedPrice
+        ? currentResolvedPrice.amount
+        : (selectedService?.pricing?.prices?.EGP ?? 0)
+      const currentCurrency = currentResolvedPrice
+        ? currentResolvedPrice.currency
+        : 'EGP'
 
       const res = await fetch('/api/availability', {
         method: 'POST',
@@ -305,8 +311,8 @@ export function ExpertProfileView({ slug }: { slug: string }) {
           clientPhone: clientPhone.trim(),
           adultsOnlyConfirmed: true,
           durationMinutes: duration,
-          amount: priceEGP,
-          currency: 'EGP',
+          amount: currentPrice,
+          currency: currentCurrency,
           paymentReceiptUrl: receiptUrl || undefined,
         }),
       })
@@ -371,7 +377,13 @@ export function ExpertProfileView({ slug }: { slug: string }) {
   const hasPendingServices = Boolean(
     servicesMeta?.hasPending || (servicesMeta?.pendingCount && servicesMeta.pendingCount > 0)
   )
-  const currentPriceEGP = selectedService?.pricing?.prices?.EGP ?? 0
+  const currentResolvedPrice = (selectedService as any)?.resolvedPrice
+  const currentPrice = currentResolvedPrice
+    ? currentResolvedPrice.amount
+    : (selectedService?.pricing?.prices?.EGP ?? profile.priceNumber ?? 0)
+  const currentCurrencySymbol = currentResolvedPrice
+    ? (isAr ? currentResolvedPrice.symbolAr : currentResolvedPrice.symbolEn)
+    : (isAr ? 'ج.م' : 'EGP')
 
   const completedSessionsCount = Number(
     profile?.activityStats?.sessions ?? profile?.completedSessionsCount ?? 0
@@ -637,7 +649,12 @@ export function ExpertProfileView({ slug }: { slug: string }) {
                                   {isAr ? `${s.durationMinutes} دقيقة` : `${s.durationMinutes} min`}
                                 </span>
                                 <span className="rounded-xl bg-white/95 backdrop-blur-xs px-2.5 py-1 text-xs font-black text-primary whitespace-nowrap shadow-xs">
-                                  {s.pricing?.prices?.EGP ?? profile.priceNumber} {isAr ? 'ج.م' : 'EGP'}
+                                  {(() => {
+                                    const sRes = (s as any).resolvedPrice
+                                    const itemPrice = sRes ? sRes.amount : (s.pricing?.prices?.EGP ?? profile.priceNumber)
+                                    const itemSymbol = sRes ? (isAr ? sRes.symbolAr : sRes.symbolEn) : (isAr ? 'ج.م' : 'EGP')
+                                    return `${itemPrice} ${itemSymbol}`
+                                  })()}
                                 </span>
                               </div>
                             </div>
@@ -687,7 +704,7 @@ export function ExpertProfileView({ slug }: { slug: string }) {
                 <div className="flex items-baseline justify-between border-b border-white/10 pb-4">
                   <div>
                     <span className="text-3xl font-semibold tracking-tight">
-                      {currentPriceEGP} {isAr ? 'ج.م' : 'EGP'}
+                      {currentPrice} {currentCurrencySymbol}
                     </span>
                     <span className="ms-2 text-xs text-white/70">
                       {isAr ? `/ جلسة ${duration} دقيقة` : `/ ${duration} min session`}
@@ -942,9 +959,9 @@ export function ExpertProfileView({ slug }: { slug: string }) {
                     <div className="text-xs leading-relaxed text-white/80 space-y-1">
                       <p>
                         {isAr ? (
-                          <>حول مبلغ <strong>{currentPriceEGP} ج.م</strong> لعنوان إنستاباي التالي:</>
+                          <>حول مبلغ <strong>{currentPrice} {currentCurrencySymbol}</strong> لعنوان إنستاباي التالي:</>
                         ) : (
-                          <>Transfer <strong>{currentPriceEGP} EGP</strong> to InstaPay address:</>
+                          <>Transfer <strong>{currentPrice} {currentCurrencySymbol}</strong> to InstaPay address:</>
                         )}
                       </p>
                       <p className="rounded-lg bg-black/40 px-2.5 py-1 font-mono text-[11px] font-bold text-white selection:bg-accent text-center">

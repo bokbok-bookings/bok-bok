@@ -4,6 +4,7 @@ import localFont from 'next/font/local'
 import { SiteHeader } from '@/components/layout/site-header'
 import { SiteFooter } from '@/components/layout/site-footer'
 import { LanguageProvider } from '@/lib/i18n/language-context'
+import { DevGeoSwitcher } from '@/components/geo/dev-geo-switcher'
 import './globals.css'
 
 const fontHeading = localFont({
@@ -167,6 +168,7 @@ export default function RootLayout({
           <SiteHeader />
           {children}
           <SiteFooter />
+          <DevGeoSwitcher />
         </LanguageProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

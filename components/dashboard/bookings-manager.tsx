@@ -39,6 +39,24 @@ export interface BookingDocItem {
   sessionStartAt?: string
   sessionEndAt?: string
   rescheduleToken?: string
+  rescheduleCount?: number
+  maxRefundPercentageCap?: number
+  cancellation?: {
+    cancelledAt: string
+    cancelledByRole: 'client' | 'expert' | 'admin'
+    reason?: string
+    policyType: string
+    hoursBeforeSession: number
+    refundPercentage: number
+    refundAmount: number
+    currency: string
+    paymentMethod?: string
+    refundStatus: 'not_required' | 'pending_admin' | 'processed' | 'rejected'
+    instapayAddress?: string
+    refundReference?: string
+    refundAdminNotes?: string
+    refundProcessedAt?: string
+  }
   createdAt: string
 }
 
@@ -74,10 +92,14 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
   const [bookings, setBookings] = useState<BookingDocItem[]>([])
   const [calendarStatus, setCalendarStatus] = useState<CalendarConnectionStatus | null>(null)
   const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState<'awaiting_verification' | 'confirmed' | 'events' | 'all'>(
-    'awaiting_verification',
-  )
+  const [statusFilter, setStatusFilter] = useState<
+    'awaiting_verification' | 'confirmed' | 'refund_requests' | 'events' | 'all'
+  >('awaiting_verification')
   const [selectedReceipt, setSelectedReceipt] = useState<BookingDocItem | null>(null)
+  const [refundModalBooking, setRefundModalBooking] = useState<BookingDocItem | null>(null)
+  const [refundReference, setRefundReference] = useState('')
+  const [refundAdminNotes, setRefundAdminNotes] = useState('')
+  const [processingRefund, setProcessingRefund] = useState(false)
 
   // Decline / Cancel modal
   const [actionModal, setActionModal] = useState<{
@@ -225,6 +247,42 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
       })
     } finally {
       setActionLoadingId(null)
+    }
+  }
+
+  const handleProcessRefund = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!refundModalBooking) return
+    setProcessingRefund(true)
+    setFeedback(null)
+    try {
+      const res = await fetch('/api/dashboard/bookings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: refundModalBooking._id,
+          action: 'process_refund',
+          refundReference: refundReference.trim(),
+          adminNotes: refundAdminNotes.trim(),
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setRefundModalBooking(null)
+        setRefundReference('')
+        setRefundAdminNotes('')
+        setFeedback({
+          type: 'success',
+          text: json.message || 'InstaPay refund marked as processed.',
+        })
+        await loadBookings()
+      } else {
+        setFeedback({ type: 'error', text: json.error || 'Failed to process refund.' })
+      }
+    } catch {
+      setFeedback({ type: 'error', text: 'Network error while processing refund.' })
+    } finally {
+      setProcessingRefund(false)
     }
   }
 
@@ -537,8 +595,8 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
       {isAdmin && calendarStatus && (
         <div
           className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${calendarStatus.state === 'connected'
-              ? 'border-emerald-500/30 bg-emerald-50 text-emerald-950'
-              : 'border-amber-500/40 bg-amber-50 text-amber-950'
+            ? 'border-emerald-500/30 bg-emerald-50 text-emerald-950'
+            : 'border-amber-500/40 bg-amber-50 text-amber-950'
             }`}
         >
           <div className="space-y-1">
@@ -574,8 +632,8 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
             <a
               href="/api/auth/google/connect"
               className={`rounded-full px-4 py-2 text-xs font-bold transition ${calendarStatus.state === 'connected'
-                  ? 'border border-emerald-700/30 bg-white text-emerald-900 hover:bg-emerald-100'
-                  : 'bg-[#14243b] text-white hover:bg-[#2855C5] shadow-sm'
+                ? 'border border-emerald-700/30 bg-white text-emerald-900 hover:bg-emerald-100'
+                : 'bg-[#14243b] text-white hover:bg-[#2855C5] shadow-sm'
                 }`}
             >
               {calendarStatus.state === 'connected'
@@ -590,10 +648,10 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
       {feedback && (
         <div
           className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-semibold ${feedback.type === 'success'
-              ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
-              : feedback.type === 'warning'
-                ? 'border-amber-400 bg-amber-50 text-amber-950'
-                : 'border-rose-300 bg-rose-50 text-rose-900'
+            ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
+            : feedback.type === 'warning'
+              ? 'border-amber-400 bg-amber-50 text-amber-950'
+              : 'border-rose-300 bg-rose-50 text-rose-900'
             }`}
         >
           <div className="space-y-1">
@@ -653,8 +711,8 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
             type="button"
             onClick={() => setStatusFilter('awaiting_verification')}
             className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${statusFilter === 'awaiting_verification'
-                ? 'bg-[#14243b] text-white'
-                : 'text-[#637084] hover:text-[#14243b]'
+              ? 'bg-[#14243b] text-white'
+              : 'text-[#637084] hover:text-[#14243b]'
               }`}
           >
             Awaiting Verification
@@ -663,18 +721,30 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
             type="button"
             onClick={() => setStatusFilter('confirmed')}
             className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${statusFilter === 'confirmed'
-                ? 'bg-[#14243b] text-white'
-                : 'text-[#637084] hover:text-[#14243b]'
+              ? 'bg-[#14243b] text-white'
+              : 'text-[#637084] hover:text-[#14243b]'
               }`}
           >
             Confirmed
           </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setStatusFilter('refund_requests')}
+              className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${statusFilter === 'refund_requests'
+                ? 'bg-rose-700 text-white'
+                : 'text-rose-700 hover:bg-rose-50'
+                }`}
+            >
+              Refund Requests
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setStatusFilter('events')}
             className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${statusFilter === 'events'
-                ? 'bg-[#14243b] text-white'
-                : 'text-[#637084] hover:text-[#14243b]'
+              ? 'bg-[#14243b] text-white'
+              : 'text-[#637084] hover:text-[#14243b]'
               }`}
           >
             Event Roster
@@ -683,8 +753,8 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
             type="button"
             onClick={() => setStatusFilter('all')}
             className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${statusFilter === 'all'
-                ? 'bg-[#14243b] text-white'
-                : 'text-[#637084] hover:text-[#14243b]'
+              ? 'bg-[#14243b] text-white'
+              : 'text-[#637084] hover:text-[#14243b]'
               }`}
           >
             All Bookings
@@ -747,9 +817,8 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-base font-bold text-[#14243b]">{group.title}</h3>
                         <span
-                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                            group.isFree ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                          }`}
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${group.isFree ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                            }`}
                         >
                           {group.isFree ? 'Free Event' : 'Paid Event'}
                         </span>
@@ -795,15 +864,14 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                               </td>
                               <td className="py-2.5 pr-3">
                                 <span
-                                  className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
-                                    att.status === 'confirmed'
+                                  className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${att.status === 'confirmed'
                                       ? 'bg-emerald-100 text-emerald-800'
                                       : isWaitlisted
                                         ? 'bg-indigo-100 text-indigo-800'
                                         : isPending
                                           ? 'bg-amber-100 text-amber-800'
                                           : 'bg-slate-100 text-slate-600'
-                                  }`}
+                                    }`}
                                 >
                                   {att.status === 'waitlisted' && att.registrationType === 'interest'
                                     ? 'notify list'
@@ -1128,8 +1196,9 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
 
                     {/* Booking Status Column */}
                     <td className="py-3.5 px-4">
-                      <span
-                        className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${b.status === 'confirmed'
+                      <div className="space-y-1">
+                        <span
+                          className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold ${b.status === 'confirmed'
                             ? 'bg-emerald-100 text-emerald-800'
                             : ['awaiting_verification', 'pending', 'awaiting_payment'].includes(
                               b.status,
@@ -1138,15 +1207,52 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                               : b.status === 'rejected'
                                 ? 'bg-red-100 text-red-800'
                                 : 'bg-neutral-100 text-neutral-700'
-                          }`}
-                      >
-                        {b.status}
-                      </span>
+                            }`}
+                        >
+                          {b.status}
+                        </span>
+                        {b.cancellation?.refundStatus === 'pending_admin' && (
+                          <div className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-2 py-1 leading-tight">
+                            InstaPay Refund: {b.cancellation.refundAmount} {b.cancellation.currency || b.currency || 'EGP'} ({b.cancellation.refundPercentage}%)
+                            {b.cancellation.instapayAddress && (
+                              <span className="block font-mono text-[9px] text-rose-800 mt-0.5">
+                                To: {b.cancellation.instapayAddress}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {b.cancellation?.refundStatus === 'processed' && (
+                          <div className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-0.5">
+                            Refunded: {b.cancellation.refundAmount} {b.cancellation.currency || b.currency || 'EGP'}
+                          </div>
+                        )}
+                        {(b.rescheduleCount || 0) > 0 && (
+                          <div className="text-[10px] font-semibold text-slate-700 bg-slate-100 border border-slate-200 rounded-lg px-2 py-0.5">
+                            Rescheduled {b.rescheduleCount}/2
+                            {typeof b.maxRefundPercentageCap === 'number' && b.maxRefundPercentageCap < 100 && (
+                              <span className="text-amber-800 font-bold"> · Cap {b.maxRefundPercentageCap}%</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </td>
 
                     {/* Actions Column */}
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        {isAdmin && b.cancellation?.refundStatus === 'pending_admin' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRefundReference('')
+                              setRefundAdminNotes('')
+                              setRefundModalBooking(b)
+                            }}
+                            className="rounded-full bg-rose-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-rose-700 transition"
+                          >
+                            Process Refund
+                          </button>
+                        )}
                         {b.rescheduleToken && (
                           <Link
                             href={`/bookings/${b._id}?token=${b.rescheduleToken}`}
@@ -1505,8 +1611,8 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                 type="submit"
                 disabled={submittingAttendance}
                 className={`rounded-full px-5 py-2 text-xs font-bold text-white disabled:opacity-50 ${attendanceModal.response === 'attended'
-                    ? 'bg-emerald-600 hover:bg-emerald-700'
-                    : 'bg-rose-600 hover:bg-rose-700'
+                  ? 'bg-emerald-600 hover:bg-emerald-700'
+                  : 'bg-rose-600 hover:bg-rose-700'
                   }`}
               >
                 {submittingAttendance ? 'Saving...' : 'Submit Attendance'}
@@ -1868,6 +1974,105 @@ export function BookingsManager({ expertId, isAdmin = false }: BookingsManagerPr
                 className="rounded-full bg-[#14243b] px-6 py-2 text-xs font-bold text-white hover:bg-[#1f3654] transition disabled:opacity-50"
               >
                 {savingEdit ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Admin Process InstaPay Refund Modal */}
+      {refundModalBooking && refundModalBooking.cancellation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <form
+            onSubmit={handleProcessRefund}
+            className="w-full max-w-md rounded-3xl border border-[#E2E8F0] bg-white p-6 shadow-xl space-y-4"
+          >
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
+              <div>
+                <h3 className="text-base font-bold text-[#14243b]">Process InstaPay Refund</h3>
+                <p className="text-[11px] text-[#637084]">
+                  Ref #{refundModalBooking.reference || refundModalBooking._id.slice(-6).toUpperCase()} ·{' '}
+                  {refundModalBooking.clientName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRefundModalBooking(null)}
+                className="rounded-full px-2.5 py-1 text-xs font-bold text-[#637084] hover:bg-neutral-100"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 space-y-1.5 text-xs text-rose-950">
+              <div className="flex items-center justify-between font-bold">
+                <span>Refund Amount Due:</span>
+                <span className="text-sm font-black">
+                  {refundModalBooking.cancellation.refundAmount}{' '}
+                  {refundModalBooking.cancellation.currency || refundModalBooking.currency || 'EGP'} (
+                  {refundModalBooking.cancellation.refundPercentage}%)
+                </span>
+              </div>
+              <p className="text-[11px] text-rose-900">
+                Policy: <strong>{refundModalBooking.cancellation.policyType}</strong> (
+                {Math.floor(refundModalBooking.cancellation.hoursBeforeSession)}h before session)
+              </p>
+              <p className="text-[11px] text-rose-900">
+                Client Contact: {refundModalBooking.clientEmail}
+                {refundModalBooking.clientPhone ? ` · ${refundModalBooking.clientPhone}` : ''}
+              </p>
+              {refundModalBooking.cancellation.instapayAddress && (
+                <p className="text-[11px] font-bold text-rose-950">
+                  Client InstaPay Address/Phone:{' '}
+                  <span className="font-mono">{refundModalBooking.cancellation.instapayAddress}</span>
+                </p>
+              )}
+              {refundModalBooking.cancellation.reason && (
+                <p className="text-[11px] text-rose-900">
+                  Cancellation Reason: {refundModalBooking.cancellation.reason}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-[#14243b]">
+                InstaPay Transfer Reference (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. IPN-98432100"
+                value={refundReference}
+                onChange={(e) => setRefundReference(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-border bg-neutral-50 px-3 py-2 text-xs text-[#14243b] outline-none focus:border-primary"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-[#14243b]">Admin Notes (Optional)</label>
+              <textarea
+                rows={2}
+                placeholder="Optional note to include in the refund confirmation email..."
+                value={refundAdminNotes}
+                onChange={(e) => setRefundAdminNotes(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-border bg-neutral-50 p-3 text-xs text-[#14243b] outline-none focus:border-primary resize-none"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-[#E2E8F0] pt-4">
+              <button
+                type="button"
+                onClick={() => setRefundModalBooking(null)}
+                disabled={processingRefund}
+                className="rounded-full border border-border bg-surface px-4 py-2 text-xs font-bold text-muted-foreground hover:bg-neutral-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={processingRefund}
+                className="rounded-full bg-emerald-700 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-800 transition disabled:opacity-50"
+              >
+                {processingRefund ? 'Processing...' : 'Mark Refund Sent & Notify Client'}
               </button>
             </div>
           </form>

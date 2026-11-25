@@ -3,6 +3,12 @@ import { ObjectId } from 'mongodb'
 import { getServicesCollection, getExpertsCollection, getReviewsCollection, toObjectId } from '@/lib/db'
 import { isAllowedMvpCategory, isAllowedMvpSubcategory } from '@/lib/data/categories'
 import { stripUnverifiedAccreditationClaims } from '@/lib/services/service-validation'
+import { getServerGeo } from '@/lib/geo/server'
+import {
+  isServiceAvailableInMarket,
+  getServicePriceForMarket,
+  getServiceMarkets,
+} from '@/lib/geo/markets'
 
 export const dynamic = 'force-dynamic'
 
@@ -96,8 +102,19 @@ export async function GET(request: Request, { params }: RouteProps) {
         })()
       : undefined
 
+    const geo = await getServerGeo(request)
+    const visitorMarket = geo.market
+    const isAvailableInVisitorMarket = isServiceAvailableInMarket(serviceDoc, visitorMarket)
+    const resolvedPrice = getServicePriceForMarket(serviceDoc, visitorMarket)
+    const availableMarkets = getServiceMarkets(serviceDoc)
+
     const formatted = {
       ...serviceDoc,
+      isAvailableInVisitorMarket,
+      visitorMarket: geo.market,
+      visitorCountry: geo.country,
+      resolvedPrice,
+      availableMarkets,
       ...(safeEvent ? { event: safeEvent } : {}),
       title: safeTitle,
       description: safeDescription,
@@ -133,7 +150,14 @@ export async function GET(request: Request, { params }: RouteProps) {
         : null,
     }
 
-    return NextResponse.json({ success: true, data: formatted })
+    return NextResponse.json({
+      success: true,
+      data: formatted,
+      isAvailableInVisitorMarket,
+      visitorMarket: geo.market,
+      visitorCountry: geo.country,
+      currency: geo.marketInfo.currency,
+    })
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to fetch service' },

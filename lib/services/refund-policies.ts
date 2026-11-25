@@ -203,6 +203,9 @@ export function formatRefundPolicyDetails(
 
 export interface RefundCalculationResult {
   refundPercentage: number
+  uncappedRefundPercentage: number
+  isCappedByReschedule: boolean
+  maxRefundPercentageCap?: number
   refundAmount: number
   hoursRemaining: number
   matchedRule: RefundPolicyRule
@@ -213,12 +216,15 @@ export interface RefundCalculationResult {
 
 /**
  * Calculates the eligible refund percentage and amount based on session start and cancellation time.
+ * If `maxRefundPercentageCap` is provided (locked during a previous client reschedule),
+ * the eligible refund can never exceed that cap.
  */
 export function calculateEligibleRefund(params: {
   policy?: ServiceRefundPolicy | BookingRefundPolicySnapshot | null
   sessionStartAt: Date | string
   cancellationTime?: Date | string
   totalAmount?: number
+  maxRefundPercentageCap?: number | null
 }): RefundCalculationResult {
   const policy = params.policy || getPredefinedRefundPolicy(DEFAULT_REFUND_POLICY_TYPE)
   const sessionStart = new Date(params.sessionStartAt)
@@ -241,18 +247,34 @@ export function calculateEligibleRefund(params: {
     }
   }
 
-  const refundPercentage = matchedRule.refundPercentage
+  const uncappedRefundPercentage = matchedRule.refundPercentage
+  const hasCap =
+    typeof params.maxRefundPercentageCap === 'number' &&
+    Number.isFinite(params.maxRefundPercentageCap) &&
+    params.maxRefundPercentageCap >= 0 &&
+    params.maxRefundPercentageCap <= 100
+  const refundPercentage = hasCap
+    ? Math.min(uncappedRefundPercentage, params.maxRefundPercentageCap as number)
+    : uncappedRefundPercentage
+  const isCappedByReschedule = Boolean(hasCap && refundPercentage < uncappedRefundPercentage)
+
   const refundAmount = Math.round(((totalAmount * refundPercentage) / 100) * 100) / 100
 
-  const summaryTextEn =
-    refundPercentage === 100
+  const summaryTextEn = isCappedByReschedule
+    ? refundPercentage > 0
+      ? `Capped at ${refundPercentage}% refund (locked at the refund tier active when you rescheduled this booking).`
+      : `0% refund (locked as non-refundable when you rescheduled this booking inside the 0% refund window).`
+    : refundPercentage === 100
       ? `Eligible for 100% full refund (${Math.floor(hoursRemaining)}h remaining before session start).`
       : refundPercentage > 0
         ? `Eligible for ${refundPercentage}% partial refund (${Math.floor(hoursRemaining)}h remaining before session start).`
         : `0% refund (cancelled less than minimum notice required before session start).`
 
-  const summaryTextAr =
-    refundPercentage === 100
+  const summaryTextAr = isCappedByReschedule
+    ? refundPercentage > 0
+      ? `الحد الأقصى للاسترداد مثبّت عند ${refundPercentage}% (بناءً على شريحة الاسترداد وقت قيامك بإعادة جدولة الحجز).`
+      : `لا يوجد استرداد (0%) لأنك قمت بإعادة جدولة الحجز داخل فترة عدم الاسترداد.`
+    : refundPercentage === 100
       ? `مؤهل لاسترداد كامل 100% (متبقي ${Math.floor(hoursRemaining)} ساعة قبل موعد الجلسة).`
       : refundPercentage > 0
         ? `مؤهل لاسترداد جزئي ${refundPercentage}% (متبقي ${Math.floor(hoursRemaining)} ساعة قبل موعد الجلسة).`
@@ -260,6 +282,9 @@ export function calculateEligibleRefund(params: {
 
   return {
     refundPercentage,
+    uncappedRefundPercentage,
+    isCappedByReschedule,
+    ...(hasCap ? { maxRefundPercentageCap: params.maxRefundPercentageCap as number } : {}),
     refundAmount,
     hoursRemaining,
     matchedRule,

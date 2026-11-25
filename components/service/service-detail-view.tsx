@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
+  AlertCircle,
 } from 'lucide-react'
 import type { DayAvailability, TimeSlot } from '@/lib/data/availability'
 import { formatDateLabel, formatSlotLabel } from '@/lib/data/availability'
@@ -195,10 +196,20 @@ export function ServiceDetailView({
   }
 
   const handleBook = async () => {
+    if (service?.isAvailableInVisitorMarket === false) {
+      alert(isAr ? 'عذراً، هذه الخدمة غير متوفرة في بلدك حالياً.' : 'Sorry, this service is not available in your country.')
+      return
+    }
+
     const computedPrice =
+      service?.resolvedPrice?.amount ??
       service?.pricing?.prices?.EGP ??
       service?.pricing?.prices?.[service?.pricing?.baseCurrency || 'EGP'] ??
       0
+    const bookingCurrency =
+      service?.resolvedPrice?.currency ??
+      service?.pricing?.baseCurrency ??
+      'EGP'
     const isFreeOffer = Number(computedPrice) <= 0
     const evStatus = service?.event?.eventStatus || 'open'
     const spotsLeft = service?.event
@@ -246,6 +257,9 @@ export function ServiceDetailView({
         clientPhone: clientPhone.trim(),
         adultsOnlyConfirmed: true,
         paymentReceiptUrl: receiptUrl || undefined,
+        market: service.visitorMarket,
+        currency: bookingCurrency,
+        amount: computedPrice,
       }
 
       if (Array.isArray(service.intakeQuestions) && service.intakeQuestions.length > 0) {
@@ -330,8 +344,12 @@ export function ServiceDetailView({
     )
   }
 
-  const baseCurrency = isAr ? 'ج.م' : (service.pricing?.baseCurrency || 'EGP')
-  const price = service.pricing?.prices?.EGP ?? service.pricing?.prices?.[service.pricing?.baseCurrency || 'EGP'] ?? 0
+  const isMarketAvailable = service.isAvailableInVisitorMarket !== false
+  const resolvedPriceObj = service.resolvedPrice
+  const baseCurrency = resolvedPriceObj
+    ? (isAr ? resolvedPriceObj.symbolAr : resolvedPriceObj.symbolEn)
+    : (isAr ? 'ج.م' : (service.pricing?.baseCurrency || 'EGP'))
+  const price = resolvedPriceObj?.amount ?? service.pricing?.prices?.EGP ?? service.pricing?.prices?.[service.pricing?.baseCurrency || 'EGP'] ?? 0
   const catLabel = getCategoryLabel(service.categorySlug, isAr ? 'ar' : 'en')
   const subLabel = getSubcategoryLabel(service.categorySlug, service.subcategorySlug, isAr ? 'ar' : 'en')
   const displayTitle = isAr ? (service.title?.ar || service.title?.en) : (service.title?.en || service.title?.ar)
@@ -1670,10 +1688,26 @@ export function ServiceDetailView({
                       )
                     })()}
 
+                    {/* Market Availability Notice */}
+                    {service.isAvailableInVisitorMarket === false && (
+                      <div className="rounded-2xl border border-amber-400/40 bg-amber-500/15 p-3.5 text-amber-200 text-xs">
+                        <div className="flex items-center gap-1.5 font-bold mb-1 text-amber-300">
+                          <AlertCircle size={15} />
+                          <span>{isAr ? 'الخدمة غير متاحة في بلدك' : 'Service Not Available in Your Country'}</span>
+                        </div>
+                        <p className="text-[11px] text-amber-100/80 leading-relaxed">
+                          {isAr
+                            ? `نعتذر، هذه الخدمة غير مقدمة حالياً في دولتك (${service.visitorCountry || 'منطقتك'}). تصفح العروض الأخرى المتاحة للخبير.`
+                            : `We apologize, this service is currently not offered in your country (${service.visitorCountry || 'your region'}). You can explore other offerings from this expert.`}
+                        </p>
+                      </div>
+                    )}
+
                     {/* Submit Booking */}
                     <button
                       type="button"
                       disabled={
+                        service.isAvailableInVisitorMarket === false ||
                         bookingLoading ||
                         uploadingReceipt ||
                         Object.values(uploadingIntake).some(Boolean) ||
@@ -1683,23 +1717,25 @@ export function ServiceDetailView({
                       onClick={handleBook}
                       className="w-full rounded-full bg-accent hover:bg-accent-hover py-3.5 text-xs font-bold text-primary shadow-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {bookingLoading
-                        ? (isAr ? 'جاري معالجة الطلب...' : 'Processing...')
-                        : uploadingReceipt
-                          ? (isAr ? 'جاري رفع إيصال الدفع...' : 'Uploading Receipt...')
-                          : Object.values(uploadingIntake).some(Boolean)
-                            ? (isAr ? 'جاري رفع الملفات المرفقة...' : 'Uploading files...')
-                            : showInstaPay && !receiptUrl
-                              ? (isAr ? 'يرجى إرفاق إيصال التحويل أولاً' : 'Upload Receipt to Proceed')
-                              : isComingSoon
-                                ? (isAr ? 'أبلغني عند فتح التسجيل' : 'Notify Me When Open')
-                                : isEventFull
-                                  ? (isAr ? 'انضم لقائمة الانتظار' : 'Join Waitlist')
-                                  : isEvent && isFree
-                                    ? (isAr ? 'تقديم طلب تسجيل مجاني' : 'Request Free Seat')
-                                    : isEvent
-                                      ? (isAr ? 'تأكيد التسجيل في الجلسة' : 'Confirm Registration')
-                                      : (isAr ? 'تأكيد وحجز الموعد' : 'Confirm & Request Session')}
+                      {service.isAvailableInVisitorMarket === false
+                        ? (isAr ? 'غير متاح في بلدك' : 'Not Available in Your Country')
+                        : bookingLoading
+                          ? (isAr ? 'جاري معالجة الطلب...' : 'Processing...')
+                          : uploadingReceipt
+                            ? (isAr ? 'جاري رفع إيصال الدفع...' : 'Uploading Receipt...')
+                            : Object.values(uploadingIntake).some(Boolean)
+                              ? (isAr ? 'جاري رفع الملفات المرفقة...' : 'Uploading files...')
+                              : showInstaPay && !receiptUrl
+                                ? (isAr ? 'يرجى إرفاق إيصال التحويل أولاً' : 'Upload Receipt to Proceed')
+                                : isComingSoon
+                                  ? (isAr ? 'أبلغني عند فتح التسجيل' : 'Notify Me When Open')
+                                  : isEventFull
+                                    ? (isAr ? 'انضم لقائمة الانتظار' : 'Join Waitlist')
+                                    : isEvent && isFree
+                                      ? (isAr ? 'تقديم طلب تسجيل مجاني' : 'Request Free Seat')
+                                      : isEvent
+                                        ? (isAr ? 'تأكيد التسجيل في الجلسة' : 'Confirm Registration')
+                                        : (isAr ? 'تأكيد وحجز الموعد' : 'Confirm & Request Session')}
                     </button>
 
                     <div className="flex items-center justify-center gap-2 text-[11px] text-white/50 pt-1">

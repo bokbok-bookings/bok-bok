@@ -32,6 +32,12 @@ import {
   isAllowedMvpSubcategory,
   isRemovedCategory,
 } from '../data/categories'
+import {
+  type MarketCode,
+  type CurrencyCode,
+  ALL_MARKET_CODES,
+  MARKETS,
+} from '../geo/markets'
 
 export interface LocalizedValue {
   en: string
@@ -118,6 +124,7 @@ export interface NormalizedService {
   breakAfterMinutes: number
   minNoticeHours?: number
   refundPolicy: ServiceRefundPolicy
+  availableMarkets?: MarketCode[]
   pricing: { baseCurrency: string; prices: Record<string, number> }
   event?: ServiceEventDetails
   isStructuredVocationalProgramme: boolean
@@ -334,8 +341,28 @@ export function normalizeTagSlugs(tags: unknown): string[] {
   return [...out]
 }
 
+export function normalizeAvailableMarkets(raw: any, errors?: string[]): MarketCode[] {
+  if (!raw || !Array.isArray(raw) || raw.length === 0) {
+    // Default to Egypt only for backward compatibility
+    return ['EG']
+  }
+  const valid = (raw as any[])
+    .map((m) => String(m).trim().toUpperCase() as MarketCode)
+    .filter((m): m is MarketCode => (ALL_MARKET_CODES as string[]).includes(m))
+
+  const deduplicated = Array.from(new Set(valid))
+  if (deduplicated.length === 0) {
+    if (errors) {
+      errors.push('At least one valid market (e.g. Egypt, GCC country, or Global) must be selected.')
+    }
+    return ['EG']
+  }
+  return deduplicated
+}
+
 function normalizePricing(
   raw: any,
+  availableMarkets: MarketCode[],
   errors: string[],
 ): { baseCurrency: string; prices: Record<string, number> } {
   const baseCurrency = (str(raw?.baseCurrency) || 'EGP').toUpperCase()
@@ -361,6 +388,15 @@ function normalizePricing(
   if (prices[baseCurrency] === undefined) {
     errors.push(`A price in the base currency (${baseCurrency}) is required`)
   }
+
+  // Ensure each enabled market has a valid price
+  for (const market of availableMarkets) {
+    const cur = MARKETS[market]?.currency
+    if (cur && (prices[cur] === undefined || !Number.isFinite(prices[cur]) || prices[cur] < 0)) {
+      errors.push(`A valid price for market ${MARKETS[market]?.name.en || market} (${cur}) is required`)
+    }
+  }
+
   return { baseCurrency, prices }
 }
 
@@ -491,7 +527,8 @@ export function validateServiceInput(
   }
 
   const tags = normalizeTagSlugs(pick('tags'))
-  const pricing = normalizePricing(pick('pricing'), errors)
+  const availableMarkets = normalizeAvailableMarkets(pick('availableMarkets'), errors)
+  const pricing = normalizePricing(pick('pricing'), availableMarkets, errors)
 
   // ---- Excluded services check across ALL categories ---------------------
   const combinedText = [
@@ -889,6 +926,7 @@ export function validateServiceInput(
     breakAfterMinutes,
     minNoticeHours,
     refundPolicy,
+    availableMarkets,
     pricing,
     isStructuredVocationalProgramme,
     requiresLicensingReview,

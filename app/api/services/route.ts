@@ -8,6 +8,12 @@ import {
   isRemovedCategory,
 } from '@/lib/data/categories'
 import { stripUnverifiedAccreditationClaims } from '@/lib/services/service-validation'
+import { getServerGeo } from '@/lib/geo/server'
+import {
+  isServiceAvailableInMarket,
+  getServicePriceForMarket,
+  getServiceMarkets,
+} from '@/lib/geo/markets'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +38,10 @@ export async function GET(request: Request) {
     const tagParam = searchParams.get('tag')
     const searchParam = searchParams.get('q')
     const includePast = searchParams.get('includePast') === 'true'
+    const allMarketsParam = searchParams.get('allMarkets') === 'true'
+
+    const geo = await getServerGeo(request)
+    const visitorMarket = geo.market
 
     // Professional / General Services are outside the MVP
     if (viewParam === 'services') {
@@ -145,6 +155,9 @@ export async function GET(request: Request) {
         if (s.event?.eventStatus === 'coming_soon') return true
         if (s.event?.date && s.event.date < todayCairoISO) return false
       }
+      if (!allMarketsParam && !isServiceAvailableInMarket(s, visitorMarket)) {
+        return false
+      }
       return true
     })
 
@@ -206,8 +219,12 @@ export async function GET(request: Request) {
           ar: stripUnverifiedAccreditationClaims(s.description?.ar || ''),
         }
 
+      const resolvedPrice = getServicePriceForMarket(s, visitorMarket)
+
       return {
         ...s,
+        availableMarkets: getServiceMarkets(s),
+        resolvedPrice,
         ...(s.event ? { event: sanitizePublicEvent(s.event) } : {}),
         title: safeTitle,
         description: safeDescription,
@@ -255,6 +272,9 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       data: formatted,
+      visitorMarket: geo.market,
+      visitorCountry: geo.country,
+      currency: geo.marketInfo.currency,
       ...(meta ? { meta } : {}),
     })
   } catch (error: any) {

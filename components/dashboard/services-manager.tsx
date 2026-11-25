@@ -22,6 +22,13 @@ import {
   getPredefinedRefundPolicy,
   formatRefundPolicyDetails,
 } from '@/lib/services/refund-policies'
+import {
+  type MarketCode,
+  ALL_MARKET_CODES,
+  GCC_MARKET_CODES,
+  MARKETS,
+  getServiceMarkets,
+} from '@/lib/geo/markets'
 import { Share2, Check, ShieldAlert, Users, Image as ImageIcon, Trash2, MapPin, ChevronUp, ChevronDown, GripVertical } from 'lucide-react'
 import { CloudinaryUploadWidget } from '@/components/ui/cloudinary-upload-widget'
 import { useLanguage } from '@/lib/i18n/language-context'
@@ -81,6 +88,7 @@ export interface ServiceItem {
     name: string
     rules: Array<{ refundPercentage: number; minimumHoursBefore: number }>
   }
+  availableMarkets?: MarketCode[]
   pricing: {
     baseCurrency: string
     prices: Record<string, number>
@@ -177,10 +185,49 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
   const [eventPolicyAr, setEventPolicyAr] = useState('')
   const [eventRecordingUrl, setEventRecordingUrl] = useState('')
 
-  // Pricing
-  const [priceEGP, setPriceEGP] = useState(500)
-  const [priceUSD, setPriceUSD] = useState(20)
-  const [priceSAR, setPriceSAR] = useState(75)
+  // Markets & Multi-Currency Pricing
+  const [selectedMarkets, setSelectedMarkets] = useState<MarketCode[]>(['EG'])
+  const [marketPrices, setMarketPrices] = useState<Record<MarketCode, number>>({
+    EG: 500,
+    SA: 75,
+    AE: 75,
+    KW: 6,
+    QA: 75,
+    BH: 7.5,
+    OM: 7.5,
+    GLOBAL: 20,
+  })
+
+  const toggleMarket = (code: MarketCode) => {
+    setSelectedMarkets((prev) => {
+      if (prev.includes(code)) {
+        if (prev.length <= 1) {
+          alert(isAr ? 'يجب اختيار دولة واحدة على الأقل لتقديم الخدمة بها.' : 'You must select at least one market.')
+          return prev
+        }
+        return prev.filter((c) => c !== code)
+      } else {
+        return [...prev, code]
+      }
+    })
+  }
+
+  const toggleAllGcc = () => {
+    const allGccSelected = GCC_MARKET_CODES.every((c) => selectedMarkets.includes(c))
+    if (allGccSelected) {
+      const remaining = selectedMarkets.filter((c) => !GCC_MARKET_CODES.includes(c))
+      setSelectedMarkets(remaining.length > 0 ? remaining : ['EG'])
+    } else {
+      setSelectedMarkets((prev) => Array.from(new Set([...prev, ...GCC_MARKET_CODES])))
+    }
+  }
+
+  const handlePriceChange = (code: MarketCode, val: number) => {
+    setMarketPrices((prev) => ({
+      ...prev,
+      [code]: isNaN(val) ? 0 : Math.max(0, val),
+    }))
+  }
 
   // Toggles
   const [isActive, setIsActive] = useState(true)
@@ -289,19 +336,19 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
           prev.map((s) =>
             s._id === serviceId
               ? {
-                  ...s,
-                  event: s.event
-                    ? { ...s.event, eventStatus: newStatus }
-                    : {
-                        date: '',
-                        startTime: '',
-                        endTime: '',
-                        timezone: 'Africa/Cairo',
-                        capacity: 25,
-                        registeredCount: 0,
-                        eventStatus: newStatus,
-                      },
-                }
+                ...s,
+                event: s.event
+                  ? { ...s.event, eventStatus: newStatus }
+                  : {
+                    date: '',
+                    startTime: '',
+                    endTime: '',
+                    timezone: 'Africa/Cairo',
+                    capacity: 25,
+                    registeredCount: 0,
+                    eventStatus: newStatus,
+                  },
+              }
               : s
           )
         )
@@ -368,9 +415,17 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
     setEventPolicyEn('')
     setEventPolicyAr('')
     setEventRecordingUrl('')
-    setPriceEGP(0)
-    setPriceUSD(20)
-    setPriceSAR(75)
+    setSelectedMarkets(['EG'])
+    setMarketPrices({
+      EG: 500,
+      SA: 75,
+      AE: 75,
+      KW: 6,
+      QA: 75,
+      BH: 7.5,
+      OM: 7.5,
+      GLOBAL: 20,
+    })
     setIsActive(true)
     setIsMostBooked(false)
     setModalOpen(true)
@@ -446,9 +501,18 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
     setEventPolicyEn(s.event?.cancellationPolicy?.en || '')
     setEventPolicyAr(s.event?.cancellationPolicy?.ar || '')
     setEventRecordingUrl(s.event?.recordingUrl || '')
-    setPriceEGP(s.pricing?.prices?.EGP ?? 500)
-    setPriceUSD(s.pricing?.prices?.USD ?? 20)
-    setPriceSAR(s.pricing?.prices?.SAR ?? 75)
+    const initialMarkets = getServiceMarkets(s)
+    setSelectedMarkets(initialMarkets)
+    setMarketPrices({
+      EG: s.pricing?.prices?.EGP ?? 500,
+      SA: s.pricing?.prices?.SAR ?? 75,
+      AE: s.pricing?.prices?.AED ?? 75,
+      KW: s.pricing?.prices?.KWD ?? 6,
+      QA: s.pricing?.prices?.QAR ?? 75,
+      BH: s.pricing?.prices?.BHD ?? 7.5,
+      OM: s.pricing?.prices?.OMR ?? 7.5,
+      GLOBAL: s.pricing?.prices?.USD ?? 20,
+    })
     setIsActive(s.isActive)
     setIsMostBooked(s.isMostBooked)
     setModalOpen(true)
@@ -472,10 +536,25 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
       alert(isAr ? 'يرجى اختيار سياسة الإلغاء والاسترداد للخدمة.' : 'Please select a refund policy for this service.')
       return
     }
+    if (selectedMarkets.length === 0) {
+      alert(isAr ? 'يرجى اختيار دولة أو سوق واحدة على الأقل لتقديم الخدمة بها.' : 'Please select at least one market where this service is offered.')
+      return
+    }
 
     setSaving(true)
     try {
       const typeConfig = offeringTypeToModel(offeringType)
+
+      const compiledPrices: Record<string, number> = {
+        EGP: Number(marketPrices.EG ?? 0),
+      }
+      for (const m of selectedMarkets) {
+        const cur = MARKETS[m].currency
+        compiledPrices[cur] = Number(marketPrices[m] ?? MARKETS[m].defaultPrice)
+      }
+      if (selectedMarkets.includes('GLOBAL')) {
+        compiledPrices.USD = Number(marketPrices.GLOBAL ?? 20)
+      }
 
       const payload: any = {
         id: editingService?._id,
@@ -497,13 +576,10 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
           .split(',')
           .map((t) => t.trim().toLowerCase())
           .filter(Boolean),
+        availableMarkets: selectedMarkets,
         pricing: {
           baseCurrency: 'EGP',
-          prices: {
-            EGP: Number(priceEGP),
-            USD: Number(priceUSD),
-            SAR: Number(priceSAR),
-          },
+          prices: compiledPrices,
         },
         isActive,
         isMostBooked,
@@ -711,9 +787,13 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                         {s.event ? `${s.event.date} · ${s.event.capacity} seats` : `${s.durationMinutes} min`}
                       </span>
                       <div className="rounded-2xl bg-white/95 backdrop-blur-xs px-3 py-1 text-right shadow-sm">
-                        <p className="text-sm font-black text-[#101F49] leading-tight">{s.pricing?.prices?.EGP ?? 0} EGP</p>
+                        <p className="text-sm font-black text-[#101F49] leading-tight">
+                          {s.pricing?.prices?.EGP !== undefined
+                            ? `${s.pricing.prices.EGP} EGP`
+                            : `${Object.values(s.pricing?.prices || {})[0] || 0}`}
+                        </p>
                         <p className="text-[9px] font-semibold text-[#637084]">
-                          ${s.pricing?.prices?.USD ?? 0} / {s.pricing?.prices?.SAR ?? 0} SAR
+                          {getServiceMarkets(s).map((m) => MARKETS[m]?.flag).join(' ')} ({getServiceMarkets(s).length} {getServiceMarkets(s).length === 1 ? 'market' : 'markets'})
                         </p>
                       </div>
                     </div>
@@ -796,13 +876,12 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                               )
                             }
                             disabled={updatingStatusId === s._id}
-                            className={`rounded-lg border px-2.5 py-1 text-xs font-bold outline-none cursor-pointer transition ${
-                              (s.event?.eventStatus || 'open') === 'open'
+                            className={`rounded-lg border px-2.5 py-1 text-xs font-bold outline-none cursor-pointer transition ${(s.event?.eventStatus || 'open') === 'open'
                                 ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
                                 : s.event?.eventStatus === 'coming_soon'
-                                ? 'border-amber-300 bg-amber-50 text-amber-800'
-                                : 'border-slate-300 bg-slate-100 text-slate-700'
-                            }`}
+                                  ? 'border-amber-300 bg-amber-50 text-amber-800'
+                                  : 'border-slate-300 bg-slate-100 text-slate-700'
+                              }`}
                           >
                             <option value="open">{isAr ? 'مفتوح للتسجيل' : 'Open for Registration'}</option>
                             <option value="coming_soon">{isAr ? 'قريباً (إشعار عند الفتح)' : 'Coming Soon (Notify Me)'}</option>
@@ -847,7 +926,7 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                           </div>
                         ) : (
                           <p className="rounded-xl border border-slate-200 bg-[#F8FAFC] px-3 py-2 text-[11px] text-[#637084]">
-                            
+
                             {s.approvalStatus === 'approved'
                               ? isAr
                                 ? 'سيتم ربط رابط Google Meet المشترك بواسطة إدارة المنصة.'
@@ -1727,11 +1806,10 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                       <div
                         key={policy.type}
                         onClick={() => setRefundPolicyType(policy.type)}
-                        className={`relative flex flex-col justify-between rounded-2xl border p-4 cursor-pointer transition text-left ${
-                          isSelected
+                        className={`relative flex flex-col justify-between rounded-2xl border p-4 cursor-pointer transition text-left ${isSelected
                             ? 'border-[#2855C5] bg-white shadow-sm ring-2 ring-[#2855C5]/20'
                             : 'border-[#E2E8F0] bg-white hover:border-[#CBD5E1] hover:bg-[#F8FAFC]'
-                        }`}
+                          }`}
                       >
                         <div>
                           <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -1739,11 +1817,10 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                               {isAr ? policy.nameAr : policy.name}
                             </span>
                             <div
-                              className={`flex size-4 items-center justify-center rounded-full border transition shrink-0 ${
-                                isSelected
+                              className={`flex size-4 items-center justify-center rounded-full border transition shrink-0 ${isSelected
                                   ? 'border-[#2855C5] bg-[#2855C5] text-white'
                                   : 'border-[#CBD5E1] bg-white'
-                              }`}
+                                }`}
                             >
                               {isSelected && <Check size={10} strokeWidth={3} />}
                             </div>
@@ -1751,13 +1828,12 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
 
                           {policy.badgeEn && (
                             <span
-                              className={`inline-block mb-2 rounded-full px-2 py-0.5 text-[9px] font-bold ${
-                                policy.type === 'standard'
+                              className={`inline-block mb-2 rounded-full px-2 py-0.5 text-[9px] font-bold ${policy.type === 'standard'
                                   ? 'bg-emerald-100 text-emerald-800'
                                   : policy.type === 'customer_friendly'
                                     ? 'bg-blue-100 text-blue-800'
                                     : 'bg-amber-100 text-amber-800'
-                              }`}
+                                }`}
                             >
                               {isAr ? policy.badgeAr : policy.badgeEn}
                             </span>
@@ -1788,40 +1864,179 @@ export function ServicesManager({ expertId, expertName }: ServicesManagerProps) 
                 </div>
               </div>
 
-              {/* Multi-Currency Pricing */}
-              <div>
-                <p className="text-xs font-bold text-[#101F49] mb-2">Multi-Currency Pricing</p>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <label className="text-[11px] font-semibold text-[#637084]">
-                    EGP (Base)
-                    <input
-                      type="number"
-                      min={0}
-                      value={priceEGP}
-                      onChange={(e) => setPriceEGP(Number(e.target.value))}
-                      className="mt-1 w-full rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
-                    />
-                  </label>
-                  <label className="text-[11px] font-semibold text-[#637084]">
-                    USD
-                    <input
-                      type="number"
-                      min={0}
-                      value={priceUSD}
-                      onChange={(e) => setPriceUSD(Number(e.target.value))}
-                      className="mt-1 w-full rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
-                    />
-                  </label>
-                  <label className="text-[11px] font-semibold text-[#637084]">
-                    SAR
-                    <input
-                      type="number"
-                      min={0}
-                      value={priceSAR}
-                      onChange={(e) => setPriceSAR(Number(e.target.value))}
-                      className="mt-1 w-full rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs outline-none focus:border-[#2855C5]"
-                    />
-                  </label>
+              {/* Target Markets & Multi-Currency Pricing Matrix */}
+              <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 sm:p-5 space-y-4">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-[#101F49]">
+                      {isAr ? 'الأسواق المستهدفة والتسعير بالعملات المحلية' : 'Target Markets & Local Pricing'}
+                    </p>
+                    <span className="text-[11px] font-semibold text-[#2855C5]">
+                      {selectedMarkets.length} {isAr ? 'أسواق محددة' : 'selected'}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-[#637084]">
+                    {isAr
+                      ? 'حدد الدول التي ترغب في تقديم هذه الخدمة فيها، وحدد السعر بالعملة المحلية لكل دولة. سيظهر خيار التسعير العالمي (بالدولار الأمريكي) للزوار من كافة الدول الأخرى خارج مصر ودول الخليج.'
+                      : 'Select which countries this service is offered in and set prices in local currencies. The Global option (USD) will be shown to visitors anywhere outside Egypt and the GCC.'}
+                  </p>
+                </div>
+
+                {/* 1. Egypt */}
+                <div className="rounded-xl border border-[#E2E8F0] bg-white p-3.5 shadow-2xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={selectedMarkets.includes('EG')}
+                        onChange={() => toggleMarket('EG')}
+                        className="h-4 w-4 rounded text-[#2855C5] focus:ring-[#2855C5]"
+                      />
+                      <span className="text-sm">🇪🇬</span>
+                      <div>
+                        <span className="text-xs font-bold text-[#101F49]">
+                          {isAr ? 'مصر (EGP)' : 'Egypt (EGP)'}
+                        </span>
+                        <span className="ml-1.5 text-[10px] text-[#637084]">
+                          {isAr ? 'الجنيه المصري (ج.م)' : 'Egyptian Pound'}
+                        </span>
+                      </div>
+                    </label>
+
+                    {selectedMarkets.includes('EG') && (
+                      <div className="flex items-center gap-2 self-end sm:self-auto">
+                        <span className="text-xs font-semibold text-[#637084]">
+                          {isAr ? 'السعر (ج.م):' : 'Price (EGP):'}
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={marketPrices.EG}
+                          onChange={(e) => handlePriceChange('EG', Number(e.target.value))}
+                          className="w-28 rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-xs font-semibold text-[#101F49] outline-none focus:border-[#2855C5]"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. GCC Countries Section */}
+                <div className="rounded-xl border border-[#E2E8F0] bg-white p-3.5 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">🌴</span>
+                      <div>
+                        <p className="text-xs font-bold text-[#101F49]">
+                          {isAr ? 'دول الخليج العربي (GCC)' : 'GCC Countries'}
+                        </p>
+                        <p className="text-[10px] text-[#637084]">
+                          {isAr ? 'السعودية، الإمارات، الكويت، قطر، البحرين، عمان' : 'Saudi Arabia, UAE, Kuwait, Qatar, Bahrain, Oman'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={toggleAllGcc}
+                      className="rounded-lg bg-[#EFF6FF] px-2.5 py-1 text-[11px] font-bold text-[#2855C5] hover:bg-[#DBEAFE] transition"
+                    >
+                      {GCC_MARKET_CODES.every((c) => selectedMarkets.includes(c))
+                        ? (isAr ? 'إلغاء تحديد كل الخليج' : 'Deselect All GCC')
+                        : (isAr ? 'تحديد كل دول الخليج' : 'Select All GCC')}
+                    </button>
+                  </div>
+
+                  <div className="grid gap-2.5 sm:grid-cols-2">
+                    {GCC_MARKET_CODES.map((mCode) => {
+                      const m = MARKETS[mCode]
+                      const isSelected = selectedMarkets.includes(mCode)
+                      return (
+                        <div
+                          key={mCode}
+                          className={`rounded-lg border p-2.5 transition ${isSelected
+                              ? 'border-[#2855C5]/40 bg-[#F8FAFC]'
+                              : 'border-[#E2E8F0] bg-gray-50/60 opacity-70'
+                            }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleMarket(mCode)}
+                                className="h-3.5 w-3.5 rounded text-[#2855C5] focus:ring-[#2855C5]"
+                              />
+                              <span className="text-xs">{m.flag}</span>
+                              <span className="text-[11px] font-bold text-[#101F49]">
+                                {isAr ? m.name.ar : m.name.en}
+                              </span>
+                            </label>
+                            <span className="text-[10px] font-bold text-[#637084]">
+                              {m.currency} ({isAr ? m.symbol.ar : m.symbol.en})
+                            </span>
+                          </div>
+                          {isSelected && (
+                            <div className="mt-2 flex items-center justify-end gap-1.5">
+                              <span className="text-[10px] text-[#637084]">
+                                {isAr ? 'السعر:' : 'Price:'}
+                              </span>
+                              <input
+                                type="number"
+                                min={0}
+                                step="any"
+                                value={marketPrices[mCode]}
+                                onChange={(e) => handlePriceChange(mCode, Number(e.target.value))}
+                                className="w-24 rounded border border-[#E2E8F0] px-2 py-1 text-xs font-semibold text-[#101F49] outline-none focus:border-[#2855C5]"
+                              />
+                              <span className="text-[11px] font-bold text-[#101F49]">
+                                {isAr ? m.symbol.ar : m.symbol.en}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. Global Option */}
+                <div className="rounded-xl border border-[#E2E8F0] bg-white p-3.5 shadow-2xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={selectedMarkets.includes('GLOBAL')}
+                        onChange={() => toggleMarket('GLOBAL')}
+                        className="h-4 w-4 rounded text-[#2855C5] focus:ring-[#2855C5]"
+                      />
+                      <span className="text-sm">🌍</span>
+                      <div>
+                        <span className="text-xs font-bold text-[#101F49]">
+                          {isAr ? 'الخيار العالمي (بالدولار الأمريكي USD)' : 'Global Option (USD)'}
+                        </span>
+                        <p className="text-[10px] text-[#637084]">
+                          {isAr
+                            ? 'يظهر لكافة الزوار من جميع دول العالم (باستثناء مصر والدول الست للخليج)'
+                            : 'Displays to visitors from all countries worldwide (outside Egypt & the 6 GCC countries)'}
+                        </p>
+                      </div>
+                    </label>
+
+                    {selectedMarkets.includes('GLOBAL') && (
+                      <div className="flex items-center gap-2 self-end sm:self-auto">
+                        <span className="text-xs font-semibold text-[#637084]">
+                          {isAr ? 'السعر ($):' : 'Price ($):'}
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={marketPrices.GLOBAL}
+                          onChange={(e) => handlePriceChange('GLOBAL', Number(e.target.value))}
+                          className="w-24 rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-xs font-semibold text-[#101F49] outline-none focus:border-[#2855C5]"
+                        />
+                        <span className="text-xs font-bold text-[#101F49]">$ USD</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

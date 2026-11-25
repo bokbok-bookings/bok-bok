@@ -1088,3 +1088,298 @@ Thank you for using Bok Bok!`
   }
 }
 
+function escapeHtmlEmail(str?: string | null): string {
+  if (!str) return ''
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/**
+ * 10. Booking Cancelled Email (to Client or Expert)
+ */
+export function renderBookingCancelledEmail(params: {
+  booking: BookingDoc
+  expertName: string
+  clientName: string
+  serviceTitle: string
+  recipientRole: 'client' | 'expert'
+  cancelledByRole: 'client' | 'expert' | 'admin'
+  reason?: string
+  refundPercentage: number
+  refundAmount: number
+  requiresAdminRefund: boolean
+  bookingUrl: string
+}) {
+  const {
+    booking,
+    expertName,
+    clientName,
+    serviceTitle,
+    recipientRole,
+    cancelledByRole,
+    reason,
+    refundPercentage,
+    refundAmount,
+    requiresAdminRefund,
+    bookingUrl,
+  } = params
+
+  const isClient = recipientRole === 'client'
+  const ref = booking.reference || booking._id?.toString() || ''
+  const currency = booking.currency || 'EGP'
+  const subject = isClient
+    ? `Booking Cancelled: ${serviceTitle} (#${ref})`
+    : `Session Cancelled by ${cancelledByRole === 'client' ? clientName : cancelledByRole}: ${serviceTitle} (#${ref})`
+
+  const refundBlock = isClient
+    ? requiresAdminRefund
+      ? `<div class="alert-box">
+          <strong>InstaPay Refund Request Submitted (${refundPercentage}% · ${refundAmount} ${escapeHtmlEmail(currency)}):</strong><br/>
+          Based on the booking's cancellation policy, you are eligible for a refund of <strong>${refundAmount} ${escapeHtmlEmail(currency)}</strong>.
+          Because this session was paid via InstaPay, your refund request has been sent to our admin team for processing.
+        </div>`
+      : refundAmount > 0
+        ? `<div class="success-box">
+            <strong>Eligible Refund:</strong> ${refundPercentage}% (${refundAmount} ${escapeHtmlEmail(currency)}) according to the booking's cancellation policy.
+          </div>`
+        : `<div class="highlight-card">
+            <strong>Refund Summary:</strong> 0% refund (0 ${escapeHtmlEmail(currency)}) according to the booking's cancellation policy.
+          </div>`
+    : `<div class="highlight-card">
+        This time slot (${escapeHtmlEmail(booking.date)} at ${escapeHtmlEmail(booking.time)}) has been released back to your availability.
+      </div>`
+
+  const contentHtml = `
+    <h1 class="h1">${isClient ? 'Your Booking Has Been Cancelled' : 'A Scheduled Session Was Cancelled'}</h1>
+    <p class="p">
+      ${isClient ? `Hi ${escapeHtmlEmail(clientName)},` : `Hi ${escapeHtmlEmail(expertName)},`}
+    </p>
+    <p class="p">
+      ${isClient
+        ? `Your session <strong>${escapeHtmlEmail(serviceTitle)}</strong> with <strong>${escapeHtmlEmail(expertName)}</strong> has been cancelled.`
+        : `The session <strong>${escapeHtmlEmail(serviceTitle)}</strong> with <strong>${escapeHtmlEmail(clientName)}</strong> has been cancelled.`}
+    </p>
+
+    <div class="highlight-card">
+      <div class="meta-row">
+        <span class="meta-label">Reference</span>
+        <span class="meta-val">#${escapeHtmlEmail(ref)}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Session</span>
+        <span class="meta-val">${escapeHtmlEmail(serviceTitle)}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Original Date &amp; Time</span>
+        <span class="meta-val">${escapeHtmlEmail(booking.date)} at ${escapeHtmlEmail(booking.time)}</span>
+      </div>
+      ${reason ? `<div class="meta-row">
+        <span class="meta-label">Cancellation Reason</span>
+        <span class="meta-val">${escapeHtmlEmail(reason)}</span>
+      </div>` : ''}
+    </div>
+
+    ${refundBlock}
+
+    <div style="text-align: center; margin: 24px 0;">
+      <a href="${bookingUrl}" target="_blank" class="btn">View Booking Details</a>
+    </div>
+  `
+
+  const text = `${subject}
+
+Session: ${serviceTitle}
+Date & Time: ${booking.date} at ${booking.time}
+Reference: #${ref}
+${reason ? `Reason: ${reason}\n` : ''}${
+    isClient
+      ? requiresAdminRefund
+        ? `Refund Status: InstaPay refund request of ${refundAmount} ${currency} (${refundPercentage}%) has been sent to our admin team.`
+        : `Eligible Refund: ${refundAmount} ${currency} (${refundPercentage}%).`
+      : 'Your time slot has been released.'
+  }
+
+View Booking: ${bookingUrl}`
+
+  return {
+    subject,
+    html: emailLayout({
+      title: subject,
+      preheader: `Booking #${ref} has been cancelled.`,
+      contentHtml,
+    }),
+    text,
+  }
+}
+
+/**
+ * 11. Admin Cancellation & InstaPay Refund Request Email
+ */
+export function renderAdminRefundRequestEmail(params: {
+  booking: BookingDoc
+  expertName: string
+  clientName: string
+  serviceTitle: string
+  reason?: string
+  instapayAddress?: string
+  policyType: string
+  hoursBeforeSession: number
+  refundPercentage: number
+  refundAmount: number
+  adminBookingsUrl: string
+}) {
+  const {
+    booking,
+    expertName,
+    clientName,
+    serviceTitle,
+    reason,
+    instapayAddress,
+    policyType,
+    hoursBeforeSession,
+    refundPercentage,
+    refundAmount,
+    adminBookingsUrl,
+  } = params
+
+  const ref = booking.reference || booking._id?.toString() || ''
+  const currency = booking.currency || 'EGP'
+  const subject = `[Action Required] InstaPay Refund Request (${refundAmount} ${currency}) — #${ref}`
+
+  const contentHtml = `
+    <h1 class="h1">InstaPay Cancellation &amp; Refund Request</h1>
+    <p class="p">
+      A booking paid via <strong>InstaPay</strong> was cancelled and qualifies for a policy-based refund. Please review and transfer the refund amount to the client.
+    </p>
+
+    <div class="alert-box">
+      <strong>Refund Amount Due:</strong> ${refundAmount} ${escapeHtmlEmail(currency)} (${refundPercentage}% of ${booking.amount || 0} ${escapeHtmlEmail(currency)})<br/>
+      <strong>Policy Applied:</strong> ${escapeHtmlEmail(policyType)} (${Math.floor(hoursBeforeSession)}h remaining before session)
+    </div>
+
+    <div class="highlight-card">
+      <div class="meta-row">
+        <span class="meta-label">Booking Reference</span>
+        <span class="meta-val">#${escapeHtmlEmail(ref)}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Client</span>
+        <span class="meta-val">${escapeHtmlEmail(clientName)} (${escapeHtmlEmail(booking.clientEmail)})</span>
+      </div>
+      ${booking.clientPhone ? `<div class="meta-row">
+        <span class="meta-label">Client Phone</span>
+        <span class="meta-val">${escapeHtmlEmail(booking.clientPhone)}</span>
+      </div>` : ''}
+      ${instapayAddress ? `<div class="meta-row">
+        <span class="meta-label">Client InstaPay Handle / Phone</span>
+        <span class="meta-val">${escapeHtmlEmail(instapayAddress)}</span>
+      </div>` : ''}
+      <div class="meta-row">
+        <span class="meta-label">Expert &amp; Service</span>
+        <span class="meta-val">${escapeHtmlEmail(expertName)} · ${escapeHtmlEmail(serviceTitle)}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Session Slot</span>
+        <span class="meta-val">${escapeHtmlEmail(booking.date)} at ${escapeHtmlEmail(booking.time)}</span>
+      </div>
+      ${reason ? `<div class="meta-row">
+        <span class="meta-label">Cancellation Reason</span>
+        <span class="meta-val">${escapeHtmlEmail(reason)}</span>
+      </div>` : ''}
+    </div>
+
+    <div style="text-align: center; margin: 24px 0;">
+      <a href="${adminBookingsUrl}" target="_blank" class="btn">Review &amp; Process Refund in Admin</a>
+    </div>
+  `
+
+  const text = `InstaPay Refund Request Required
+
+Reference: #${ref}
+Client: ${clientName} (${booking.clientEmail}) ${booking.clientPhone ? `| Phone: ${booking.clientPhone}` : ''}
+${instapayAddress ? `InstaPay Handle/Phone: ${instapayAddress}\n` : ''}Expert & Service: ${expertName} - ${serviceTitle}
+Original Slot: ${booking.date} at ${booking.time}
+Policy: ${policyType} (${Math.floor(hoursBeforeSession)}h before session)
+Refund Amount Due: ${refundAmount} ${currency} (${refundPercentage}%)
+${reason ? `Reason: ${reason}\n` : ''}
+Process in Admin Panel: ${adminBookingsUrl}`
+
+  return {
+    subject,
+    html: emailLayout({
+      title: subject,
+      preheader: `InstaPay refund request of ${refundAmount} ${currency} for booking #${ref}.`,
+      contentHtml,
+    }),
+    text,
+  }
+}
+
+/**
+ * 12. Refund Processed Notification Email (to Client)
+ */
+export function renderRefundProcessedEmail(params: {
+  booking: BookingDoc
+  clientName: string
+  serviceTitle: string
+  refundAmount: number
+  refundPercentage: number
+  refundReference?: string
+  adminNotes?: string
+  bookingUrl: string
+}) {
+  const {
+    booking,
+    clientName,
+    serviceTitle,
+    refundAmount,
+    refundPercentage,
+    refundReference,
+    adminNotes,
+    bookingUrl,
+  } = params
+
+  const ref = booking.reference || booking._id?.toString() || ''
+  const currency = booking.currency || 'EGP'
+  const subject = `Your InstaPay Refund Has Been Processed (#${ref})`
+
+  const contentHtml = `
+    <h1 class="h1">Your Refund Has Been Sent!</h1>
+    <p class="p">Hi ${escapeHtmlEmail(clientName)},</p>
+    <p class="p">
+      Our admin team has processed your InstaPay refund for your cancelled session <strong>${escapeHtmlEmail(serviceTitle)}</strong>.
+    </p>
+
+    <div class="success-box">
+      <strong>Refunded Amount:</strong> ${refundAmount} ${escapeHtmlEmail(currency)} (${refundPercentage}%)<br/>
+      ${refundReference ? `<strong>Transfer Reference:</strong> ${escapeHtmlEmail(refundReference)}<br/>` : ''}
+      ${adminNotes ? `<strong>Note:</strong> ${escapeHtmlEmail(adminNotes)}` : ''}
+    </div>
+
+    <div style="text-align: center; margin: 24px 0;">
+      <a href="${bookingUrl}" target="_blank" class="btn">View Booking Details</a>
+    </div>
+  `
+
+  const text = `Hi ${clientName},
+
+Your InstaPay refund of ${refundAmount} ${currency} (${refundPercentage}%) for cancelled booking #${ref} (${serviceTitle}) has been processed.
+${refundReference ? `Transfer Reference: ${refundReference}\n` : ''}${adminNotes ? `Notes: ${adminNotes}\n` : ''}
+View Booking: ${bookingUrl}`
+
+  return {
+    subject,
+    html: emailLayout({
+      title: subject,
+      preheader: `Your InstaPay refund of ${refundAmount} ${currency} has been processed.`,
+      contentHtml,
+    }),
+    text,
+  }
+}
+
+

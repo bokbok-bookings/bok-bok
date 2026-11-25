@@ -71,6 +71,14 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
   const [disputeError, setDisputeError] = useState<string | null>(null)
   const [disputeSuccess, setDisputeSuccess] = useState<string | null>(null)
 
+  // Policy-based cancellation & InstaPay refund modal states
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelInstapayAddress, setCancelInstapayAddress] = useState('')
+  const [submittingCancel, setSubmittingCancel] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
+  const [cancelSuccess, setCancelSuccess] = useState<string | null>(null)
+
   // Real-time clock to evaluate the 15-minute meeting link access window
   const [currentTime, setCurrentTime] = useState<number>(() => Date.now())
 
@@ -357,7 +365,7 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
       if (json.success) {
         setAttendanceFeedback(
           json.message ||
-            (isAr ? 'تم تسجيل حضور الجلسة بنجاح. شكراً لك!' : 'Attendance response recorded. Thank you!')
+          (isAr ? 'تم تسجيل حضور الجلسة بنجاح. شكراً لك!' : 'Attendance response recorded. Thank you!')
         )
         // If client explicitly confirmed session completed with no problem, open review popup immediately!
         if (response === 'attended' && booking?.userRoleInView === 'client' && !booking?.hasReview) {
@@ -429,6 +437,45 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
       setDisputeError(err.message || (isAr ? 'خطأ أثناء إرسال البلاغ' : 'Error submitting dispute report'))
     } finally {
       setSubmittingDispute(false)
+    }
+  }
+
+  const handleCancelSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!booking?._id) return
+
+    setSubmittingCancel(true)
+    setCancelError(null)
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}/cancel?token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason: cancelReason,
+          instapayAddress: cancelInstapayAddress,
+          token: token || undefined,
+        }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setShowCancelModal(false)
+        setCancelSuccess(
+          json.requiresAdminRefund
+            ? isAr
+              ? `تم إلغاء الحجز بنجاح وإرسال طلب استرداد عبر InstaPay بقيمة ${json.cancellation?.refundAmount || 0} ${booking.currency || 'EGP'} (${json.cancellation?.refundPercentage || 0}%) إلى فريق الإدارة.`
+              : `Booking cancelled. An InstaPay refund request of ${json.cancellation?.refundAmount || 0} ${booking.currency || 'EGP'} (${json.cancellation?.refundPercentage || 0}%) has been sent to our admin team.`
+            : isAr
+              ? 'تم إلغاء الحجز بنجاح.'
+              : 'Booking cancelled successfully.'
+        )
+        fetchBooking(token, { silent: true })
+      } else {
+        setCancelError(json.error || (isAr ? 'تعذر إلغاء الحجز' : 'Failed to cancel booking'))
+      }
+    } catch (err: any) {
+      setCancelError(err.message || (isAr ? 'خطأ أثناء إلغاء الحجز' : 'Error cancelling booking'))
+    } finally {
+      setSubmittingCancel(false)
     }
   }
 
@@ -694,16 +741,43 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
           <div className="rounded-3xl border border-border bg-surface p-6 sm:p-8 shadow-xs space-y-6">
             <div className="border-b border-border pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-xl font-bold tracking-tight text-primary">
-                  {isAr ? 'إعادة جدولة الجلسة' : 'Reschedule Session'}
-                </h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-xl font-bold tracking-tight text-primary">
+                    {isAr ? 'إعادة جدولة الجلسة' : 'Reschedule Session'}
+                  </h2>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${(booking.rescheduleCount || 0) >= (booking.maxReschedules || 2)
+                        ? 'bg-amber-100 text-amber-900 border-amber-200'
+                        : 'bg-secondary text-primary border-border'
+                      }`}
+                  >
+                    {isAr
+                      ? `مرات التعديل: ${booking.rescheduleCount || 0} / ${booking.maxReschedules || 2}`
+                      : `Reschedules: ${booking.rescheduleCount || 0} / ${booking.maxReschedules || 2}`}
+                  </span>
+                </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {isAr ? (
-                    <>سياسة إعادة الجدولة: يُسمح بالتغيير حتى <strong>{booking.rescheduleDeadlineHours || 24} ساعة</strong> قبل بدء الجلسة.</>
+                    <>
+                      سياسة إعادة الجدولة: يُسمح بالتغيير حتى{' '}
+                      <strong>{booking.rescheduleDeadlineHours || 24} ساعة</strong> قبل بدء الجلسة، بحد أقصى{' '}
+                      <strong>{booking.maxReschedules || 2} مرات</strong> للعميل.
+                    </>
                   ) : (
-                    <>Expert Rescheduling Policy: Changes allowed up to <strong>{booking.rescheduleDeadlineHours || 24} hours</strong> before session.</>
+                    <>
+                      Expert Rescheduling Policy: Changes allowed up to{' '}
+                      <strong>{booking.rescheduleDeadlineHours || 24} hours</strong> before session, up to{' '}
+                      <strong>{booking.maxReschedules || 2} times maximum</strong> for clients.
+                    </>
                   )}
                 </p>
+                {(booking.userRoleInView === 'admin' || booking.userRoleInView === 'expert') && (
+                  <p className="text-[11px] font-medium text-primary/80 mt-1">
+                    {isAr
+                      ? `ملاحظة للإدارة/الخبير: الحد الأقصى (${booking.maxReschedules || 2} مرات) يُطبّق على العميل فقط، ويمكن للإدارة والخبير التعديل عند الحاجة دون تقليص سقف الاسترداد.`
+                      : `Admin/Expert Note: The ${booking.maxReschedules || 2}-reschedule limit applies to clients only — admins & experts can override if needed without lowering the client's refund cap.`}
+                  </p>
+                )}
               </div>
 
               {!deadlinePassed && (
@@ -760,17 +834,61 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
                 <AlertCircle size={20} className="text-amber-700 shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-bold text-amber-900">
-                    {isAr ? 'انتهت المهلة المسموحة لإعادة الجدولة' : 'Rescheduling Deadline Has Passed'}
+                    {(booking.rescheduleCount || 0) >= (booking.maxReschedules || 2)
+                      ? isAr
+                        ? `تم الوصول للحد الأقصى لمرات إعادة الجدولة (${booking.maxReschedules || 2}/${booking.maxReschedules || 2})`
+                        : `Maximum Reschedule Limit Reached (${booking.maxReschedules || 2}/${booking.maxReschedules || 2})`
+                      : isAr
+                        ? 'انتهت المهلة المسموحة لإعادة الجدولة'
+                        : 'Rescheduling Deadline Has Passed'}
                   </p>
                   <p className="text-xs text-amber-800 mt-1 leading-relaxed">
-                    {isAr
-                      ? `وفقاً لسياسة الخبير، لا يمكن تقديم طلب إعادة جدولة قبل أقل من ${booking.rescheduleDeadlineHours || 24} ساعة من الموعد.`
-                      : `Per the expert's configured policy, clients cannot submit new rescheduling requests less than ${booking.rescheduleDeadlineHours || 24} hours before the scheduled session start.`}
+                    {(booking.rescheduleCount || 0) >= (booking.maxReschedules || 2)
+                      ? isAr
+                        ? `يُسمح بإعادة جدولة الحجز بحد أقصى ${booking.maxReschedules || 2} مرة لكل حجز.`
+                        : `Clients can reschedule a booking up to ${booking.maxReschedules || 2} times maximum.`
+                      : isAr
+                        ? `وفقاً لسياسة الخبير، لا يمكن تقديم طلب إعادة جدولة قبل أقل من ${booking.rescheduleDeadlineHours || 24} ساعة من الموعد.`
+                        : `Per the expert's configured policy, clients cannot submit new rescheduling requests less than ${booking.rescheduleDeadlineHours || 24} hours before the scheduled session start.`}
                   </p>
                 </div>
               </div>
             ) : showReschedulePanel ? (
               <div className="space-y-5">
+                {(() => {
+                  const preRescheduleEval = calculateEligibleRefund({
+                    policy: booking.refundPolicy,
+                    sessionStartAt: booking.sessionStartAt || booking.date,
+                    totalAmount: booking.amount,
+                    maxRefundPercentageCap: booking.maxRefundPercentageCap,
+                  })
+                  const maxResch = booking.maxReschedules || 2
+                  const usedResch = booking.rescheduleCount || 0
+                  const willLockCap =
+                    booking.userRoleInView === 'client' && preRescheduleEval.refundPercentage < 100
+
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span>
+                          {isAr
+                            ? `مرات إعادة الجدولة المستخدمة: ${usedResch} من ${maxResch}`
+                            : `Reschedules used: ${usedResch} of ${maxResch}`}
+                        </span>
+                      </div>
+                      {willLockCap && (
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5 flex items-start gap-2.5 text-xs text-amber-900">
+                          <AlertTriangle size={16} className="text-amber-700 shrink-0 mt-0.5" />
+                          <p className="leading-relaxed">
+                            {isAr
+                              ? `ملاحظة هامة: إعادة جدولة الجلسة في هذا التوقيت ستثبّت الحد الأقصى للاسترداد المستقبلي عند ${preRescheduleEval.refundPercentage}% (وفقاً لشريحة الاسترداد الحالية قبل تعديل الموعد).`
+                              : `Important: Rescheduling now will permanently lock your maximum future refund at ${preRescheduleEval.refundPercentage}% (matching your current refund tier before moving the session).`}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-xs font-bold text-primary">
@@ -929,6 +1047,7 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
             policy: snapshot,
             sessionStartAt: booking.sessionStartAt || booking.date,
             totalAmount: booking.amount,
+            maxRefundPercentageCap: booking.maxRefundPercentageCap,
           })
 
           const isPastSession = booking.sessionEndAt ? new Date() > new Date(booking.sessionEndAt) : false
@@ -989,9 +1108,70 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
                 </div>
               </div>
 
-              {/* Real-time Eligible Refund Calculation Box */}
-              {!isCancelledBooking && !isPastSession && (
-                <div className="rounded-2xl border border-accent/40 bg-accent/10 p-4 space-y-2">
+              {/* Real-time Eligible Refund Calculation Box & Cancel Action */}
+              {cancelSuccess && (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-800">
+                  {cancelSuccess}
+                </div>
+              )}
+
+              {isCancelledBooking ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4 space-y-2 text-xs text-rose-950">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 font-bold">
+                      <XCircle size={16} className="text-rose-600 shrink-0" />
+                      <span>
+                        {booking.status === 'rejected'
+                          ? isAr ? 'تم رفض هذا الحجز' : 'This booking was rejected'
+                          : isAr ? 'تم إلغاء هذا الحجز' : 'This booking has been cancelled'}
+                      </span>
+                    </div>
+                    {booking.cancellation && (
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${booking.cancellation.refundStatus === 'processed'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                          : booking.cancellation.refundStatus === 'pending_admin'
+                            ? 'bg-amber-100 text-amber-900 border-amber-300'
+                            : 'bg-slate-100 text-slate-700 border-slate-200'
+                          }`}
+                      >
+                        {booking.cancellation.refundStatus === 'processed'
+                          ? isAr ? 'تم تحويل الاسترداد' : 'Refund Processed'
+                          : booking.cancellation.refundStatus === 'pending_admin'
+                            ? isAr ? 'طلب استرداد InstaPay قيد المراجعة' : 'InstaPay Refund Pending Admin'
+                            : isAr ? 'لا يوجد استرداد (0%)' : 'No Refund (0%)'}
+                      </span>
+                    )}
+                  </div>
+                  {booking.cancellation && (
+                    <div className="space-y-1 text-[11px] text-rose-900/90">
+                      <p>
+                        <strong>{isAr ? 'قيمة الاسترداد المستحقة:' : 'Eligible Refund:'}</strong>{' '}
+                        {booking.cancellation.refundPercentage}% ({booking.cancellation.refundAmount}{' '}
+                        {booking.cancellation.currency || booking.currency || 'EGP'})
+                      </p>
+                      {booking.cancellation.instapayAddress && (
+                        <p>
+                          <strong>{isAr ? 'حساب/رقم InstaPay للاسترداد:' : 'InstaPay Refund Account:'}</strong>{' '}
+                          {booking.cancellation.instapayAddress}
+                        </p>
+                      )}
+                      {booking.cancellation.refundReference && (
+                        <p className="text-emerald-800 font-semibold">
+                          <strong>{isAr ? 'مرجع تحويل الاسترداد:' : 'Refund Reference:'}</strong>{' '}
+                          {booking.cancellation.refundReference}
+                        </p>
+                      )}
+                      {booking.cancellation.reason && (
+                        <p>
+                          <strong>{isAr ? 'سبب الإلغاء:' : 'Reason:'}</strong> {booking.cancellation.reason}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : !isSessionStarted && !isPastSession ? (
+                <div className="rounded-2xl border  bg-background p-4 space-y-3">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <Clock size={16} className="text-primary shrink-0" />
@@ -1006,8 +1186,35 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
                     {isAr ? calculation.summaryTextAr : calculation.summaryTextEn}
                   </p>
+                  {(booking.userRoleInView === 'client' || booking.userRoleInView === 'admin') && (
+                    <div className="pt-2 border-t border-accent/25 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                      <p className="text-[11px] text-muted-foreground">
+                        {(booking.paymentMethod === 'instapay' || booking.hasPaymentReceipt) &&
+                          calculation.refundAmount > 0 &&
+                          (booking.amount || 0) > 0
+                          ? isAr
+                            ? 'في حال الإلغاء الآن، سيتم إرسال طلب استرداد عبر InstaPay تلقائياً إلى فريق الإدارة.'
+                            : 'Cancelling now will automatically send an InstaPay refund request to our admin team.'
+                          : isAr
+                            ? 'يمكنك إلغاء الحجز وفقاً للسياسة الموضحة أعلاه.'
+                            : 'You can cancel this booking according to the policy shown above.'}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCancelError(null)
+                          setCancelReason('')
+                          setShowCancelModal(true)
+                        }}
+                        className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full border border-rose-300 bg-white hover:bg-rose-600 hover:text-white px-4 py-2 text-xs font-bold text-rose-700 transition shadow-2xs"
+                      >
+                        <XCircle size={14} />
+                        <span>{isAr ? 'إلغاء الحجز' : 'Cancel Booking'}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
+              ) : null}
 
               <p className="text-[11px] text-muted-foreground italic">
                 {isAr
@@ -1176,7 +1383,7 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
                                   : 'Left:'}
                             </strong>{' '}
                             {joinInfo?.inMeetingNow ||
-                            roleParticipants.some((p: any) => p.isActive) ? (
+                              roleParticipants.some((p: any) => p.isActive) ? (
                               <span className="text-emerald-700 font-semibold">
                                 {isAr ? 'متواجد في المكالمة الآن' : 'Active in call now'}
                               </span>
@@ -1202,29 +1409,29 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
                           </p>
                           {(joinInfo?.durationMinutes !== undefined ||
                             roleParticipants.length > 0) && (
-                            <p>
-                              <strong className="text-primary">
-                                {totalJoins > 1
-                                  ? isAr
-                                    ? 'إجمالي مدة التواجد:'
-                                    : 'Total duration in call:'
-                                  : isAr
-                                    ? 'مدة التواجد:'
-                                    : 'Duration in call:'}
-                              </strong>{' '}
-                              {joinInfo?.durationMinutes ??
-                                Math.max(
-                                  1,
-                                  Math.round(
-                                    roleParticipants.reduce(
-                                      (acc: number, p: any) => acc + (p.durationSeconds || 0),
-                                      0,
-                                    ) / 60,
-                                  ),
-                                )}{' '}
-                              {isAr ? 'دقيقة' : 'min'}
-                            </p>
-                          )}
+                              <p>
+                                <strong className="text-primary">
+                                  {totalJoins > 1
+                                    ? isAr
+                                      ? 'إجمالي مدة التواجد:'
+                                      : 'Total duration in call:'
+                                    : isAr
+                                      ? 'مدة التواجد:'
+                                      : 'Duration in call:'}
+                                </strong>{' '}
+                                {joinInfo?.durationMinutes ??
+                                  Math.max(
+                                    1,
+                                    Math.round(
+                                      roleParticipants.reduce(
+                                        (acc: number, p: any) => acc + (p.durationSeconds || 0),
+                                        0,
+                                      ) / 60,
+                                    ),
+                                  )}{' '}
+                                {isAr ? 'دقيقة' : 'min'}
+                              </p>
+                            )}
 
                           {/* Individual sessions list if entered multiple times */}
                           {roleParticipants.length > 1 && (
@@ -1246,9 +1453,9 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
                                       : 'Active now'
                                     : p.leftAt
                                       ? new Date(p.leftAt).toLocaleTimeString([], {
-                                          hour: '2-digit',
-                                          minute: '2-digit',
-                                        })
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      })
                                       : isAr
                                         ? 'غادر'
                                         : 'Left'
@@ -1789,315 +1996,468 @@ export default function BookingDetailPage({ params }: BookingDetailPageProps) {
       </div>
 
       {/* Review Popup Modal */}
-      {showReviewModal && booking.userRoleInView === 'client' && booking.reviewEligibility?.isOpen && !booking.hasReview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-3xl border border-border bg-surface p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-border">
-              <div className="flex items-center gap-2">
-                <Star size={20} className="text-amber-500 fill-amber-400" />
-                <h2 className="text-lg font-bold text-primary">
-                  {isAr ? 'شاركنا تقييمك للجلسة' : 'Rate & Review Your Session'}
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowReviewModal(false)
-                  setReviewPopupDismissed(true)
-                }}
-                className="rounded-full p-1.5 text-muted-foreground hover:bg-background transition"
-                aria-label="Close"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleReviewSubmit} className="mt-5 space-y-5">
-              {reviewError && (
-                <div className="rounded-2xl bg-rose-50 border border-rose-200 p-3 text-xs font-semibold text-rose-800">
-                  {reviewError}
+      {
+        showReviewModal && booking.userRoleInView === 'client' && booking.reviewEligibility?.isOpen && !booking.hasReview && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+            <div className="w-full max-w-lg rounded-3xl border border-border bg-surface p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between pb-3 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <Star size={20} className="text-amber-500 fill-amber-400" />
+                  <h2 className="text-lg font-bold text-primary">
+                    {isAr ? 'شاركنا تقييمك للجلسة' : 'Rate & Review Your Session'}
+                  </h2>
                 </div>
-              )}
-
-              {/* 1. Expert Rating */}
-              <div className="rounded-2xl border border-border bg-background p-4 space-y-3">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    {isAr ? 'تقييم الخبير' : 'Rate the Expert'}
-                  </p>
-                  <p className="text-sm font-bold text-primary">{booking.expertName}</p>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() => setExpertRating(star)}
-                      className="p-1 transition transform hover:scale-110"
-                    >
-                      <Star
-                        size={28}
-                        className={
-                          star <= expertRating
-                            ? 'text-amber-400 fill-amber-400'
-                            : 'text-slate-300'
-                        }
-                      />
-                    </button>
-                  ))}
-                  <span className="ms-2 text-xs font-bold text-primary">{expertRating}/5</span>
-                </div>
-
-                <textarea
-                  rows={2}
-                  placeholder={
-                    isAr
-                      ? 'ما الذي أعجبك في تعامل وخبرة المحاضر؟ (اختياري)'
-                      : 'How was the expert communication, depth, and helpfulness? (Optional)'
-                  }
-                  value={expertReviewText}
-                  onChange={(e) => setExpertReviewText(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground outline-none focus:border-accent"
-                />
-              </div>
-
-              {/* 2. Service Rating */}
-              <div className="rounded-2xl border border-border bg-background p-4 space-y-3">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    {isAr ? 'تقييم محتوى الخدمة' : 'Rate the Service'}
-                  </p>
-                  <p className="text-sm font-bold text-primary">
-                    {isAr
-                      ? booking.serviceTitle?.ar || booking.serviceTitle?.en
-                      : booking.serviceTitle?.en || booking.serviceTitle?.ar}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() => setServiceRating(star)}
-                      className="p-1 transition transform hover:scale-110"
-                    >
-                      <Star
-                        size={28}
-                        className={
-                          star <= serviceRating
-                            ? 'text-amber-400 fill-amber-400'
-                            : 'text-slate-300'
-                        }
-                      />
-                    </button>
-                  ))}
-                  <span className="ms-2 text-xs font-bold text-primary">{serviceRating}/5</span>
-                </div>
-
-                <textarea
-                  rows={2}
-                  placeholder={
-                    isAr
-                      ? 'هل حققت الجلسة توقعاتك؟ (اختياري)'
-                      : 'Did the session meet your goals and expectations? (Optional)'
-                  }
-                  value={serviceReviewText}
-                  onChange={(e) => setServiceReviewText(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground outline-none focus:border-accent"
-                />
-              </div>
-
-              {/* 3. Optional Bok Bok Platform Feedback */}
-              <div className="rounded-2xl border border-border bg-background p-4 space-y-2.5">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    {isAr ? 'رأيك في منصة بوك بوك (اختياري)' : 'Your Opinion About Bok Bok (Optional)'}
-                  </p>
-                  <p className="text-xs font-medium text-primary mt-0.5 leading-relaxed">
-                    {isAr
-                      ? 'ما رأيك في منصة بوك بوك؟ وهل هناك شيء يمكننا إضافته لجعل خدماتنا أفضل؟'
-                      : "What's your opinion about Bok Bok, and is there anything we can add to make our service better?"}
-                  </p>
-                </div>
-
-                <textarea
-                  rows={3}
-                  placeholder={
-                    isAr
-                      ? 'شاركنا أفكارك أو أي ميزة أو تحسين تتمنى وجوده في بوك بوك...'
-                      : "Share your thoughts, suggestions, or features you'd love to see on Bok Bok..."
-                  }
-                  value={platformFeedback}
-                  onChange={(e) => setPlatformFeedback(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground outline-none focus:border-accent"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => {
                     setShowReviewModal(false)
                     setReviewPopupDismissed(true)
                   }}
-                  className="rounded-full px-5 py-2.5 text-xs font-bold text-muted-foreground hover:bg-background transition"
+                  className="rounded-full p-1.5 text-muted-foreground hover:bg-background transition"
+                  aria-label="Close"
                 >
-                  {isAr ? 'لاحقاً' : 'Maybe Later'}
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingReview}
-                  className="rounded-full bg-accent hover:bg-accent-hover px-6 py-2.5 text-xs font-bold text-primary shadow-xs transition disabled:opacity-50"
-                >
-                  {submittingReview
-                    ? isAr ? 'جاري الإرسال...' : 'Submitting...'
-                    : isAr ? 'إرسال التقييم' : 'Submit Review'}
+                  <X size={18} />
                 </button>
               </div>
-            </form>
+
+              <form onSubmit={handleReviewSubmit} className="mt-5 space-y-5">
+                {reviewError && (
+                  <div className="rounded-2xl bg-rose-50 border border-rose-200 p-3 text-xs font-semibold text-rose-800">
+                    {reviewError}
+                  </div>
+                )}
+
+                {/* 1. Expert Rating */}
+                <div className="rounded-2xl border border-border bg-background p-4 space-y-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      {isAr ? 'تقييم الخبير' : 'Rate the Expert'}
+                    </p>
+                    <p className="text-sm font-bold text-primary">{booking.expertName}</p>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setExpertRating(star)}
+                        className="p-1 transition transform hover:scale-110"
+                      >
+                        <Star
+                          size={28}
+                          className={
+                            star <= expertRating
+                              ? 'text-amber-400 fill-amber-400'
+                              : 'text-slate-300'
+                          }
+                        />
+                      </button>
+                    ))}
+                    <span className="ms-2 text-xs font-bold text-primary">{expertRating}/5</span>
+                  </div>
+
+                  <textarea
+                    rows={2}
+                    placeholder={
+                      isAr
+                        ? 'ما الذي أعجبك في تعامل وخبرة المحاضر؟ (اختياري)'
+                        : 'How was the expert communication, depth, and helpfulness? (Optional)'
+                    }
+                    value={expertReviewText}
+                    onChange={(e) => setExpertReviewText(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground outline-none focus:border-accent"
+                  />
+                </div>
+
+                {/* 2. Service Rating */}
+                <div className="rounded-2xl border border-border bg-background p-4 space-y-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      {isAr ? 'تقييم محتوى الخدمة' : 'Rate the Service'}
+                    </p>
+                    <p className="text-sm font-bold text-primary">
+                      {isAr
+                        ? booking.serviceTitle?.ar || booking.serviceTitle?.en
+                        : booking.serviceTitle?.en || booking.serviceTitle?.ar}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setServiceRating(star)}
+                        className="p-1 transition transform hover:scale-110"
+                      >
+                        <Star
+                          size={28}
+                          className={
+                            star <= serviceRating
+                              ? 'text-amber-400 fill-amber-400'
+                              : 'text-slate-300'
+                          }
+                        />
+                      </button>
+                    ))}
+                    <span className="ms-2 text-xs font-bold text-primary">{serviceRating}/5</span>
+                  </div>
+
+                  <textarea
+                    rows={2}
+                    placeholder={
+                      isAr
+                        ? 'هل حققت الجلسة توقعاتك؟ (اختياري)'
+                        : 'Did the session meet your goals and expectations? (Optional)'
+                    }
+                    value={serviceReviewText}
+                    onChange={(e) => setServiceReviewText(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground outline-none focus:border-accent"
+                  />
+                </div>
+
+                {/* 3. Optional Bok Bok Platform Feedback */}
+                <div className="rounded-2xl border border-border bg-background p-4 space-y-2.5">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      {isAr ? 'رأيك في منصة بوك بوك (اختياري)' : 'Your Opinion About Bok Bok (Optional)'}
+                    </p>
+                    <p className="text-xs font-medium text-primary mt-0.5 leading-relaxed">
+                      {isAr
+                        ? 'ما رأيك في منصة بوك بوك؟ وهل هناك شيء يمكننا إضافته لجعل خدماتنا أفضل؟'
+                        : "What's your opinion about Bok Bok, and is there anything we can add to make our service better?"}
+                    </p>
+                  </div>
+
+                  <textarea
+                    rows={3}
+                    placeholder={
+                      isAr
+                        ? 'شاركنا أفكارك أو أي ميزة أو تحسين تتمنى وجوده في بوك بوك...'
+                        : "Share your thoughts, suggestions, or features you'd love to see on Bok Bok..."
+                    }
+                    value={platformFeedback}
+                    onChange={(e) => setPlatformFeedback(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-surface p-3 text-xs text-foreground outline-none focus:border-accent"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowReviewModal(false)
+                      setReviewPopupDismissed(true)
+                    }}
+                    className="rounded-full px-5 py-2.5 text-xs font-bold text-muted-foreground hover:bg-background transition"
+                  >
+                    {isAr ? 'لاحقاً' : 'Maybe Later'}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingReview}
+                    className="rounded-full bg-accent hover:bg-accent-hover px-6 py-2.5 text-xs font-bold text-primary shadow-xs transition disabled:opacity-50"
+                  >
+                    {submittingReview
+                      ? isAr ? 'جاري الإرسال...' : 'Submitting...'
+                      : isAr ? 'إرسال التقييم' : 'Submit Review'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Dispute / Issue / Refund Reporting Popup Modal */}
-      {showDisputeModal && booking.userRoleInView === 'client' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-3xl border border-border bg-surface p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-border">
-              <div className="flex items-center gap-2">
-                <AlertTriangle size={20} className="text-rose-600" />
-                <h2 className="text-lg font-bold text-primary">
-                  {isAr
-                    ? 'الإبلاغ عن نزاع أو مشكلة / طلب استرداد'
-                    : 'Report a Dispute, Issue, or Refund Request'}
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowDisputeModal(false)}
-                className="rounded-full p-1.5 text-muted-foreground hover:bg-background transition"
-                aria-label="Close"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleDisputeSubmit} className="mt-5 space-y-4">
-              {disputeError && (
-                <div className="rounded-2xl bg-rose-50 border border-rose-200 p-3 text-xs font-semibold text-rose-800">
-                  {disputeError}
+      {
+        showDisputeModal && booking.userRoleInView === 'client' && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+            <div className="w-full max-w-lg rounded-3xl border border-border bg-surface p-6 sm:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between pb-3 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle size={20} className="text-rose-600" />
+                  <h2 className="text-lg font-bold text-primary">
+                    {isAr
+                      ? 'الإبلاغ عن نزاع أو مشكلة / طلب استرداد'
+                      : 'Report a Dispute, Issue, or Refund Request'}
+                  </h2>
                 </div>
-              )}
+                <button
+                  type="button"
+                  onClick={() => setShowDisputeModal(false)}
+                  className="rounded-full p-1.5 text-muted-foreground hover:bg-background transition"
+                  aria-label="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
 
-              <div>
-                <label className="block text-xs font-bold text-primary mb-1.5">
-                  {isAr ? 'نوع المشكلة / سبب النزاع *' : 'Issue / Dispute Category *'}
-                </label>
-                <select
-                  value={disputeCategory}
-                  onChange={(e) =>
-                    setDisputeCategory(
-                      e.target.value as
+              <form onSubmit={handleDisputeSubmit} className="mt-5 space-y-4">
+                {disputeError && (
+                  <div className="rounded-2xl bg-rose-50 border border-rose-200 p-3 text-xs font-semibold text-rose-800">
+                    {disputeError}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold text-primary mb-1.5">
+                    {isAr ? 'نوع المشكلة / سبب النزاع *' : 'Issue / Dispute Category *'}
+                  </label>
+                  <select
+                    value={disputeCategory}
+                    onChange={(e) =>
+                      setDisputeCategory(
+                        e.target.value as
                         | 'no_show'
                         | 'session_shortened'
                         | 'technical_issue'
                         | 'service_quality'
                         | 'billing_payment'
                         | 'other'
-                    )
-                  }
-                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs font-bold text-primary outline-none focus:border-accent"
-                >
-                  <option value="no_show">
-                    {isAr
-                      ? 'عدم حضور الخبير للجلسة (طلب استرداد كامل)'
-                      : 'Expert Did Not Attend / No-Show (Full Refund Request)'}
-                  </option>
-                  <option value="session_shortened">
-                    {isAr
-                      ? 'انتهاء الجلسة مبكراً أو عدم اكتمال مدتها'
-                      : 'Session Ended Early / Incomplete Duration'}
-                  </option>
-                  <option value="technical_issue">
-                    {isAr
-                      ? 'مشكلة تقنية منعت إتمام الجلسة'
-                      : 'Technical Issue Prevented Session Completion'}
-                  </option>
-                  <option value="service_quality">
-                    {isAr
-                      ? 'المحتوى غير مطابق لوصف الخدمة / طلب استرداد'
-                      : 'Service Quality Mismatch / Refund Request'}
-                  </option>
-                  <option value="billing_payment">
-                    {isAr ? 'مشكلة في الدفع أو الرسوم' : 'Billing or Payment Issue'}
-                  </option>
-                  <option value="other">
-                    {isAr ? 'سبب آخر' : 'Other Issue'}
-                  </option>
-                </select>
-              </div>
+                      )
+                    }
+                    className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs font-bold text-primary outline-none focus:border-accent"
+                  >
+                    <option value="no_show">
+                      {isAr
+                        ? 'عدم حضور الخبير للجلسة (طلب استرداد كامل)'
+                        : 'Expert Did Not Attend / No-Show (Full Refund Request)'}
+                    </option>
+                    <option value="session_shortened">
+                      {isAr
+                        ? 'انتهاء الجلسة مبكراً أو عدم اكتمال مدتها'
+                        : 'Session Ended Early / Incomplete Duration'}
+                    </option>
+                    <option value="technical_issue">
+                      {isAr
+                        ? 'مشكلة تقنية منعت إتمام الجلسة'
+                        : 'Technical Issue Prevented Session Completion'}
+                    </option>
+                    <option value="service_quality">
+                      {isAr
+                        ? 'المحتوى غير مطابق لوصف الخدمة / طلب استرداد'
+                        : 'Service Quality Mismatch / Refund Request'}
+                    </option>
+                    <option value="billing_payment">
+                      {isAr ? 'مشكلة في الدفع أو الرسوم' : 'Billing or Payment Issue'}
+                    </option>
+                    <option value="other">
+                      {isAr ? 'سبب آخر' : 'Other Issue'}
+                    </option>
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-xs font-bold text-primary mb-1.5">
-                  {isAr ? 'عنوان البلاغ *' : 'Subject *'}
-                </label>
-                <input
-                  type="text"
-                  required
-                  minLength={3}
-                  value={disputeSubject}
-                  onChange={(e) => setDisputeSubject(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs font-medium text-foreground outline-none focus:border-accent"
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-bold text-primary mb-1.5">
+                    {isAr ? 'عنوان البلاغ *' : 'Subject *'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    minLength={3}
+                    value={disputeSubject}
+                    onChange={(e) => setDisputeSubject(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs font-medium text-foreground outline-none focus:border-accent"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-xs font-bold text-primary mb-1.5">
-                  {isAr ? 'تفاصيل المشكلة وطلبك *' : 'Detailed Description *'}
-                </label>
-                <textarea
-                  rows={4}
-                  required
-                  minLength={10}
-                  placeholder={
-                    isAr
-                      ? 'يرجى شرح ما حدث بالتفصيل ليتمكن فريق الإدارة من مراجعة سجلات الاجتماع واتخاذ الإجراء المناسب...'
-                      : 'Please describe what happened in detail so our admin team can review the meeting telemetry and resolve your request...'
-                  }
-                  value={disputeDescription}
-                  onChange={(e) => setDisputeDescription(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background p-3 text-xs text-foreground outline-none focus:border-accent"
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-bold text-primary mb-1.5">
+                    {isAr ? 'تفاصيل المشكلة وطلبك *' : 'Detailed Description *'}
+                  </label>
+                  <textarea
+                    rows={4}
+                    required
+                    minLength={10}
+                    placeholder={
+                      isAr
+                        ? 'يرجى شرح ما حدث بالتفصيل ليتمكن فريق الإدارة من مراجعة سجلات الاجتماع واتخاذ الإجراء المناسب...'
+                        : 'Please describe what happened in detail so our admin team can review the meeting telemetry and resolve your request...'
+                    }
+                    value={disputeDescription}
+                    onChange={(e) => setDisputeDescription(e.target.value)}
+                    className="w-full rounded-xl border border-border bg-background p-3 text-xs text-foreground outline-none focus:border-accent"
+                  />
+                </div>
 
-              <div className="flex items-center justify-end gap-3 pt-2">
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowDisputeModal(false)}
+                    className="rounded-full px-5 py-2.5 text-xs font-bold text-muted-foreground hover:bg-background transition"
+                  >
+                    {isAr ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingDispute}
+                    className="rounded-full bg-rose-600 hover:bg-rose-700 px-6 py-2.5 text-xs font-bold text-white shadow-xs transition disabled:opacity-50"
+                  >
+                    {submittingDispute
+                      ? isAr
+                        ? 'جاري إرسال البلاغ...'
+                        : 'Submitting...'
+                      : isAr
+                        ? 'إرسال البلاغ وتعليق الجلسة للمراجعة'
+                        : 'Submit Dispute & Hold for Review'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Cancellation & Policy Refund Modal */}
+      {
+        showCancelModal && (() => {
+          const snapshot = booking.refundPolicy
+          const calc = calculateEligibleRefund({
+            policy: snapshot,
+            sessionStartAt: booking.sessionStartAt || booking.date,
+            totalAmount: booking.amount,
+            maxRefundPercentageCap: booking.maxRefundPercentageCap,
+          })
+          const isInstaPayBooking =
+            booking.paymentMethod === 'instapay' || Boolean(booking.hasPaymentReceipt)
+          const hasPaidAmount =
+            (booking.amount || 0) > 0 &&
+            booking.paymentStatus !== 'pending' &&
+            booking.paymentStatus !== 'rejected' &&
+            (booking.paymentStatus === 'verified' ||
+              booking.paymentStatus === 'receipt_uploaded' ||
+              booking.status === 'confirmed' ||
+              booking.status === 'awaiting_verification')
+          const willSendAdminRefund = isInstaPayBooking && hasPaidAmount && calc.refundAmount > 0
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+              <div className="relative w-full max-w-lg rounded-3xl border border-border bg-surface p-6 sm:p-8 shadow-2xl my-auto">
                 <button
                   type="button"
-                  onClick={() => setShowDisputeModal(false)}
-                  className="rounded-full px-5 py-2.5 text-xs font-bold text-muted-foreground hover:bg-background transition"
+                  onClick={() => setShowCancelModal(false)}
+                  className="absolute top-5 end-5 rounded-full p-2 text-muted-foreground hover:bg-background hover:text-primary transition"
+                  aria-label="Close"
                 >
-                  {isAr ? 'إلغاء' : 'Cancel'}
+                  <X size={18} />
                 </button>
-                <button
-                  type="submit"
-                  disabled={submittingDispute}
-                  className="rounded-full bg-rose-600 hover:bg-rose-700 px-6 py-2.5 text-xs font-bold text-white shadow-xs transition disabled:opacity-50"
-                >
-                  {submittingDispute
-                    ? isAr
-                      ? 'جاري إرسال البلاغ...'
-                      : 'Submitting...'
-                    : isAr
-                      ? 'إرسال البلاغ وتعليق الجلسة للمراجعة'
-                      : 'Submit Dispute & Hold for Review'}
-                </button>
+
+                <div className="space-y-1.5 pe-8">
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 border border-rose-200 px-3 py-1 text-[11px] font-bold text-rose-800">
+                    <XCircle size={13} />
+                    <span>{isAr ? 'إلغاء الحجز وفق السياسة' : 'Policy-Based Cancellation'}</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-primary">
+                    {isAr ? 'تأكيد إلغاء الجلسة' : 'Confirm Booking Cancellation'}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {isAr
+                      ? `جلسة "${serviceTitle}" مع ${booking.expertName} بتاريخ ${booking.date} الساعة ${booking.time}`
+                      : `"${serviceTitle}" with ${booking.expertName} on ${booking.date} at ${booking.time}`}
+                  </p>
+                </div>
+
+                <form onSubmit={handleCancelSubmit} className="mt-5 space-y-4">
+                  {cancelError && (
+                    <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700">
+                      {cancelError}
+                    </div>
+                  )}
+
+                  {/* Policy Refund Calculation Summary */}
+                  <div
+                    className={`rounded-2xl border p-4 space-y-1.5 text-xs ${calc.refundAmount > 0
+                      ? 'border-emerald-200 bg-emerald-50/70 text-emerald-950'
+                      : 'border-amber-200 bg-amber-50/70 text-amber-950'
+                      }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 font-bold">
+                      <span>{isAr ? 'الاسترداد المستحق الآن:' : 'Eligible Refund Now:'}</span>
+                      <span className="text-sm font-black">
+                        {calc.refundPercentage}% · {hasPaidAmount ? calc.refundAmount : 0}{' '}
+                        {booking.currency || 'EGP'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] opacity-90 leading-relaxed">
+                      {isAr ? calc.summaryTextAr : calc.summaryTextEn}
+                    </p>
+                    {willSendAdminRefund && (
+                      <p className="text-[11px] font-semibold text-emerald-900 pt-1 border-t border-emerald-200/70">
+                        {isAr
+                          ? '✓ نظراً لأن الدفع تم عبر InstaPay، سيُرسل طلب إلغاء واسترداد تلقائياً إلى فريق الإدارة لتحويل المبلغ المستحق لك.'
+                          : '✓ Because this booking was paid via InstaPay, an automatic refund request will be sent to our admin team to transfer your eligible refund.'}
+                      </p>
+                    )}
+                  </div>
+
+                  {willSendAdminRefund && (
+                    <div>
+                      <label className="block text-xs font-bold text-primary mb-1.5">
+                        {isAr
+                          ? 'عنوان أو رقم InstaPay لاستلام الاسترداد (اختياري)'
+                          : 'Your InstaPay Address or Mobile Number for Refund (Optional)'}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={isAr ? 'مثال: username@instapay أو 010xxxxxxxx' : 'e.g. username@instapay or 010xxxxxxxx'}
+                        value={cancelInstapayAddress}
+                        onChange={(e) => setCancelInstapayAddress(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-xs font-medium text-foreground outline-none focus:border-accent"
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-bold text-primary mb-1.5">
+                      {isAr ? 'سبب الإلغاء (اختياري)' : 'Reason for Cancellation (Optional)'}
+                    </label>
+                    <textarea
+                      rows={3}
+                      placeholder={
+                        isAr
+                          ? 'اذكر سبب الإلغاء إن وجد...'
+                          : 'Let us know why you need to cancel...'
+                      }
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-background p-3 text-xs text-foreground outline-none focus:border-accent"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowCancelModal(false)}
+                      className="rounded-full px-5 py-2.5 text-xs font-bold text-muted-foreground hover:bg-background transition"
+                    >
+                      {isAr ? 'الاحتفاظ بالحجز' : 'Keep Booking'}
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submittingCancel}
+                      className="rounded-full bg-rose-600 hover:bg-rose-700 px-6 py-2.5 text-xs font-bold text-white shadow-xs transition disabled:opacity-50"
+                    >
+                      {submittingCancel
+                        ? isAr
+                          ? 'جاري الإلغاء...'
+                          : 'Cancelling...'
+                        : willSendAdminRefund
+                          ? isAr
+                            ? 'تأكيد الإلغاء وإرسال طلب الاسترداد'
+                            : 'Confirm Cancel & Request Refund'
+                          : isAr
+                            ? 'تأكيد إلغاء الحجز'
+                            : 'Confirm Cancellation'}
+                    </button>
+                  </div>
+                </form>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+          )
+        })()
+      }
     </main>
   )
 }

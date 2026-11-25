@@ -8,6 +8,27 @@ import { ShieldCheck } from 'lucide-react'
 import { useLanguage } from '@/lib/i18n/language-context'
 import { LanguageSwitcher } from './language-switcher'
 
+function InstagramIcon({ size = 14, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+    </svg>
+  )
+}
+
 // Routes where the standard public footer must NOT appear
 const HIDDEN_PATH_PREFIXES = [
   '/dashboard',
@@ -46,9 +67,21 @@ export function SiteFooter() {
             <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
               {t.footer.description}
             </p>
-            <div className="inline-flex items-center gap-2 rounded-full bg-secondary border border-accent/30 px-3 py-1 text-[11px] font-bold text-primary">
-              <ShieldCheck size={14} className="text-primary" />
-              <span>{t.footer.verifiedBadge}</span>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="inline-flex items-center gap-2 rounded-full bg-secondary border border-accent/30 px-3 py-1 text-[11px] font-bold text-primary">
+                <ShieldCheck size={14} className="text-primary" />
+                <span>{t.footer.verifiedBadge}</span>
+              </div>
+              <a
+                href="https://www.instagram.com/bokbok.bookings/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Bok Bok on Instagram"
+                className="inline-flex items-center gap-1.5 rounded-full bg-background border border-border px-3 py-1 text-[11px] font-bold text-primary hover:border-accent hover:bg-secondary/60 transition-colors"
+              >
+                <InstagramIcon size={14} className="text-primary" />
+                <span>@bokbok.bookings</span>
+              </a>
             </div>
           </div>
 
@@ -116,6 +149,22 @@ export function SiteFooter() {
               {t.footer.trustSupport}
             </h4>
             <ul className="mt-4 space-y-2.5 text-xs text-muted-foreground">
+              <li>
+                <Link href={localeHref('/contact')} className="hover:text-primary transition-colors font-semibold text-foreground/90">
+                  {isAr ? 'تواصل معنا والآراء والاقتراحات' : 'Contact & Recommendations'}
+                </Link>
+              </li>
+              <li>
+                <a
+                  href="https://www.instagram.com/bokbok.bookings/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 hover:text-primary transition-colors"
+                >
+                  <InstagramIcon size={13} />
+                  <span>{isAr ? 'إنستجرام (@bokbok.bookings)' : 'Instagram (@bokbok.bookings)'}</span>
+                </a>
+              </li>
               <li>
                 <Link href={localeHref('/how-it-works')} className="hover:text-primary transition-colors">
                   {isAr ? 'آلية التحقق والاعتماد' : 'Verification Process'}

@@ -2,14 +2,10 @@ import nodemailer, { type Transporter } from 'nodemailer'
 import { ObjectId } from 'mongodb'
 import { getEmailLogsCollection, type EmailLogDoc } from '@/lib/db'
 
-let cachedTransporter: Transporter | null = null
-
-export function getTransporter(): Transporter | null {
-  if (cachedTransporter) return cachedTransporter
-
+function createSmtpTransporter(overridePort?: number): Transporter | null {
   const host = process.env.SMTP_HOST
-  const port = Number(process.env.SMTP_PORT) || 587
-  const secure = process.env.SMTP_SECURE === 'true' || port === 465
+  const port = overridePort ?? (Number(process.env.SMTP_PORT) || 587)
+  const secure = overridePort ? overridePort === 465 : process.env.SMTP_SECURE === 'true' || port === 465
   const user = process.env.SMTP_USER
   const pass = process.env.SMTP_PASS
 
@@ -17,7 +13,7 @@ export function getTransporter(): Transporter | null {
     return null
   }
 
-  cachedTransporter = nodemailer.createTransport({
+  return nodemailer.createTransport({
     host,
     port,
     secure,
@@ -25,12 +21,29 @@ export function getTransporter(): Transporter | null {
       user,
       pass,
     },
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 10000,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
   })
+}
 
-  return cachedTransporter
+function isTransientSmtpError(err: any): boolean {
+  const msg = String(err?.message || '').toLowerCase()
+  const code = String(err?.code || '').toUpperCase()
+  return (
+    msg.includes('greeting never received') ||
+    msg.includes('timeout') ||
+    msg.includes('econnreset') ||
+    msg.includes('socket') ||
+    code === 'ETIMEDOUT' ||
+    code === 'ECONNRESET' ||
+    code === 'ESOCKET' ||
+    code === 'ECONNREFUSED'
+  )
+}
+
+export function getTransporter(): Transporter | null {
+  return createSmtpTransporter()
 }
 
 export interface SendEmailOptions {
@@ -42,6 +55,7 @@ export interface SendEmailOptions {
   subject: string
   html: string
   text?: string
+  replyTo?: string
 }
 
 export interface SendEmailResult {
@@ -113,14 +127,38 @@ export async function sendTransactionalEmail(options: SendEmailOptions): Promise
     }
   }
 
+  const mailPayload = {
+    from: fromEmail,
+    to: recipient,
+    ...(options.replyTo ? { replyTo: options.replyTo } : {}),
+    subject: options.subject,
+    html: options.html,
+    text: options.text,
+  }
+
   try {
-    const info = await transporter.sendMail({
-      from: fromEmail,
-      to: recipient,
-      subject: options.subject,
-      html: options.html,
-      text: options.text,
-    })
+    let info
+    try {
+      info = await transporter.sendMail(mailPayload)
+    } catch (primaryErr: any) {
+      // Automatic failover: if Port 587 drops/stalls ("Greeting never received" due to ISP/hotspot),
+      // retry immediately over Direct SSL/TLS Port 465 (or vice versa) on a fresh socket.
+      if (isTransientSmtpError(primaryErr)) {
+        const primaryPort = Number(process.env.SMTP_PORT) || 587
+        const fallbackPort = primaryPort === 465 ? 587 : 465
+        const fallbackTransporter = createSmtpTransporter(fallbackPort)
+        if (fallbackTransporter) {
+          console.warn(
+            `[Nodemailer Fallback] Primary port ${primaryPort} failed (${primaryErr?.message}); retrying on port ${fallbackPort}...`,
+          )
+          info = await fallbackTransporter.sendMail(mailPayload)
+        } else {
+          throw primaryErr
+        }
+      } else {
+        throw primaryErr
+      }
+    }
 
     await emailLogsCol.updateOne(
       { _id: logId },

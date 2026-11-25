@@ -16,6 +16,7 @@ import {
   renderBeforeSessionReminderEmail,
   renderMeetLinkUpdatedEmail,
   renderEventWaitlistPromotedEmail,
+  renderRefundProcessedEmail,
 } from '@/lib/email/templates'
 import {
   confirmBookingAndCreateCalendar,
@@ -137,6 +138,9 @@ export async function GET(request: Request) {
 
     if (statusParam === 'awaiting_verification' || statusParam === 'pending') {
       filter.status = { $in: ['awaiting_verification', 'pending', 'awaiting_payment'] }
+    } else if (statusParam === 'refund_requests') {
+      filter.status = 'cancelled'
+      filter['cancellation.refundStatus'] = 'pending_admin'
     } else if (statusParam && statusParam !== 'all') {
       filter.status = statusParam
     }
@@ -879,6 +883,73 @@ export async function PATCH(request: Request) {
         if (updates.adminNotes !== undefined) updateDoc.adminNotes = updates.adminNotes
       }
       await bookingsCol.updateOne({ _id: bookingObjId }, { $set: updateDoc })
+    } else if (action === 'process_refund') {
+      if (auth.session.role !== 'admin') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Access denied: Only administrators can process refunds.',
+          },
+          { status: 403 },
+        )
+      }
+      if (!existing.cancellation || existing.cancellation.refundStatus !== 'pending_admin') {
+        return NextResponse.json(
+          { success: false, error: 'This booking does not have a pending InstaPay refund request.' },
+          { status: 400 },
+        )
+      }
+
+      const refundReference =
+        typeof body.refundReference === 'string' ? body.refundReference.trim().slice(0, 200) : ''
+      const refundNotes =
+        typeof body.adminNotes === 'string' ? body.adminNotes.trim().slice(0, 1000) : ''
+
+      await bookingsCol.updateOne(
+        { _id: bookingObjId },
+        {
+          $set: {
+            'cancellation.refundStatus': 'processed',
+            'cancellation.refundReference': refundReference || undefined,
+            'cancellation.refundAdminNotes': refundNotes || undefined,
+            'cancellation.refundProcessedAt': now,
+            'cancellation.refundProcessedBy': new ObjectId(auth.session.userId),
+            updatedAt: now,
+          },
+        },
+      )
+
+      try {
+        if (existing.clientEmail) {
+          const emailData = renderRefundProcessedEmail({
+            booking: existing,
+            clientName: existing.clientName,
+            serviceTitle,
+            refundAmount: existing.cancellation.refundAmount,
+            refundPercentage: existing.cancellation.refundPercentage,
+            refundReference: refundReference || undefined,
+            adminNotes: refundNotes || undefined,
+            bookingUrl: clientPageUrl,
+          })
+          await sendTransactionalEmail({
+            bookingId: existing._id,
+            emailType: 'refund_processed',
+            recipientEmail: existing.clientEmail,
+            recipientName: existing.clientName,
+            recipientRole: 'client',
+            subject: emailData.subject,
+            html: emailData.html,
+            text: emailData.text,
+          })
+        }
+      } catch (emailErr) {
+        console.error('[Email Notification] Failed to send refund processed email:', emailErr)
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'InstaPay refund marked as processed and client notified by email.',
+      })
     } else {
       return NextResponse.json(
         { success: false, error: `Unsupported booking action: ${String(action)}` },

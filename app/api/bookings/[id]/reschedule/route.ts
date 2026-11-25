@@ -10,6 +10,12 @@ import {
 import { sendTransactionalEmail } from '@/lib/email/mailer'
 import { renderRescheduleConfirmedEmail } from '@/lib/email/templates'
 import { updateCalendarEvent } from '@/lib/google-calendar'
+import {
+  calculateEligibleRefund,
+  createBookingRefundPolicySnapshot,
+} from '@/lib/services/refund-policies'
+
+const MAX_CLIENT_RESCHEDULES = 2
 
 export const dynamic = 'force-dynamic'
 
@@ -122,7 +128,18 @@ export async function POST(request: Request, context: RouteContext) {
     const rescheduleDeadlineAt = new Date(startAt.getTime() - deadlineHours * 60 * 60 * 1000)
     const now = new Date()
 
-    // Enforce expert's deadline policy for clients
+    // Enforce expert's deadline policy & maximum reschedule count for clients
+    if (callerRole === 'client' && (booking.rescheduleCount || 0) >= MAX_CLIENT_RESCHEDULES) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `You have reached the maximum limit of ${MAX_CLIENT_RESCHEDULES} reschedules for this booking.`,
+          rescheduleLimitReached: true,
+        },
+        { status: 403 }
+      )
+    }
+
     if (callerRole === 'client' && now >= rescheduleDeadlineAt) {
       return NextResponse.json(
         {
@@ -176,6 +193,27 @@ export async function POST(request: Request, context: RouteContext) {
       changedAt: now,
     }
 
+    // Anti-fraud: When a client reschedules, lock their maximum future refund percentage
+    // to the refund tier they were eligible for BEFORE rescheduling (prevents moving a
+    // 50% or 0% session to a later date just to claim a 100% refund).
+    let nextRefundCap = booking.maxRefundPercentageCap
+    if (callerRole === 'client') {
+      const policySnapshot =
+        booking.refundPolicy ||
+        createBookingRefundPolicySnapshot(serviceDoc?.refundPolicy || null)
+      const currentRefundEval = calculateEligibleRefund({
+        policy: policySnapshot,
+        sessionStartAt: startAt,
+        cancellationTime: now,
+        totalAmount: booking.amount || 0,
+        maxRefundPercentageCap: booking.maxRefundPercentageCap,
+      })
+      nextRefundCap = Math.min(
+        typeof booking.maxRefundPercentageCap === 'number' ? booking.maxRefundPercentageCap : 100,
+        currentRefundEval.refundPercentage,
+      )
+    }
+
     // Update booking in MongoDB and reset reminder state so new reminders fire
     await bookingsCol.updateOne(
       { _id: bookingObjId },
@@ -185,6 +223,8 @@ export async function POST(request: Request, context: RouteContext) {
           time: newTime,
           sessionStartAt: newBounds.sessionStartAt,
           sessionEndAt: newBounds.sessionEndAt,
+          originalSessionStartAt: booking.originalSessionStartAt || startAt,
+          ...(typeof nextRefundCap === 'number' ? { maxRefundPercentageCap: nextRefundCap } : {}),
           updatedAt: now,
           'reminders.dayOfReminderSentAt': undefined,
           'reminders.beforeSessionReminderSentAt': undefined,

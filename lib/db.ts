@@ -10,10 +10,13 @@ import type {
   ServiceRefundPolicy,
   BookingRefundPolicySnapshot,
 } from '@/lib/services/refund-policies'
+import type { MarketCode, CurrencyCode } from '@/lib/geo/markets'
 
 export type {
   ServiceRefundPolicy,
   BookingRefundPolicySnapshot,
+  MarketCode,
+  CurrencyCode,
 }
 
 /**
@@ -290,9 +293,10 @@ export interface ServiceDoc {
   breakAfterMinutes: number
   minNoticeHours?: number // Minimum notice required before booking (0 = same day, 24 = day before (default), 48 = 2 days, etc.)
   refundPolicy?: ServiceRefundPolicy
+  availableMarkets?: MarketCode[] // Markets where this service is offered (e.g. ['EG', 'SA', 'AE', 'GLOBAL']). Default is ['EG'].
   pricing: {
     baseCurrency: string // e.g. 'EGP'
-    prices: Record<string, number> // { EGP: 750, USD: 25, SAR: 95 }
+    prices: Record<string, number> // { EGP: 750, USD: 25, SAR: 95, AED: 95, ... }
   }
   isActive: boolean
   isMostBooked: boolean
@@ -447,6 +451,27 @@ export interface GoogleMeetTelemetry {
   syncError?: string
 }
 
+export type RefundRequestStatus = 'not_required' | 'pending_admin' | 'processed' | 'rejected'
+
+export interface BookingCancellationInfo {
+  cancelledAt: Date
+  cancelledByRole: 'client' | 'expert' | 'admin'
+  cancelledByUserId?: ObjectId
+  reason?: string
+  policyType: string
+  hoursBeforeSession: number
+  refundPercentage: number
+  refundAmount: number
+  currency: string
+  paymentMethod?: string
+  refundStatus: RefundRequestStatus
+  instapayAddress?: string
+  refundReference?: string
+  refundAdminNotes?: string
+  refundProcessedAt?: Date
+  refundProcessedBy?: ObjectId
+}
+
 export interface BookingIntakeAnswer {
   questionId?: string
   question: string
@@ -509,6 +534,8 @@ export interface BookingDoc {
   rescheduleDeadlineHours?: number
   rescheduleCount?: number
   rescheduleHistory?: RescheduleHistoryEntry[]
+  originalSessionStartAt?: Date
+  maxRefundPercentageCap?: number
   attendanceStatus?: AttendanceStatus
   expertAttendanceReport?: AttendanceReport
   clientAttendanceReport?: AttendanceReport
@@ -518,6 +545,7 @@ export interface BookingDoc {
   reviewId?: ObjectId
   hasComplaint?: boolean
   complaintId?: ObjectId
+  cancellation?: BookingCancellationInfo
 }
 
 export interface ReviewDoc {
@@ -586,6 +614,10 @@ export interface EmailLogDoc {
   | 'attendance_prompt'
   | 'attendance_dispute_admin'
   | 'review_invite'
+  | 'booking_cancelled'
+  | 'refund_request_admin'
+  | 'refund_processed'
+  | 'contact_message'
   recipientEmail: string
   recipientRole: 'client' | 'expert' | 'admin'
   subject: string

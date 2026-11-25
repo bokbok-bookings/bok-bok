@@ -16,6 +16,14 @@ export function proxy(request: NextRequest) {
 
   const isArPath = pathname === '/ar' || pathname.startsWith('/ar/')
   const cookieLang = request.cookies.get('bok_lang')?.value
+  const mockCountryCookie = request.cookies.get('bok_mock_country')?.value
+  const persistedCountryCookie = request.cookies.get('bok_country')?.value
+  const vercelCountry = request.headers.get('x-vercel-ip-country') || request.headers.get('x-country')
+  const detectedCountry =
+    mockCountryCookie ||
+    vercelCountry ||
+    persistedCountryCookie ||
+    'EG'
 
   // 1. If path is /ar or starts with /ar/: rewrite to stripped path
   if (isArPath) {
@@ -25,6 +33,7 @@ export function proxy(request: NextRequest) {
 
     const requestHeaders = new Headers(request.headers)
     requestHeaders.set('x-bok-lang', 'ar')
+    requestHeaders.set('x-bok-country', detectedCountry)
 
     const response = NextResponse.rewrite(url, {
       request: {
@@ -34,6 +43,9 @@ export function proxy(request: NextRequest) {
 
     if (cookieLang !== 'ar') {
       response.cookies.set('bok_lang', 'ar', { path: '/', maxAge: 31536000, sameSite: 'lax' })
+    }
+    if (persistedCountryCookie !== detectedCountry) {
+      response.cookies.set('bok_country', detectedCountry, { path: '/', maxAge: 31536000, sameSite: 'lax' })
     }
     return response
   }
@@ -49,12 +61,19 @@ export function proxy(request: NextRequest) {
   // 3. Default English path
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set('x-bok-lang', 'en')
+  requestHeaders.set('x-bok-country', detectedCountry)
 
-  return NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: requestHeaders,
     },
   })
+
+  if (persistedCountryCookie !== detectedCountry) {
+    response.cookies.set('bok_country', detectedCountry, { path: '/', maxAge: 31536000, sameSite: 'lax' })
+  }
+
+  return response
 }
 
 export const config = {
